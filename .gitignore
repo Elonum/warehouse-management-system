@@ -1,0 +1,93 @@
+# macOS
+.DS_Store
+.DS_Store?
+._*
+.Trashes
+.Spotlight-V100
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Linux
+*~
+*.swp
+
+# IDE / Editors
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Node.js / React / Next.js
+node_modules/
+npm-debug.log
+yarn-debug.log
+yarn-error.log
+.pnpm-debug.log
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.next/
+.out/
+build/
+dist/
+.cache/
+
+# Go
+bin/
+pkg/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+vendor/
+go.work
+go.work.sum
+
+# Docker
+docker-compose.override.yml
+*.dockerignore
+
+# Databases (PostgreSQL)
+*.dump
+*.backup
+*.bak
+*.pgdump
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+
+# OS generated
+.DS_Store
+Thumbs.db
+
+# Temp files
+tmp/
+temp/
+
+# Build artifacts
+*.min.js
+*.map
+
+# Misc
+*.seed
+*.pid
+*.pid.lock

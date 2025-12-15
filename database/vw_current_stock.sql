@@ -1,90 +1,87 @@
 CREATE OR REPLACE VIEW vw_current_stock AS
-WITH last_snapshots AS (
+WITH last_snapshot AS (
     SELECT
         ss.productId,
         ss.warehouseId,
+        ss.quantity,
         ss.snapshotDate,
-        ss.quantity
+        ROW_NUMBER() OVER (
+            PARTITION BY ss.productId, ss.warehouseId
+            ORDER BY ss.snapshotDate DESC
+        ) AS rn
     FROM StockSnapshots ss
-    INNER JOIN (
-        SELECT
-            productId,
-            warehouseId,
-            MAX(snapshotDate) AS maxDate
-        FROM StockSnapshots
-        GROUP BY productId, warehouseId
-    ) latest
-        ON ss.productId = latest.productId
-       AND ss.warehouseId = latest.warehouseId
-       AND ss.snapshotDate = latest.maxDate
 ),
 
--- Приходы от поставщиков
-supplier_receipts AS (
+base_stock AS (
+    SELECT
+        productId,
+        warehouseId,
+        quantity AS base_quantity,
+        snapshotDate
+    FROM last_snapshot
+    WHERE rn = 1
+),
+
+supplier_in AS (
     SELECT
         soi.productId,
         soi.warehouseId,
-        SUM(soi.receivedQty) AS qty
+        SUM(soi.receivedQty) AS qty_in
     FROM SupplierOrderItems soi
     JOIN SupplierOrders so
         ON so.orderId = soi.orderId
-    JOIN last_snapshots ls
-        ON ls.productId = soi.productId
-       AND ls.warehouseId = soi.warehouseId
-    WHERE so.actualReceiptDate > ls.snapshotDate
+    JOIN base_stock bs
+        ON bs.productId = soi.productId
+       AND bs.warehouseId = soi.warehouseId
+    WHERE so.actualReceiptDate > bs.snapshotDate
     GROUP BY soi.productId, soi.warehouseId
 ),
 
--- Расходы на маркетплейсы
-shipment_expenses AS (
+shipment_out AS (
     SELECT
         msi.productId,
         msi.warehouseId,
-        SUM(msi.acceptedQty) AS qty
+        SUM(msi.acceptedQty) AS qty_out
     FROM MpShipmentItems msi
     JOIN MpShipments ms
         ON ms.shipmentId = msi.shipmentId
-    JOIN last_snapshots ls
-        ON ls.productId = msi.productId
-       AND ls.warehouseId = msi.warehouseId
-    WHERE ms.acceptanceDate > ls.snapshotDate
+    JOIN base_stock bs
+        ON bs.productId = msi.productId
+       AND bs.warehouseId = msi.warehouseId
+    WHERE ms.acceptanceDate > bs.snapshotDate
     GROUP BY msi.productId, msi.warehouseId
 ),
 
--- Инвентаризация
 inventory_adjustments AS (
     SELECT
         ii.productId,
         ii.warehouseId,
-        SUM(ii.receiptQty) AS receiptQty,
-        SUM(ii.writeOffQty) AS writeOffQty
+        SUM(ii.receiptQty - ii.writeOffQty) AS qty_adjust
     FROM InventoryItems ii
     JOIN Inventories i
         ON i.inventoryId = ii.inventoryId
-    JOIN last_snapshots ls
-        ON ls.productId = ii.productId
-       AND ls.warehouseId = ii.warehouseId
-    WHERE i.adjustmentDate > ls.snapshotDate
+    JOIN base_stock bs
+        ON bs.productId = ii.productId
+       AND bs.warehouseId = ii.warehouseId
+    WHERE i.adjustmentDate > bs.snapshotDate
     GROUP BY ii.productId, ii.warehouseId
 )
 
 SELECT
-    ls.productId,
-    ls.warehouseId,
-    ls.snapshotDate,
-    ls.quantity
-        + COALESCE(sr.qty, 0)
-        + COALESCE(ia.receiptQty, 0)
-        - COALESCE(se.qty, 0)
-        - COALESCE(ia.writeOffQty, 0)
-        AS currentQuantity
-FROM last_snapshots ls
-LEFT JOIN supplier_receipts sr
-    ON sr.productId = ls.productId
-   AND sr.warehouseId = ls.warehouseId
-LEFT JOIN shipment_expenses se
-    ON se.productId = ls.productId
-   AND se.warehouseId = ls.warehouseId
+    bs.productId,
+    bs.warehouseId,
+    bs.base_quantity
+        + COALESCE(si.qty_in, 0)
+        - COALESCE(so.qty_out, 0)
+        + COALESCE(ia.qty_adjust, 0)
+        AS current_quantity
+FROM base_stock bs
+LEFT JOIN supplier_in si
+    ON si.productId = bs.productId
+   AND si.warehouseId = bs.warehouseId
+LEFT JOIN shipment_out so
+    ON so.productId = bs.productId
+   AND so.warehouseId = bs.warehouseId
 LEFT JOIN inventory_adjustments ia
-    ON ia.productId = ls.productId
-   AND ia.warehouseId = ls.warehouseId;
+    ON ia.productId = bs.productId
+   AND ia.warehouseId = bs.warehouseId;

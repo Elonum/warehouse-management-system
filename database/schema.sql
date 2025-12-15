@@ -13,8 +13,8 @@ CREATE TABLE IF NOT EXISTS Users (
     roleId INTEGER REFERENCES UserRoles(roleId)
 );
 
-CREATE TABLE IF NOT EXISTS warehouseTypes (
-    typeId SERIAL PRIMARY KEY,
+CREATE TABLE IF NOT EXISTS WarehouseTypes (
+    warehouseTypeId SERIAL PRIMARY KEY,
     "name" VARCHAR(100) UNIQUE NOT NULL
 );
 
@@ -26,7 +26,7 @@ CREATE TABLE IF NOT EXISTS Stores (
 CREATE TABLE IF NOT EXISTS Warehouses (
     warehouseId SERIAL PRIMARY KEY,
     "name" VARCHAR(100) UNIQUE NOT NULL,
-	"type" INTEGER REFERENCES warehouseTypes(typeId),
+	"type" INTEGER REFERENCES WarehouseTypes(warehouseTypeId),
     "location" VARCHAR(100)
 );
 
@@ -34,7 +34,7 @@ CREATE TABLE IF NOT EXISTS Products (
     productId SERIAL PRIMARY KEY,
     article VARCHAR(100) UNIQUE NOT NULL,
     barcode VARCHAR(50) UNIQUE NOT NULL,
-    unitWeight INTEGER,
+    unitWeight INTEGER NOT NULL DEFAULT 0,
     unitCost DECIMAL(10,2)
 );
 
@@ -56,8 +56,8 @@ CREATE TABLE IF NOT EXISTS SupplierOrders (
 	logisticsAdditional DECIMAL(10,2),
 	logisticsTotal DECIMAL(10,2),
     orderItemCost DECIMAL(10,2),
-    positionsQty INTEGER,
-    totalQty INTEGER,
+    positionsQty INTEGER NOT NULL DEFAULT 0,
+    totalQty INTEGER NOT NULL DEFAULT 0,
     orderItemWeight DECIMAL(10,2),
 	parentOrderId INTEGER REFERENCES SupplierOrders(orderId),
     createdBy INTEGER REFERENCES Users(userId),
@@ -71,11 +71,11 @@ CREATE TABLE IF NOT EXISTS SupplierOrderItems (
     orderId INTEGER REFERENCES SupplierOrders(orderId) ON DELETE CASCADE,
     productId INTEGER REFERENCES Products(productId),
 	warehouseId INTEGER NOT NULL REFERENCES Warehouses(warehouseId),
-    orderedQty INTEGER,
-    receivedQty INTEGER,
+    orderedQty INTEGER NOT NULL DEFAULT 0,
+    receivedQty INTEGER NOT NULL DEFAULT 0,
     purchasePrice DECIMAL(10,2),
 	totalPrice DECIMAL(10,2),
-    totalWeight INTEGER,
+    totalWeight INTEGER NOT NULL DEFAULT 0,
     totalLogistics DECIMAL(10,2),
 	unitLogistics DECIMAL(10,2),
 	unitSelfCost DECIMAL(10,2),
@@ -107,9 +107,9 @@ CREATE TABLE IF NOT EXISTS MpShipments (
 	unitLogistics DECIMAL(10,2),
     acceptanceCost DECIMAL(10,2),
     acceptanceDate DATE,
-    positionsQty INTEGER,
-    sentQty INTEGER,
-    acceptedQty INTEGER,
+    positionsQty INTEGER NOT NULL DEFAULT 0,
+    sentQty INTEGER NOT NULL DEFAULT 0,
+    acceptedQty INTEGER NOT NULL DEFAULT 0,
     createdBy INTEGER REFERENCES Users(userId),
     createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updatedBy INTEGER REFERENCES Users(userId),
@@ -121,8 +121,8 @@ CREATE TABLE IF NOT EXISTS MpShipmentItems (
     shipmentId INTEGER REFERENCES MpShipments(shipmentId) ON DELETE CASCADE,
     productId INTEGER REFERENCES Products(productId),
 	warehouseId INTEGER NOT NULL REFERENCES Warehouses(warehouseId),
-    sentQty INTEGER,
-    acceptedQty INTEGER,
+    sentQty INTEGER NOT NULL DEFAULT 0,
+    acceptedQty INTEGER NOT NULL DEFAULT 0,
     logisticsForItem DECIMAL(10,2)
 );
 
@@ -144,13 +144,13 @@ CREATE TABLE IF NOT EXISTS Inventories (
 
 CREATE TABLE InventoryItems (
 	inventoryItemId SERIAL PRIMARY KEY,
+	inventoryId INTEGER NOT NULL REFERENCES Inventories(inventoryId) ON DELETE CASCADE,
 	productId INTEGER REFERENCES Products(productId),
 	warehouseId INTEGER NOT NULL REFERENCES Warehouses(warehouseId),
-	receiptQty INTEGER,
-	writeOffQty INTEGER,
+	receiptQty INTEGER NOT NULL DEFAULT 0,
+	writeOffQty INTEGER NOT NULL DEFAULT 0,
 	reason VARCHAR(255)
-
-)
+);
 
 CREATE TABLE IF NOT EXISTS ProductCosts (
     costId SERIAL PRIMARY KEY,
@@ -158,6 +158,7 @@ CREATE TABLE IF NOT EXISTS ProductCosts (
     periodStart DATE NOT NULL,
     periodEnd DATE NOT NULL,
 	unitCostToWarehouse DECIMAL(10,2) NOT NULL,
+    notes VARCHAR(255),
     createdBy INTEGER REFERENCES Users(userId),
     createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updatedBy INTEGER REFERENCES Users(userId),
@@ -166,18 +167,17 @@ CREATE TABLE IF NOT EXISTS ProductCosts (
 
 CREATE TABLE StockSnapshots (
     snapshotId SERIAL PRIMARY KEY,
-    productId INTEGER UNIQUE NOT NULL REFERENCES Products(productId),
+    productId INTEGER NOT NULL REFERENCES Products(productId),
 	warehouseId INTEGER NOT NULL REFERENCES Warehouses(warehouseId),
-    snapshotDate DATE UNIQUE NOT NULL,
+    snapshotDate DATE NOT NULL,
     quantity INTEGER NOT NULL,
     createdBy INTEGER REFERENCES Users(userId),
-    createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+	UNIQUE (productId, warehouseId, snapshotDate)
 );
 
 
 CREATE INDEX idx_users_role ON Users(roleId);
-
-CREATE INDEX idx_warehouses_marketplace ON Warehouses(marketplaceId);
 
 CREATE INDEX idx_supplier_orders_status ON SupplierOrders(statusId);
 CREATE INDEX idx_supplier_orders_parent ON SupplierOrders(parentOrderId);
@@ -201,12 +201,6 @@ CREATE INDEX idx_inventory_items_product ON InventoryItems(productId);
 
 CREATE INDEX idx_product_costs_product_period
 ON ProductCosts(productId, periodStart);
-
-CREATE UNIQUE INDEX idx_stock_snapshots_product_date
-ON StockSnapshots(productId, snapshotDate);
-
-CREATE INDEX idx_stock_snapshots_lookup
-ON StockSnapshots (snapshotDate, productId, warehouseId);
 
 CREATE INDEX idx_supplier_items_stock
 ON SupplierOrderItems (productId, warehouseId);

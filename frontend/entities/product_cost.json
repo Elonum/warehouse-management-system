@@ -1,0 +1,37 @@
+{
+  "name": "ProductCost",
+  "type": "object",
+  "properties": {
+    "product_id": {
+      "type": "string",
+      "description": "Reference to Product"
+    },
+    "product_name": {
+      "type": "string",
+      "description": "Product name for display"
+    },
+    "period_start": {
+      "type": "string",
+      "format": "date",
+      "description": "Cost period start date"
+    },
+    "period_end": {
+      "type": "string",
+      "format": "date",
+      "description": "Cost period end date"
+    },
+    "unit_cost": {
+      "type": "number",
+      "description": "Unit cost to warehouse"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Notes about cost period"
+    }
+  },
+  "required": [
+    "product_id",
+    "period_start",
+    "unit_cost"
+  ]
+}

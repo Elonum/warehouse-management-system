@@ -1,0 +1,52 @@
+{
+  "name": "SupplierOrderItem",
+  "type": "object",
+  "properties": {
+    "order_id": {
+      "type": "string",
+      "description": "Reference to SupplierOrder"
+    },
+    "product_id": {
+      "type": "string",
+      "description": "Reference to Product"
+    },
+    "product_name": {
+      "type": "string",
+      "description": "Product name for display"
+    },
+    "warehouse_id": {
+      "type": "string",
+      "description": "Target warehouse"
+    },
+    "warehouse_name": {
+      "type": "string",
+      "description": "Warehouse name for display"
+    },
+    "ordered_quantity": {
+      "type": "number",
+      "description": "Ordered quantity"
+    },
+    "received_quantity": {
+      "type": "number",
+      "description": "Received quantity"
+    },
+    "purchase_price": {
+      "type": "number",
+      "description": "Unit purchase price"
+    },
+    "logistics_cost": {
+      "type": "number",
+      "description": "Item logistics cost"
+    },
+    "self_cost": {
+      "type": "number",
+      "description": "Calculated self cost"
+    }
+  },
+  "required": [
+    "order_id",
+    "product_id",
+    "ordered_quantity",
+    "purchase_price"
+  ]
+}

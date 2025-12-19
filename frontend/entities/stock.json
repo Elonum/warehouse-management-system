@@ -1,0 +1,47 @@
+{
+  "name": "Stock",
+  "type": "object",
+  "properties": {
+    "product_id": {
+      "type": "string",
+      "description": "Reference to Product"
+    },
+    "product_name": {
+      "type": "string",
+      "description": "Product name for display"
+    },
+    "warehouse_id": {
+      "type": "string",
+      "description": "Reference to Warehouse"
+    },
+    "warehouse_name": {
+      "type": "string",
+      "description": "Warehouse name for display"
+    },
+    "quantity": {
+      "type": "number",
+      "description": "Current stock quantity"
+    },
+    "reserved_quantity": {
+      "type": "number",
+      "description": "Reserved quantity"
+    },
+    "available_quantity": {
+      "type": "number",
+      "description": "Available quantity"
+    },
+    "unit_cost": {
+      "type": "number",
+      "description": "Current unit cost"
+    },
+    "total_value": {
+      "type": "number",
+      "description": "Total stock value"
+    }
+  },
+  "required": [
+    "product_id",
+    "warehouse_id",
+    "quantity"
+  ]
+}

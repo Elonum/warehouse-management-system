@@ -1,0 +1,74 @@
+{
+  "name": "SupplierOrder",
+  "type": "object",
+  "properties": {
+    "order_number": {
+      "type": "string",
+      "description": "Order number"
+    },
+    "parent_order_id": {
+      "type": "string",
+      "description": "Parent order ID for sub-orders"
+    },
+    "supplier_name": {
+      "type": "string",
+      "description": "Supplier/buyer name"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "pending",
+        "confirmed",
+        "in_transit",
+        "partially_received",
+        "received",
+        "cancelled"
+      ],
+      "default": "draft"
+    },
+    "order_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Order placement date"
+    },
+    "expected_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Expected delivery date"
+    },
+    "received_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Actual received date"
+    },
+    "logistics_cost": {
+      "type": "number",
+      "description": "Total logistics cost"
+    },
+    "total_quantity": {
+      "type": "number",
+      "description": "Total ordered quantity"
+    },
+    "received_quantity": {
+      "type": "number",
+      "description": "Total received quantity"
+    },
+    "subtotal": {
+      "type": "number",
+      "description": "Subtotal before logistics"
+    },
+    "total": {
+      "type": "number",
+      "description": "Total order value"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Order notes"
+    }
+  },
+  "required": [
+    "order_number",
+    "supplier_name"
+  ]
+}

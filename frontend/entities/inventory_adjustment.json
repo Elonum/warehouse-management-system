@@ -1,0 +1,51 @@
+{
+  "name": "InventoryAdjustment",
+  "type": "object",
+  "properties": {
+    "adjustment_number": {
+      "type": "string",
+      "description": "Adjustment reference number"
+    },
+    "adjustment_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Adjustment date"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "pending_approval",
+        "approved",
+        "applied",
+        "cancelled"
+      ],
+      "default": "draft"
+    },
+    "warehouse_id": {
+      "type": "string",
+      "description": "Reference to Warehouse"
+    },
+    "warehouse_name": {
+      "type": "string",
+      "description": "Warehouse name for display"
+    },
+    "total_receipt": {
+      "type": "number",
+      "description": "Total receipt quantity"
+    },
+    "total_writeoff": {
+      "type": "number",
+      "description": "Total write-off quantity"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Adjustment notes"
+    }
+  },
+  "required": [
+    "adjustment_number",
+    "adjustment_date",
+    "warehouse_id"
+  ]
+}

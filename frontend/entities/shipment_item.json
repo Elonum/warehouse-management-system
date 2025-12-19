@@ -1,0 +1,35 @@
+{
+  "name": "ShipmentItem",
+  "type": "object",
+  "properties": {
+    "shipment_id": {
+      "type": "string",
+      "description": "Reference to Shipment"
+    },
+    "product_id": {
+      "type": "string",
+      "description": "Reference to Product"
+    },
+    "product_name": {
+      "type": "string",
+      "description": "Product name for display"
+    },
+    "sent_quantity": {
+      "type": "number",
+      "description": "Sent quantity"
+    },
+    "accepted_quantity": {
+      "type": "number",
+      "description": "Accepted quantity"
+    },
+    "logistics_cost": {
+      "type": "number",
+      "description": "Item logistics cost"
+    }
+  },
+  "required": [
+    "shipment_id",
+    "product_id",
+    "sent_quantity"
+  ]
+}

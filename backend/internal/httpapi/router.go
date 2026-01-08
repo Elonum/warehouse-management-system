@@ -2,22 +2,22 @@ package httpapi
 
 import (
 	"net/http"
-
+	"warehouse-backend/internal/db"
 	"warehouse-backend/internal/httpapi/handlers"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
 )
 
-func NewRouter() http.Handler {
+func NewRouter(pg *db.Postgres) *chi.Mux {
 	r := chi.NewRouter()
 
-	r.Use(middleware.RequestID)
-	r.Use(middleware.RealIP)
-	r.Use(middleware.Logger)
-	r.Use(middleware.Recoverer)
+	healthHandler := handlers.NewHealthHandler(pg)
 
-	r.Get("/health", handlers.Health)
+	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(`{"status":"ok"}`))
+	})
+
+	r.Get("/health/db", healthHandler.DBHealth)
 
 	return r
 }

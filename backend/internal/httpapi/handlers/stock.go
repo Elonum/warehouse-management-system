@@ -29,9 +29,24 @@ func (h *StockHandler) GetCurrentStock(w http.ResponseWriter, r *http.Request) {
 		warehouseID = &id
 	}
 
-	items, err := h.service.GetCurrentStock(r.Context(), warehouseID)
+	limit := 50
+	offset := 0
+
+	if v := r.URL.Query().Get("limit"); v != "" {
+		if l, err := strconv.Atoi(v); err == nil && l > 0 && l <= 100 {
+			limit = l
+		}
+	}
+
+	if v := r.URL.Query().Get("offset"); v != "" {
+		if o, err := strconv.Atoi(v); err == nil && o >= 0 {
+			offset = o
+		}
+	}
+
+	items, err := h.service.GetCurrentStock(r.Context(), warehouseID, limit, offset)
 	if err != nil {
-		log.Println("GetCurrentStock error:", err)
+		log.Println(err)
 		http.Error(w, "failed to load stock", http.StatusInternalServerError)
 		return
 	}

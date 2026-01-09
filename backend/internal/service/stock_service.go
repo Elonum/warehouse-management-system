@@ -18,21 +18,23 @@ func NewStockService(repo *repository.StockRepository) *StockService {
 func (s *StockService) GetCurrentStock(
 	ctx context.Context,
 	warehouseID *int,
+	limit int,
+	offset int,
 ) ([]dto.StockItemResponse, error) {
 
-	items, err := s.repo.GetCurrentStock(ctx, warehouseID)
+	items, err := s.repo.GetCurrentStock(ctx, warehouseID, limit, offset)
 	if err != nil {
 		return nil, err
 	}
 
-	response := make([]dto.StockItemResponse, 0, len(items))
-	for _, i := range items {
-		response = append(response, dto.StockItemResponse{
-			ProductID:       i.ProductID,
-			WarehouseID:     i.WarehouseID,
-			CurrentQuantity: i.CurrentQuantity,
+	res := make([]dto.StockItemResponse, 0, len(items))
+	for _, item := range items {
+		res = append(res, dto.StockItemResponse{
+			ProductID:       item.ProductID,
+			WarehouseID:     item.WarehouseID,
+			CurrentQuantity: item.CurrentQuantity,
 		})
 	}
 
-	return response, nil
+	return res, nil
 }

@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"warehouse-backend/internal/db"
 	"warehouse-backend/internal/httpapi/handlers"
+	"warehouse-backend/internal/httpapi/middleware"
 	"warehouse-backend/internal/repository"
 	"warehouse-backend/internal/service"
 
@@ -12,6 +13,8 @@ import (
 
 func NewRouter(pg *db.Postgres) *chi.Mux {
 	r := chi.NewRouter()
+
+	r.Use(middleware.Logger)
 
 	healthHandler := handlers.NewHealthHandler(pg)
 

@@ -12,14 +12,20 @@ var (
 	ErrInvalidCredentials = errors.New("invalid email or password")
 )
 
+var (
+	ErrInvalidRole = errors.New("invalid role")
+)
+
 type AuthService struct {
-	userRepo  *repository.UserRepository
+	userRepo   *repository.UserRepository
+	roleRepo   *repository.RoleRepository
 	jwtManager *auth.JWTManager
 }
 
-func NewAuthService(userRepo *repository.UserRepository, jwtManager *auth.JWTManager) *AuthService {
+func NewAuthService(userRepo *repository.UserRepository, roleRepo *repository.RoleRepository, jwtManager *auth.JWTManager) *AuthService {
 	return &AuthService{
 		userRepo:   userRepo,
+		roleRepo:   roleRepo,
 		jwtManager: jwtManager,
 	}
 }
@@ -51,6 +57,17 @@ func (s *AuthService) Login(ctx context.Context, email, password string) (string
 
 // Register создает нового пользователя
 func (s *AuthService) Register(ctx context.Context, email, password string, roleID int, name, surname, patronymic *string) (*repository.User, error) {
+	// Проверяем существование роли перед регистрацией
+	if roleID > 0 {
+		_, err := s.roleRepo.GetByID(ctx, roleID)
+		if err != nil {
+			if errors.Is(err, repository.ErrRoleNotFound) {
+				return nil, ErrInvalidRole
+			}
+			return nil, err
+		}
+	}
+
 	// Хешируем пароль
 	passwordHash, err := auth.HashPassword(password)
 	if err != nil {
@@ -63,6 +80,15 @@ func (s *AuthService) Register(ctx context.Context, email, password string, role
 		return nil, err
 	}
 
+	return user, nil
+}
+
+// GetCurrentUser получает информацию о текущем пользователе по ID из контекста
+func (s *AuthService) GetCurrentUser(ctx context.Context, userID int) (*repository.User, error) {
+	user, err := s.userRepo.GetByID(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
 	return user, nil
 }
 

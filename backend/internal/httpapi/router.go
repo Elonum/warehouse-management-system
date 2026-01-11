@@ -25,10 +25,11 @@ func NewRouter(pg *db.Postgres, cfg config.Config) *chi.Mux {
 	// repositories
 	stockRepo := repository.NewStockRepository(pg.Pool)
 	userRepo := repository.NewUserRepository(pg.Pool)
+	roleRepo := repository.NewRoleRepository(pg.Pool)
 
 	// services
 	stockService := service.NewStockService(stockRepo)
-	authService := service.NewAuthService(userRepo, jwtManager)
+	authService := service.NewAuthService(userRepo, roleRepo, jwtManager)
 
 	// handlers
 	stockHandler := handlers.NewStockHandler(stockService)
@@ -46,6 +47,9 @@ func NewRouter(pg *db.Postgres, cfg config.Config) *chi.Mux {
 		// Protected endpoints (требуют авторизации)
 		r.Group(func(r chi.Router) {
 			r.Use(middleware.AuthMiddleware(jwtManager))
+
+			// Auth endpoints (для авторизованных пользователей)
+			r.Get("/auth/me", authHandler.GetMe)
 
 			// Stock endpoints
 			r.Get("/stock/current", stockHandler.GetCurrentStock)

@@ -3,10 +3,14 @@ package handlers
 import (
 	"encoding/json"
 	"net/http"
+	"strings"
 
+	"warehouse-backend/internal/auth"
 	"warehouse-backend/internal/dto"
 	"warehouse-backend/internal/repository"
 	"warehouse-backend/internal/service"
+
+	"github.com/rs/zerolog/log"
 )
 
 type AuthHandler struct {
@@ -93,10 +97,29 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 
 	user, err := h.service.Register(r.Context(), req.Email, req.Password, req.RoleID, req.Name, req.Surname, req.Patronymic)
 	if err != nil {
+		// Логируем ошибку для отладки
+		log.Error().Err(err).Str("email", req.Email).Int("roleId", req.RoleID).Msg("Failed to register user")
+
 		if err == repository.ErrUserExists {
 			writeError(w, http.StatusConflict, "USER_EXISTS", "user with this email already exists")
 			return
 		}
+		if err == service.ErrInvalidRole {
+			writeError(w, http.StatusBadRequest, "INVALID_ROLE", "specified role does not exist")
+			return
+		}
+
+		// Проверяем специфичные ошибки БД
+		errMsg := err.Error()
+		if strings.Contains(errMsg, "foreign key") || strings.Contains(errMsg, "roleId") {
+			writeError(w, http.StatusBadRequest, "INVALID_ROLE", "specified role does not exist")
+			return
+		}
+		if strings.Contains(errMsg, "does not exist") {
+			writeError(w, http.StatusInternalServerError, "DATABASE_ERROR", "database table not found. Please check database schema")
+			return
+		}
+
 		writeError(w, http.StatusInternalServerError, "REGISTER_FAILED", "failed to register user")
 		return
 	}
@@ -114,6 +137,43 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(response)
+}
+
+// GetMe возвращает информацию о текущем авторизованном пользователе
+// GET /api/v1/auth/me
+// Требует: JWT токен в заголовке Authorization
+func (h *AuthHandler) GetMe(w http.ResponseWriter, r *http.Request) {
+	// Получаем ID пользователя из контекста (добавлен AuthMiddleware)
+	userID := auth.GetUserID(r.Context())
+	if userID == 0 {
+		writeError(w, http.StatusUnauthorized, "UNAUTHORIZED", "user not found in context")
+		return
+	}
+
+	user, err := h.service.GetCurrentUser(r.Context(), userID)
+	if err != nil {
+		if err == repository.ErrUserNotFound {
+			writeError(w, http.StatusNotFound, "USER_NOT_FOUND", "user not found")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "USER_LOAD_FAILED", "failed to load user")
+		return
+	}
+
+	response := dto.APIResponse[dto.UserResponse]{
+		Data: dto.UserResponse{
+			UserID:     user.UserID,
+			Email:      user.Email,
+			Name:       user.Name,
+			Surname:    user.Surname,
+			Patronymic: user.Patronymic,
+			RoleID:     user.RoleID,
+		},
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(response)
 }
 

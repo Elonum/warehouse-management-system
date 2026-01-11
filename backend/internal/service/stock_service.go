@@ -27,14 +27,14 @@ func (s *StockService) GetCurrentStock(
 		return nil, err
 	}
 
-	res := make([]dto.StockItemResponse, 0, len(items))
+	result := make([]dto.StockItemResponse, 0, len(items))
 	for _, item := range items {
-		res = append(res, dto.StockItemResponse{
+		result = append(result, dto.StockItemResponse{
 			ProductID:       item.ProductID,
 			WarehouseID:     item.WarehouseID,
 			CurrentQuantity: item.CurrentQuantity,
 		})
 	}
 
-	return res, nil
+	return result, nil
 }

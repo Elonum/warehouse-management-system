@@ -4,7 +4,6 @@ import (
 	"net/http"
 	"warehouse-backend/internal/db"
 	"warehouse-backend/internal/httpapi/handlers"
-	"warehouse-backend/internal/httpapi/middleware"
 	"warehouse-backend/internal/repository"
 	"warehouse-backend/internal/service"
 
@@ -14,20 +13,22 @@ import (
 func NewRouter(pg *db.Postgres) *chi.Mux {
 	r := chi.NewRouter()
 
-	r.Use(middleware.Logger)
-
-	healthHandler := handlers.NewHealthHandler(pg)
-
+	// repositories
 	stockRepo := repository.NewStockRepository(pg.Pool)
+
+	// services
 	stockService := service.NewStockService(stockRepo)
+
+	// handlers
 	stockHandler := handlers.NewStockHandler(stockService)
 
-	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte(`{"status":"ok"}`))
-	})
-	r.Get("/health/db", healthHandler.DBHealth)
+	r.Route("/api/v1", func(r chi.Router) {
+		r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
+			w.Write([]byte(`{"status":"ok"}`))
+		})
 
-	r.Get("/api/v1/stock/current", stockHandler.GetCurrentStock)
+		r.Get("/stock/current", stockHandler.GetCurrentStock)
+	})
 
 	return r
 }

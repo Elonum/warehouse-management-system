@@ -1,22 +1,44 @@
 package middleware
 
 import (
-	"log"
 	"net/http"
 	"time"
+
+	"github.com/rs/zerolog/log"
 )
 
+type responseWriter struct {
+	http.ResponseWriter
+	status int
+}
+
+func (rw *responseWriter) WriteHeader(code int) {
+	rw.status = code
+	rw.ResponseWriter.WriteHeader(code)
+}
+
+// Logger middleware для логирования HTTP запросов с использованием структурированного логирования
 func Logger(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
 
-		next.ServeHTTP(w, r)
+		rw := &responseWriter{
+			ResponseWriter: w,
+			status:         http.StatusOK,
+		}
 
-		log.Printf(
-			"%s %s %s",
-			r.Method,
-			r.URL.Path,
-			time.Since(start),
-		)
+		next.ServeHTTP(rw, r)
+
+		duration := time.Since(start)
+
+		// Структурированное логирование с zerolog
+		log.Info().
+			Str("method", r.Method).
+			Str("path", r.URL.Path).
+			Str("query", r.URL.RawQuery).
+			Int("status", rw.status).
+			Dur("duration", duration).
+			Str("ip", r.RemoteAddr).
+			Msg("HTTP request")
 	})
 }

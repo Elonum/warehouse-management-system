@@ -3,10 +3,10 @@ package db
 import (
 	"context"
 	"fmt"
-	"log"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/rs/zerolog/log"
 )
 
 type Postgres struct {
@@ -57,7 +57,7 @@ func New(cfg Config) (*Postgres, error) {
 		return nil, err
 	}
 
-	log.Println("PostgreSQL connected")
+	log.Info().Msg("PostgreSQL connected successfully")
 
 	return &Postgres{Pool: pool}, nil
 }

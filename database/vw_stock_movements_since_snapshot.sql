@@ -1,27 +1,26 @@
 CREATE OR REPLACE VIEW vw_stock_movements_since_snapshot AS
 WITH last_snapshot AS (
     SELECT
-        ss.productId,
-        ss.warehouseId,
-        ss.snapshotDate,
+        ss.product_id,
+        ss.warehouse_id,
+        ss.snapshot_date,
         ss.quantity,
         ROW_NUMBER() OVER (
-            PARTITION BY ss.productId, ss.warehouseId
-            ORDER BY ss.snapshotDate DESC
+            PARTITION BY ss.product_id, ss.warehouse_id
+            ORDER BY ss.snapshot_date DESC
         ) AS rn
-    FROM StockSnapshots ss
+    FROM stock_snapshots ss
 )
-
 SELECT
-    m.productId,
-    m.warehouseId,
-    m.movementDate,
+    m.product_id,
+    m.warehouse_id,
+    m.movement_date,
     m.quantity,
-    m.movementType,
-    m.documentId
+    m.movement_type,
+    m.document_id
 FROM vw_stock_movements m
 JOIN last_snapshot ls
-    ON ls.productId = m.productId
-   AND ls.warehouseId = m.warehouseId
+    ON ls.product_id = m.product_id
+   AND ls.warehouse_id = m.warehouse_id
 WHERE ls.rn = 1
-  AND m.movementDate > ls.snapshotDate;
+  AND m.movement_date > ls.snapshot_date;

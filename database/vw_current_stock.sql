@@ -1,75 +1,75 @@
 CREATE OR REPLACE VIEW vw_current_stock AS
 WITH last_snapshot AS (
     SELECT
-        ss.productId,
-        ss.warehouseId,
+        ss.product_id,
+        ss.warehouse_id,
         ss.quantity,
-        ss.snapshotDate,
+        ss.snapshot_date,
         ROW_NUMBER() OVER (
-            PARTITION BY ss.productId, ss.warehouseId
-            ORDER BY ss.snapshotDate DESC
+            PARTITION BY ss.product_id, ss.warehouse_id
+            ORDER BY ss.snapshot_date DESC
         ) AS rn
-    FROM StockSnapshots ss
+    FROM stock_snapshots ss
 ),
 
 base_stock AS (
     SELECT
-        productId,
-        warehouseId,
+        product_id,
+        warehouse_id,
         quantity AS base_quantity,
-        snapshotDate
+        snapshot_date
     FROM last_snapshot
     WHERE rn = 1
 ),
 
 supplier_in AS (
     SELECT
-        soi.productId,
-        soi.warehouseId,
-        SUM(soi.receivedQty) AS qty_in
-    FROM SupplierOrderItems soi
-    JOIN SupplierOrders so
-        ON so.orderId = soi.orderId
+        soi.product_id,
+        soi.warehouse_id,
+        SUM(soi.received_qty) AS qty_in
+    FROM supplier_order_items soi
+    JOIN supplier_orders so
+        ON so.order_id = soi.order_id
     JOIN base_stock bs
-        ON bs.productId = soi.productId
-       AND bs.warehouseId = soi.warehouseId
-    WHERE so.actualReceiptDate > bs.snapshotDate
-    GROUP BY soi.productId, soi.warehouseId
+        ON bs.product_id = soi.product_id
+       AND bs.warehouse_id = soi.warehouse_id
+    WHERE so.actual_receipt_date > bs.snapshot_date
+    GROUP BY soi.product_id, soi.warehouse_id
 ),
 
 shipment_out AS (
     SELECT
-        msi.productId,
-        msi.warehouseId,
-        SUM(msi.acceptedQty) AS qty_out
-    FROM MpShipmentItems msi
-    JOIN MpShipments ms
-        ON ms.shipmentId = msi.shipmentId
+        msi.product_id,
+        msi.warehouse_id,
+        SUM(msi.accepted_qty) AS qty_out
+    FROM mp_shipment_items msi
+    JOIN mp_shipments ms
+        ON ms.shipment_id = msi.shipment_id
     JOIN base_stock bs
-        ON bs.productId = msi.productId
-       AND bs.warehouseId = msi.warehouseId
-    WHERE ms.acceptanceDate > bs.snapshotDate
-    GROUP BY msi.productId, msi.warehouseId
+        ON bs.product_id = msi.product_id
+       AND bs.warehouse_id = msi.warehouse_id
+    WHERE ms.acceptance_date > bs.snapshot_date
+    GROUP BY msi.product_id, msi.warehouse_id
 ),
 
 inventory_adjustments AS (
     SELECT
-        ii.productId,
-        ii.warehouseId,
-        SUM(ii.receiptQty - ii.writeOffQty) AS qty_adjust
-    FROM InventoryItems ii
-    JOIN Inventories i
-        ON i.inventoryId = ii.inventoryId
+        ii.product_id,
+        ii.warehouse_id,
+        SUM(ii.receipt_qty - ii.write_off_qty) AS qty_adjust
+    FROM inventory_items ii
+    JOIN inventories i
+        ON i.inventory_id = ii.inventory_id
     JOIN base_stock bs
-        ON bs.productId = ii.productId
-       AND bs.warehouseId = ii.warehouseId
-    WHERE i.adjustmentDate > bs.snapshotDate
-    GROUP BY ii.productId, ii.warehouseId
+        ON bs.product_id = ii.product_id
+       AND bs.warehouse_id = ii.warehouse_id
+    WHERE i.adjustment_date > bs.snapshot_date
+    GROUP BY ii.product_id, ii.warehouse_id
 )
 
 SELECT
-    bs.productId,
-    bs.warehouseId,
+    bs.product_id,
+    bs.warehouse_id,
     bs.base_quantity
         + COALESCE(si.qty_in, 0)
         - COALESCE(so.qty_out, 0)
@@ -77,11 +77,11 @@ SELECT
         AS current_quantity
 FROM base_stock bs
 LEFT JOIN supplier_in si
-    ON si.productId = bs.productId
-   AND si.warehouseId = bs.warehouseId
+    ON si.product_id = bs.product_id
+   AND si.warehouse_id = bs.warehouse_id
 LEFT JOIN shipment_out so
-    ON so.productId = bs.productId
-   AND so.warehouseId = bs.warehouseId
+    ON so.product_id = bs.product_id
+   AND so.warehouse_id = bs.warehouse_id
 LEFT JOIN inventory_adjustments ia
-    ON ia.productId = bs.productId
-   AND ia.warehouseId = bs.warehouseId;
+    ON ia.product_id = bs.product_id
+   AND ia.warehouse_id = bs.warehouse_id;

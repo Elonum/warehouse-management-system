@@ -1,16 +1,14 @@
 CREATE OR REPLACE VIEW vw_stock_with_cost AS
 SELECT
-    cs.productId,
-    cs.warehouseId,
-    cs.currentQuantity,
+    cs.product_id,
+    cs.warehouse_id,
+    cs.current_quantity,
 
-    pc.unitCostToWarehouse,
+    pc.unit_cost_to_warehouse,
 
-    cs.currentQuantity * pc.unitCostToWarehouse
-        AS stockTotalCost
-
+    cs.current_quantity * pc.unit_cost_to_warehouse
+        AS stock_total_cost
 FROM vw_current_stock cs
-
-JOIN ProductCosts pc
-    ON pc.productId = cs.productId
-   AND CURRENT_DATE BETWEEN pc.periodStart AND pc.periodEnd;
+JOIN product_costs pc
+    ON pc.product_id = cs.product_id
+   AND CURRENT_DATE BETWEEN pc.period_start AND pc.period_end;

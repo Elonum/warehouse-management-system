@@ -1,212 +1,223 @@
-CREATE TABLE IF NOT EXISTS UserRoles (
-    roleId SERIAL PRIMARY KEY,
-    "name" VARCHAR(100) NOT NULL
+-- ===== Роли и пользователи =====
+
+CREATE TABLE IF NOT EXISTS user_roles (
+    role_id SERIAL PRIMARY KEY,
+    name VARCHAR(100) NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS Users (
-    userId SERIAL PRIMARY KEY,
+CREATE TABLE IF NOT EXISTS users (
+    user_id SERIAL PRIMARY KEY,
     email VARCHAR(255) UNIQUE NOT NULL,
-    "name" VARCHAR(100),
+    name VARCHAR(100),
     surname VARCHAR(100),
     patronymic VARCHAR(100),
-    passwordHash VARCHAR(255) NOT NULL,
-    roleId INTEGER REFERENCES UserRoles(roleId)
+    password_hash VARCHAR(255) NOT NULL,
+    role_id INTEGER REFERENCES user_roles(role_id)
 );
 
-CREATE TABLE IF NOT EXISTS WarehouseTypes (
-    warehouseTypeId SERIAL PRIMARY KEY,
-    "name" VARCHAR(100) UNIQUE NOT NULL
+-- ===== Справочники =====
+
+CREATE TABLE IF NOT EXISTS warehouse_types (
+    warehouse_type_id SERIAL PRIMARY KEY,
+    name VARCHAR(100) UNIQUE NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS Stores (
-    storeId SERIAL PRIMARY KEY,
-    "name" VARCHAR(100) UNIQUE NOT NULL
+CREATE TABLE IF NOT EXISTS stores (
+    store_id SERIAL PRIMARY KEY,
+    name VARCHAR(100) UNIQUE NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS Warehouses (
-    warehouseId SERIAL PRIMARY KEY,
-    "name" VARCHAR(100) UNIQUE NOT NULL,
-	"type" INTEGER REFERENCES WarehouseTypes(warehouseTypeId),
-    "location" VARCHAR(100)
+CREATE TABLE IF NOT EXISTS warehouses (
+    warehouse_id SERIAL PRIMARY KEY,
+    name VARCHAR(100) UNIQUE NOT NULL,
+    warehouse_type_id INTEGER REFERENCES warehouse_types(warehouse_type_id),
+    location VARCHAR(100)
 );
 
-CREATE TABLE IF NOT EXISTS Products (
-    productId SERIAL PRIMARY KEY,
+CREATE TABLE IF NOT EXISTS products (
+    product_id SERIAL PRIMARY KEY,
     article VARCHAR(100) UNIQUE NOT NULL,
     barcode VARCHAR(50) UNIQUE NOT NULL,
-    unitWeight INTEGER NOT NULL DEFAULT 0,
-    unitCost DECIMAL(10,2)
+    unit_weight INTEGER NOT NULL DEFAULT 0,
+    unit_cost DECIMAL(10,2)
 );
 
-CREATE TABLE IF NOT EXISTS OrderStatuses (
-    orderStatusId SERIAL PRIMARY KEY,
-    "name" VARCHAR(50) UNIQUE NOT NULL
+-- ===== Заказы поставщикам =====
+
+CREATE TABLE IF NOT EXISTS order_statuses (
+    order_status_id SERIAL PRIMARY KEY,
+    name VARCHAR(50) UNIQUE NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS SupplierOrders (
-    orderId SERIAL PRIMARY KEY,
-    orderNumber VARCHAR(50) UNIQUE NOT NULL,
+CREATE TABLE IF NOT EXISTS supplier_orders (
+    order_id SERIAL PRIMARY KEY,
+    order_number VARCHAR(50) UNIQUE NOT NULL,
     buyer VARCHAR(100),
-    statusId INTEGER REFERENCES OrderStatuses(orderStatusId),
-    purchaseDate DATE,
-    plannedReceiptDate DATE,
-    actualReceiptDate DATE,
-    logisticsChinaMsk DECIMAL(10,2),
-    logisticsMskKzn DECIMAL(10,2),
-	logisticsAdditional DECIMAL(10,2),
-	logisticsTotal DECIMAL(10,2),
-    orderItemCost DECIMAL(10,2),
-    positionsQty INTEGER NOT NULL DEFAULT 0,
-    totalQty INTEGER NOT NULL DEFAULT 0,
-    orderItemWeight DECIMAL(10,2),
-	parentOrderId INTEGER REFERENCES SupplierOrders(orderId),
-    createdBy INTEGER REFERENCES Users(userId),
-    createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updatedBy INTEGER REFERENCES Users(userId),
-    updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    status_id INTEGER REFERENCES order_statuses(order_status_id),
+    purchase_date DATE,
+    planned_receipt_date DATE,
+    actual_receipt_date DATE,
+    logistics_china_msk DECIMAL(10,2),
+    logistics_msk_kzn DECIMAL(10,2),
+    logistics_additional DECIMAL(10,2),
+    logistics_total DECIMAL(10,2),
+    order_item_cost DECIMAL(10,2),
+    positions_qty INTEGER NOT NULL DEFAULT 0,
+    total_qty INTEGER NOT NULL DEFAULT 0,
+    order_item_weight DECIMAL(10,2),
+    parent_order_id INTEGER REFERENCES supplier_orders(order_id),
+    created_by INTEGER REFERENCES users(user_id),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_by INTEGER REFERENCES users(user_id),
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE IF NOT EXISTS SupplierOrderItems (
-    orderItemId SERIAL PRIMARY KEY,
-    orderId INTEGER REFERENCES SupplierOrders(orderId) ON DELETE CASCADE,
-    productId INTEGER REFERENCES Products(productId),
-	warehouseId INTEGER NOT NULL REFERENCES Warehouses(warehouseId),
-    orderedQty INTEGER NOT NULL DEFAULT 0,
-    receivedQty INTEGER NOT NULL DEFAULT 0,
-    purchasePrice DECIMAL(10,2),
-	totalPrice DECIMAL(10,2),
-    totalWeight INTEGER NOT NULL DEFAULT 0,
-    totalLogistics DECIMAL(10,2),
-	unitLogistics DECIMAL(10,2),
-	unitSelfCost DECIMAL(10,2),
-    totalSelfCost DECIMAL(10,2),
-	fulfillmentCost DECIMAL(10,2)
+CREATE TABLE IF NOT EXISTS supplier_order_items (
+    order_item_id SERIAL PRIMARY KEY,
+    order_id INTEGER REFERENCES supplier_orders(order_id) ON DELETE CASCADE,
+    product_id INTEGER REFERENCES products(product_id),
+    warehouse_id INTEGER NOT NULL REFERENCES warehouses(warehouse_id),
+    ordered_qty INTEGER NOT NULL DEFAULT 0,
+    received_qty INTEGER NOT NULL DEFAULT 0,
+    purchase_price DECIMAL(10,2),
+    total_price DECIMAL(10,2),
+    total_weight INTEGER NOT NULL DEFAULT 0,
+    total_logistics DECIMAL(10,2),
+    unit_logistics DECIMAL(10,2),
+    unit_self_cost DECIMAL(10,2),
+    total_self_cost DECIMAL(10,2),
+    fulfillment_cost DECIMAL(10,2)
 );
 
-CREATE TABLE IF NOT EXISTS SupplierOrderDocuments (
-    documentId SERIAL PRIMARY KEY,
-    orderId INTEGER NOT NULL REFERENCES SupplierOrders(orderId) ON DELETE CASCADE,
-    "name" VARCHAR(255) NOT NULL,
+CREATE TABLE IF NOT EXISTS supplier_order_documents (
+    document_id SERIAL PRIMARY KEY,
+    order_id INTEGER NOT NULL REFERENCES supplier_orders(order_id) ON DELETE CASCADE,
+    name VARCHAR(255) NOT NULL,
     description TEXT,
-    filePath TEXT NOT NULL
+    file_path TEXT NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS ShipmentStatuses (
-    shipmentStatusId SERIAL PRIMARY KEY,
-    "name" VARCHAR(50) UNIQUE NOT NULL
+-- ===== Отгрузки на маркетплейсы =====
+
+CREATE TABLE IF NOT EXISTS shipment_statuses (
+    shipment_status_id SERIAL PRIMARY KEY,
+    name VARCHAR(50) UNIQUE NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS MpShipments (
-    shipmentId SERIAL PRIMARY KEY,
-    shipmentDate DATE,
-    shipmentNumber VARCHAR(50) UNIQUE NOT NULL,
-	storeId INTEGER REFERENCES Stores(storeId),
-    warehouseId INTEGER REFERENCES Warehouses(warehouseId),
-	statusId INTEGER REFERENCES ShipmentStatuses(shipmentStatusId),
-    logisticsCost DECIMAL(10,2),
-	unitLogistics DECIMAL(10,2),
-    acceptanceCost DECIMAL(10,2),
-    acceptanceDate DATE,
-    positionsQty INTEGER NOT NULL DEFAULT 0,
-    sentQty INTEGER NOT NULL DEFAULT 0,
-    acceptedQty INTEGER NOT NULL DEFAULT 0,
-    createdBy INTEGER REFERENCES Users(userId),
-    createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updatedBy INTEGER REFERENCES Users(userId),
-    updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+CREATE TABLE IF NOT EXISTS mp_shipments (
+    shipment_id SERIAL PRIMARY KEY,
+    shipment_date DATE,
+    shipment_number VARCHAR(50) UNIQUE NOT NULL,
+    store_id INTEGER REFERENCES stores(store_id),
+    warehouse_id INTEGER REFERENCES warehouses(warehouse_id),
+    status_id INTEGER REFERENCES shipment_statuses(shipment_status_id),
+    logistics_cost DECIMAL(10,2),
+    unit_logistics DECIMAL(10,2),
+    acceptance_cost DECIMAL(10,2),
+    acceptance_date DATE,
+    positions_qty INTEGER NOT NULL DEFAULT 0,
+    sent_qty INTEGER NOT NULL DEFAULT 0,
+    accepted_qty INTEGER NOT NULL DEFAULT 0,
+    created_by INTEGER REFERENCES users(user_id),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_by INTEGER REFERENCES users(user_id),
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE IF NOT EXISTS MpShipmentItems (
-    shipmentItemId SERIAL PRIMARY KEY,
-    shipmentId INTEGER REFERENCES MpShipments(shipmentId) ON DELETE CASCADE,
-    productId INTEGER REFERENCES Products(productId),
-	warehouseId INTEGER NOT NULL REFERENCES Warehouses(warehouseId),
-    sentQty INTEGER NOT NULL DEFAULT 0,
-    acceptedQty INTEGER NOT NULL DEFAULT 0,
-    logisticsForItem DECIMAL(10,2)
+CREATE TABLE IF NOT EXISTS mp_shipment_items (
+    shipment_item_id SERIAL PRIMARY KEY,
+    shipment_id INTEGER REFERENCES mp_shipments(shipment_id) ON DELETE CASCADE,
+    product_id INTEGER REFERENCES products(product_id),
+    warehouse_id INTEGER NOT NULL REFERENCES warehouses(warehouse_id),
+    sent_qty INTEGER NOT NULL DEFAULT 0,
+    accepted_qty INTEGER NOT NULL DEFAULT 0,
+    logistics_for_item DECIMAL(10,2)
 );
 
-CREATE TABLE IF NOT EXISTS InventoryStatuses (
-    inventoryStatusId SERIAL PRIMARY KEY,
-    "name" VARCHAR(50) UNIQUE NOT NULL
+-- ===== Инвентаризация =====
+
+CREATE TABLE IF NOT EXISTS inventory_statuses (
+    inventory_status_id SERIAL PRIMARY KEY,
+    name VARCHAR(50) UNIQUE NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS Inventories (
-    inventoryId SERIAL PRIMARY KEY,
-    adjustmentDate DATE,
-	statusId INTEGER REFERENCES InventoryStatuses(inventoryStatusId),
-	notes VARCHAR(255),
-    createdBy INTEGER REFERENCES Users(userId),
-    createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updatedBy INTEGER REFERENCES Users(userId),
-    updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE InventoryItems (
-	inventoryItemId SERIAL PRIMARY KEY,
-	inventoryId INTEGER NOT NULL REFERENCES Inventories(inventoryId) ON DELETE CASCADE,
-	productId INTEGER REFERENCES Products(productId),
-	warehouseId INTEGER NOT NULL REFERENCES Warehouses(warehouseId),
-	receiptQty INTEGER NOT NULL DEFAULT 0,
-	writeOffQty INTEGER NOT NULL DEFAULT 0,
-	reason VARCHAR(255)
-);
-
-CREATE TABLE IF NOT EXISTS ProductCosts (
-    costId SERIAL PRIMARY KEY,
-    productId INTEGER NOT NULL REFERENCES Products(productId),
-    periodStart DATE NOT NULL,
-    periodEnd DATE NOT NULL,
-	unitCostToWarehouse DECIMAL(10,2) NOT NULL,
+CREATE TABLE IF NOT EXISTS inventories (
+    inventory_id SERIAL PRIMARY KEY,
+    adjustment_date DATE,
+    status_id INTEGER REFERENCES inventory_statuses(inventory_status_id),
     notes VARCHAR(255),
-    createdBy INTEGER REFERENCES Users(userId),
-    createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updatedBy INTEGER REFERENCES Users(userId),
-    updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_by INTEGER REFERENCES users(user_id),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_by INTEGER REFERENCES users(user_id),
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE StockSnapshots (
-    snapshotId SERIAL PRIMARY KEY,
-    productId INTEGER NOT NULL REFERENCES Products(productId),
-	warehouseId INTEGER NOT NULL REFERENCES Warehouses(warehouseId),
-    snapshotDate DATE NOT NULL,
+CREATE TABLE IF NOT EXISTS inventory_items (
+    inventory_item_id SERIAL PRIMARY KEY,
+    inventory_id INTEGER NOT NULL REFERENCES inventories(inventory_id) ON DELETE CASCADE,
+    product_id INTEGER REFERENCES products(product_id),
+    warehouse_id INTEGER NOT NULL REFERENCES warehouses(warehouse_id),
+    receipt_qty INTEGER NOT NULL DEFAULT 0,
+    write_off_qty INTEGER NOT NULL DEFAULT 0,
+    reason VARCHAR(255)
+);
+
+-- ===== Себестоимость и снапшоты =====
+
+CREATE TABLE IF NOT EXISTS product_costs (
+    cost_id SERIAL PRIMARY KEY,
+    product_id INTEGER NOT NULL REFERENCES products(product_id),
+    period_start DATE NOT NULL,
+    period_end DATE NOT NULL,
+    unit_cost_to_warehouse DECIMAL(10,2) NOT NULL,
+    notes VARCHAR(255),
+    created_by INTEGER REFERENCES users(user_id),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_by INTEGER REFERENCES users(user_id),
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS stock_snapshots (
+    snapshot_id SERIAL PRIMARY KEY,
+    product_id INTEGER NOT NULL REFERENCES products(product_id),
+    warehouse_id INTEGER NOT NULL REFERENCES warehouses(warehouse_id),
+    snapshot_date DATE NOT NULL,
     quantity INTEGER NOT NULL,
-    createdBy INTEGER REFERENCES Users(userId),
-    createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-	UNIQUE (productId, warehouseId, snapshotDate)
+    created_by INTEGER REFERENCES users(user_id),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (product_id, warehouse_id, snapshot_date)
 );
 
+-- ===== Индексы =====
 
-CREATE INDEX idx_users_role ON Users(roleId);
+CREATE INDEX idx_users_role ON users(role_id);
 
-CREATE INDEX idx_supplier_orders_status ON SupplierOrders(statusId);
-CREATE INDEX idx_supplier_orders_parent ON SupplierOrders(parentOrderId);
-CREATE INDEX idx_supplier_orders_receipt_date ON SupplierOrders(actualReceiptDate);
+CREATE INDEX idx_supplier_orders_status ON supplier_orders(status_id);
+CREATE INDEX idx_supplier_orders_parent ON supplier_orders(parent_order_id);
+CREATE INDEX idx_supplier_orders_receipt_date ON supplier_orders(actual_receipt_date);
 
-CREATE INDEX idx_supplier_order_items_order ON SupplierOrderItems(orderId);
-CREATE INDEX idx_supplier_order_items_product ON SupplierOrderItems(productId);
+CREATE INDEX idx_supplier_order_items_order ON supplier_order_items(order_id);
+CREATE INDEX idx_supplier_order_items_product ON supplier_order_items(product_id);
+CREATE INDEX idx_supplier_order_items_stock
+ON supplier_order_items (product_id, warehouse_id);
 
-CREATE INDEX idx_supplier_order_docs_order ON SupplierOrderDocuments(orderId);
+CREATE INDEX idx_supplier_order_docs_order
+ON supplier_order_documents(order_id);
 
-CREATE INDEX idx_mp_shipments_store ON MpShipments(storeId);
-CREATE INDEX idx_mp_shipments_warehouse ON MpShipments(warehouseId);
-CREATE INDEX idx_mp_shipments_status ON MpShipments(statusId);
+CREATE INDEX idx_mp_shipments_store ON mp_shipments(store_id);
+CREATE INDEX idx_mp_shipments_warehouse ON mp_shipments(warehouse_id);
+CREATE INDEX idx_mp_shipments_status ON mp_shipments(status_id);
 
-CREATE INDEX idx_mp_shipment_items_shipment ON MpShipmentItems(shipmentId);
-CREATE INDEX idx_mp_shipment_items_product ON MpShipmentItems(productId);
+CREATE INDEX idx_mp_shipment_items_shipment ON mp_shipment_items(shipment_id);
+CREATE INDEX idx_mp_shipment_items_product ON mp_shipment_items(product_id);
+CREATE INDEX idx_mp_shipment_items_stock
+ON mp_shipment_items (product_id, warehouse_id);
 
-CREATE INDEX idx_inventories_status ON Inventories(statusId);
+CREATE INDEX idx_inventories_status ON inventories(status_id);
 
-CREATE INDEX idx_inventory_items_product ON InventoryItems(productId);
+CREATE INDEX idx_inventory_items_product ON inventory_items(product_id);
+CREATE INDEX idx_inventory_items_stock
+ON inventory_items (product_id, warehouse_id);
 
 CREATE INDEX idx_product_costs_product_period
-ON ProductCosts(productId, periodStart);
-
-CREATE INDEX idx_supplier_items_stock
-ON SupplierOrderItems (productId, warehouseId);
-
-CREATE INDEX idx_shipment_items_stock
-ON MpShipmentItems (productId, warehouseId);
-
-CREATE INDEX idx_inventory_items_stock
-ON InventoryItems (productId, warehouseId);
+ON product_costs (product_id, period_start);

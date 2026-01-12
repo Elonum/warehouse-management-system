@@ -1,16 +1,16 @@
-INSERT INTO StockSnapshots (
-    productId,
-    warehouseId,
-    snapshotDate,
+INSERT INTO stock_snapshots (
+    product_id,
+    warehouse_id,
+    snapshot_date,
     quantity,
-    createdBy
+    created_by
 )
 SELECT
-    cs.productId,
-    cs.warehouseId,
-    DATE_TRUNC('month', CURRENT_DATE) - INTERVAL '1 day' AS snapshotDate,
-    cs.currentquantity,
+    cs.product_id,
+    cs.warehouse_id,
+    date_trunc('month', current_date) - INTERVAL '1 day' AS snapshot_date,
+    cs.current_quantity,
     NULL -- system user / service account
 FROM vw_current_stock cs
-ON CONFLICT (productId, warehouseId, snapshotDate)
+ON CONFLICT (product_id, warehouse_id, snapshot_date)
 DO NOTHING;

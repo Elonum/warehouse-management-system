@@ -24,15 +24,21 @@ func NewRouter(pg *db.Postgres, cfg config.Config) *chi.Mux {
 	userRepo := repository.NewUserRepository(pg.Pool)
 	roleRepo := repository.NewRoleRepository(pg.Pool)
 	productRepo := repository.NewProductRepository(pg.Pool)
+	warehouseRepo := repository.NewWarehouseRepository(pg.Pool)
+	storeRepo := repository.NewStoreRepository(pg.Pool)
 
 	stockService := service.NewStockService(stockRepo)
 	authService := service.NewAuthService(userRepo, roleRepo, jwtManager)
 	productService := service.NewProductService(productRepo)
+	warehouseService := service.NewWarehouseService(warehouseRepo)
+	storeService := service.NewStoreService(storeRepo)
 
 	stockHandler := handlers.NewStockHandler(stockService)
 	healthHandler := handlers.NewHealthHandler(pg)
 	authHandler := handlers.NewAuthHandler(authService)
 	productHandler := handlers.NewProductHandler(productService)
+	warehouseHandler := handlers.NewWarehouseHandler(warehouseService)
+	storeHandler := handlers.NewStoreHandler(storeService)
 
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Get("/health", healthHandler.DBHealth)
@@ -52,6 +58,22 @@ func NewRouter(pg *db.Postgres, cfg config.Config) *chi.Mux {
 				r.Get("/{id}", productHandler.GetByID)
 				r.Put("/{id}", productHandler.Update)
 				r.Delete("/{id}", productHandler.Delete)
+			})
+
+			r.Route("/warehouses", func(r chi.Router) {
+				r.Get("/", warehouseHandler.List)
+				r.Post("/", warehouseHandler.Create)
+				r.Get("/{id}", warehouseHandler.GetByID)
+				r.Put("/{id}", warehouseHandler.Update)
+				r.Delete("/{id}", warehouseHandler.Delete)
+			})
+
+			r.Route("/stores", func(r chi.Router) {
+				r.Get("/", storeHandler.List)
+				r.Post("/", storeHandler.Create)
+				r.Get("/{id}", storeHandler.GetByID)
+				r.Put("/{id}", storeHandler.Update)
+				r.Delete("/{id}", storeHandler.Delete)
 			})
 		})
 	})

@@ -27,16 +27,13 @@ func NewJWTManager(secretKey string) *JWTManager {
 	return &JWTManager{secretKey: secretKey}
 }
 
-// GenerateToken создает JWT токен для пользователя
-// JWT (JSON Web Token) - стандартный способ передачи информации о пользователе
-// Токен содержит claims (данные) и подпись для проверки подлинности
 func (m *JWTManager) GenerateToken(userID int, email string, roleID int) (string, error) {
 	claims := Claims{
 		UserID: userID,
 		Email:  email,
 		RoleID: roleID,
 		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(24 * time.Hour)), // Токен действителен 24 часа
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(24 * time.Hour)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
 			NotBefore: jwt.NewNumericDate(time.Now()),
 		},
@@ -46,10 +43,8 @@ func (m *JWTManager) GenerateToken(userID int, email string, roleID int) (string
 	return token.SignedString([]byte(m.secretKey))
 }
 
-// ValidateToken проверяет и парсит JWT токен
 func (m *JWTManager) ValidateToken(tokenString string) (*Claims, error) {
 	token, err := jwt.ParseWithClaims(tokenString, &Claims{}, func(token *jwt.Token) (interface{}, error) {
-		// Проверяем метод подписи
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, ErrInvalidToken
 		}

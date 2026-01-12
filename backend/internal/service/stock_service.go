@@ -5,6 +5,8 @@ import (
 
 	"warehouse-backend/internal/dto"
 	"warehouse-backend/internal/repository"
+
+	"github.com/rs/zerolog/log"
 )
 
 type StockService struct {
@@ -24,6 +26,11 @@ func (s *StockService) GetCurrentStock(
 
 	items, err := s.repo.GetCurrentStock(ctx, warehouseID, limit, offset)
 	if err != nil {
+		log.Error().Err(err).
+			Interface("warehouseId", warehouseID).
+			Int("limit", limit).
+			Int("offset", offset).
+			Msg("Failed to get current stock")
 		return nil, err
 	}
 

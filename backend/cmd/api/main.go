@@ -19,11 +19,9 @@ import (
 func main() {
 	cfg := config.Load()
 
-	// Инициализируем структурированное логирование
 	logger.Init(cfg.Env)
 	log.Info().Str("env", cfg.Env).Msg("Starting warehouse management system")
 
-	// Подключаемся к БД
 	pg, err := db.New(db.Config{
 		Host:     cfg.DBHost,
 		Port:     cfg.DBPort,
@@ -36,10 +34,7 @@ func main() {
 	}
 	defer pg.Pool.Close()
 
-	// Запускаем миграции БД (если директория migrations существует)
-	// Миграции - это версионированные SQL скрипты для управления схемой БД
-	// Они позволяют отслеживать изменения и применять их последовательно
-	migrationsPath := "migrations"
+	migrationsPath := "./migrations"
 	if _, err := os.Stat(migrationsPath); err == nil {
 		if err := db.RunMigrations(db.Config{
 			Host:     cfg.DBHost,
@@ -62,7 +57,6 @@ func main() {
 		Handler: router,
 	}
 
-	// Запускаем сервер в горутине
 	go func() {
 		log.Info().Str("addr", addr).Msg("API server started")
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
@@ -70,14 +64,12 @@ func main() {
 		}
 	}()
 
-	// Graceful shutdown: ждем сигнал для завершения
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 
 	log.Info().Msg("Shutting down server...")
 
-	// Даем серверу 5 секунд на завершение активных запросов
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 

@@ -26,15 +26,11 @@ func NewRoleRepository(pool *pgxpool.Pool) *RoleRepository {
 	return &RoleRepository{pool: pool}
 }
 
-// GetByID проверяет существование роли по ID
-// Примечание: В схеме БД roleId создан без кавычек, поэтому PostgreSQL
-// приводит его к нижнему регистру - roleid
 func (r *RoleRepository) GetByID(ctx context.Context, roleID int) (*Role, error) {
-	// Используем roleid без кавычек, так как в CREATE TABLE было без кавычек
 	query := `
-		SELECT roleid, name
-		FROM UserRoles
-		WHERE roleid = $1
+		SELECT role_id, name
+		FROM user_roles
+		WHERE role_id = $1
 	`
 
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
@@ -55,4 +51,3 @@ func (r *RoleRepository) GetByID(ctx context.Context, roleID int) (*Role, error)
 
 	return &role, nil
 }
-

@@ -29,9 +29,8 @@ func (r *StockRepository) GetCurrentStock(
 	offset int,
 ) ([]StockItem, error) {
 
-	// Используем кавычки для camelCase имен полей из view
 	query := `
-		SELECT "productId", "warehouseId", "currentQuantity"
+		SELECT product_id, warehouse_id, current_quantity
 		FROM vw_current_stock
 	`
 
@@ -39,12 +38,12 @@ func (r *StockRepository) GetCurrentStock(
 	argPos := 1
 
 	if warehouseID != nil {
-		query += ` WHERE "warehouseId" = $1`
+		query += ` WHERE warehouse_id = $1`
 		args = append(args, *warehouseID)
 		argPos++
 	}
 
-	query += fmt.Sprintf(` ORDER BY "productId" LIMIT $%d OFFSET $%d`, argPos, argPos+1)
+	query += fmt.Sprintf(` ORDER BY product_id LIMIT $%d OFFSET $%d`, argPos, argPos+1)
 	args = append(args, limit, offset)
 
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
@@ -69,7 +68,6 @@ func (r *StockRepository) GetCurrentStock(
 		result = append(result, item)
 	}
 
-	// Проверяем ошибки после итерации (важно для выявления проблем с чтением данных)
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}

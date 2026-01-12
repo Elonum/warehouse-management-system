@@ -40,7 +40,6 @@ func New(cfg Config) (*Postgres, error) {
 		return nil, err
 	}
 
-	// production defaults
 	poolConfig.MaxConns = 10
 	poolConfig.MinConns = 2
 	poolConfig.MaxConnLifetime = time.Hour

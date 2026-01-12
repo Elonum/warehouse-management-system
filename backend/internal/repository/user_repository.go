@@ -16,13 +16,13 @@ var (
 )
 
 type User struct {
-	UserID      int
-	Email       string
-	Name        *string
-	Surname     *string
-	Patronymic  *string
+	UserID       int
+	Email        string
+	Name         *string
+	Surname      *string
+	Patronymic   *string
 	PasswordHash string
-	RoleID      int
+	RoleID       int
 }
 
 type UserRepository struct {
@@ -33,13 +33,10 @@ func NewUserRepository(pool *pgxpool.Pool) *UserRepository {
 	return &UserRepository{pool: pool}
 }
 
-// GetByEmail получает пользователя по email
-// Примечание: В схеме БД колонки созданы без кавычек, поэтому PostgreSQL
-// приводит их к нижнему регистру: userId → userid, passwordHash → passwordhash, roleId → roleid
 func (r *UserRepository) GetByEmail(ctx context.Context, email string) (*User, error) {
 	query := `
-		SELECT userid, email, name, surname, patronymic, passwordhash, roleid
-		FROM Users
+		SELECT user_id, email, name, surname, patronymic, password_hash, role_id
+		FROM users
 		WHERE email = $1
 	`
 
@@ -67,12 +64,11 @@ func (r *UserRepository) GetByEmail(ctx context.Context, email string) (*User, e
 	return &user, nil
 }
 
-// GetByID получает пользователя по ID
 func (r *UserRepository) GetByID(ctx context.Context, userID int) (*User, error) {
 	query := `
-		SELECT userid, email, name, surname, patronymic, passwordhash, roleid
-		FROM Users
-		WHERE userid = $1
+		SELECT user_id, email, name, surname, patronymic, password_hash, role_id
+		FROM users
+		WHERE user_id = $1
 	`
 
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
@@ -99,12 +95,11 @@ func (r *UserRepository) GetByID(ctx context.Context, userID int) (*User, error)
 	return &user, nil
 }
 
-// Create создает нового пользователя
 func (r *UserRepository) Create(ctx context.Context, email, passwordHash string, roleID int, name, surname, patronymic *string) (*User, error) {
 	query := `
-		INSERT INTO Users (email, passwordhash, roleid, name, surname, patronymic)
+		INSERT INTO users (email, password_hash, role_id, name, surname, patronymic)
 		VALUES ($1, $2, $3, $4, $5, $6)
-		RETURNING userid, email, name, surname, patronymic, passwordhash, roleid
+		RETURNING user_id, email, name, surname, patronymic, password_hash, role_id
 	`
 
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
@@ -123,18 +118,14 @@ func (r *UserRepository) Create(ctx context.Context, email, passwordHash string,
 
 	if err != nil {
 		errMsg := err.Error()
-		
-		// Проверяем на дубликат email (UNIQUE constraint)
-		// PostgreSQL может возвращать разные варианты сообщений об ошибке
-		if strings.Contains(errMsg, "duplicate key") || 
-		   strings.Contains(errMsg, "unique constraint") ||
-		   strings.Contains(errMsg, "users_email_key") {
+		if strings.Contains(errMsg, "duplicate key") ||
+			strings.Contains(errMsg, "unique constraint") ||
+			strings.Contains(errMsg, "user_email_key") {
 			return nil, ErrUserExists
 		}
-		
+
 		return nil, err
 	}
 
 	return &user, nil
 }
-

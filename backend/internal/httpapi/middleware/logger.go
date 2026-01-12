@@ -17,7 +17,6 @@ func (rw *responseWriter) WriteHeader(code int) {
 	rw.ResponseWriter.WriteHeader(code)
 }
 
-// Logger middleware для логирования HTTP запросов с использованием структурированного логирования
 func Logger(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
@@ -31,7 +30,6 @@ func Logger(next http.Handler) http.Handler {
 
 		duration := time.Since(start)
 
-		// Структурированное логирование с zerolog
 		log.Info().
 			Str("method", r.Method).
 			Str("path", r.URL.Path).

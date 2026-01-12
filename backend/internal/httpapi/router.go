@@ -15,44 +15,44 @@ import (
 func NewRouter(pg *db.Postgres, cfg config.Config) *chi.Mux {
 	r := chi.NewRouter()
 
-	// global middleware
 	r.Use(middleware.Recovery)
 	r.Use(middleware.Logger)
 
-	// Инициализируем JWT менеджер для авторизации
 	jwtManager := auth.NewJWTManager(cfg.JWTSecret)
 
-	// repositories
 	stockRepo := repository.NewStockRepository(pg.Pool)
 	userRepo := repository.NewUserRepository(pg.Pool)
 	roleRepo := repository.NewRoleRepository(pg.Pool)
+	productRepo := repository.NewProductRepository(pg.Pool)
 
-	// services
 	stockService := service.NewStockService(stockRepo)
 	authService := service.NewAuthService(userRepo, roleRepo, jwtManager)
+	productService := service.NewProductService(productRepo)
 
-	// handlers
 	stockHandler := handlers.NewStockHandler(stockService)
 	healthHandler := handlers.NewHealthHandler(pg)
 	authHandler := handlers.NewAuthHandler(authService)
+	productHandler := handlers.NewProductHandler(productService)
 
 	r.Route("/api/v1", func(r chi.Router) {
-		// Public endpoints (не требуют авторизации)
 		r.Get("/health", healthHandler.DBHealth)
 
-		// Auth endpoints
 		r.Post("/auth/login", authHandler.Login)
 		r.Post("/auth/register", authHandler.Register)
 
-		// Protected endpoints (требуют авторизации)
 		r.Group(func(r chi.Router) {
 			r.Use(middleware.AuthMiddleware(jwtManager))
 
-			// Auth endpoints (для авторизованных пользователей)
 			r.Get("/auth/me", authHandler.GetMe)
-
-			// Stock endpoints
 			r.Get("/stock/current", stockHandler.GetCurrentStock)
+
+			r.Route("/products", func(r chi.Router) {
+				r.Get("/", productHandler.List)
+				r.Post("/", productHandler.Create)
+				r.Get("/{id}", productHandler.GetByID)
+				r.Put("/{id}", productHandler.Update)
+				r.Delete("/{id}", productHandler.Delete)
+			})
 		})
 	})
 

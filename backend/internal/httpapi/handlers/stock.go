@@ -7,6 +7,8 @@ import (
 
 	"warehouse-backend/internal/dto"
 	"warehouse-backend/internal/service"
+
+	"github.com/rs/zerolog/log"
 )
 
 type StockHandler struct {
@@ -32,7 +34,6 @@ func (h *StockHandler) GetCurrentStock(w http.ResponseWriter, r *http.Request) {
 	limit := parseInt(r.URL.Query().Get("limit"), 50)
 	offset := parseInt(r.URL.Query().Get("offset"), 0)
 
-	// Валидация параметров пагинации
 	if limit < 1 || limit > 1000 {
 		writeError(w, http.StatusBadRequest, "INVALID_LIMIT", "limit must be between 1 and 1000")
 		return
@@ -44,8 +45,11 @@ func (h *StockHandler) GetCurrentStock(w http.ResponseWriter, r *http.Request) {
 
 	items, err := h.service.GetCurrentStock(r.Context(), warehouseID, limit, offset)
 	if err != nil {
-		// Логируем реальную ошибку для отладки (в production можно использовать structured logging)
-		// log.Printf("GetCurrentStock error: %v", err)
+		log.Error().Err(err).
+			Interface("warehouseId", warehouseID).
+			Int("limit", limit).
+			Int("offset", offset).
+			Msg("Failed to load stock")
 		writeError(w, http.StatusInternalServerError, "STOCK_LOAD_FAILED", "failed to load stock")
 		return
 	}

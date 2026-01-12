@@ -21,8 +21,6 @@ func NewAuthHandler(service *service.AuthService) *AuthHandler {
 	return &AuthHandler{service: service}
 }
 
-// Login обрабатывает запрос на вход
-// POST /api/v1/auth/login
 func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		writeError(w, http.StatusMethodNotAllowed, "METHOD_NOT_ALLOWED", "method not allowed")
@@ -35,7 +33,6 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Валидация
 	if req.Email == "" || req.Password == "" {
 		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "email and password are required")
 		return
@@ -44,9 +41,11 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	token, user, err := h.service.Login(r.Context(), req.Email, req.Password)
 	if err != nil {
 		if err == service.ErrInvalidCredentials {
+			log.Warn().Str("email", req.Email).Msg("Login failed: invalid credentials")
 			writeError(w, http.StatusUnauthorized, "INVALID_CREDENTIALS", "invalid email or password")
 			return
 		}
+		log.Error().Err(err).Str("email", req.Email).Msg("Login failed")
 		writeError(w, http.StatusInternalServerError, "LOGIN_FAILED", "failed to login")
 		return
 	}
@@ -70,8 +69,6 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(response)
 }
 
-// Register обрабатывает запрос на регистрацию
-// POST /api/v1/auth/register
 func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		writeError(w, http.StatusMethodNotAllowed, "METHOD_NOT_ALLOWED", "method not allowed")
@@ -84,7 +81,6 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Валидация
 	if req.Email == "" || req.Password == "" {
 		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "email and password are required")
 		return
@@ -97,7 +93,6 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 
 	user, err := h.service.Register(r.Context(), req.Email, req.Password, req.RoleID, req.Name, req.Surname, req.Patronymic)
 	if err != nil {
-		// Логируем ошибку для отладки
 		log.Error().Err(err).Str("email", req.Email).Int("roleId", req.RoleID).Msg("Failed to register user")
 
 		if err == repository.ErrUserExists {
@@ -109,7 +104,6 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		// Проверяем специфичные ошибки БД
 		errMsg := err.Error()
 		if strings.Contains(errMsg, "foreign key") || strings.Contains(errMsg, "roleId") {
 			writeError(w, http.StatusBadRequest, "INVALID_ROLE", "specified role does not exist")
@@ -140,11 +134,7 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(response)
 }
 
-// GetMe возвращает информацию о текущем авторизованном пользователе
-// GET /api/v1/auth/me
-// Требует: JWT токен в заголовке Authorization
 func (h *AuthHandler) GetMe(w http.ResponseWriter, r *http.Request) {
-	// Получаем ID пользователя из контекста (добавлен AuthMiddleware)
 	userID := auth.GetUserID(r.Context())
 	if userID == 0 {
 		writeError(w, http.StatusUnauthorized, "UNAUTHORIZED", "user not found in context")
@@ -154,9 +144,11 @@ func (h *AuthHandler) GetMe(w http.ResponseWriter, r *http.Request) {
 	user, err := h.service.GetCurrentUser(r.Context(), userID)
 	if err != nil {
 		if err == repository.ErrUserNotFound {
+			log.Warn().Int("userId", userID).Msg("User not found")
 			writeError(w, http.StatusNotFound, "USER_NOT_FOUND", "user not found")
 			return
 		}
+		log.Error().Err(err).Int("userId", userID).Msg("Failed to load user")
 		writeError(w, http.StatusInternalServerError, "USER_LOAD_FAILED", "failed to load user")
 		return
 	}

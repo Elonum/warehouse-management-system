@@ -21,4 +21,3 @@ type ProductUpdateRequest struct {
 	UnitWeight int      `json:"unitWeight"`
 	UnitCost   *float64 `json:"unitCost,omitempty"`
 }
-

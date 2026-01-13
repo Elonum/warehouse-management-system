@@ -181,4 +181,3 @@ func (r *WarehouseRepository) Delete(ctx context.Context, warehouseID int) error
 
 	return nil
 }
-

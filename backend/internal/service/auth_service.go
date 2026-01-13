@@ -92,4 +92,3 @@ func (s *AuthService) GetCurrentUser(ctx context.Context, userID int) (*reposito
 	}
 	return user, nil
 }
-

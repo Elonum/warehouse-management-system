@@ -26,12 +26,16 @@ func NewRouter(pg *db.Postgres, cfg config.Config) *chi.Mux {
 	productRepo := repository.NewProductRepository(pg.Pool)
 	warehouseRepo := repository.NewWarehouseRepository(pg.Pool)
 	storeRepo := repository.NewStoreRepository(pg.Pool)
+	supplierOrderRepo := repository.NewSupplierOrderRepository(pg.Pool)
+	supplierOrderItemRepo := repository.NewSupplierOrderItemRepository(pg.Pool)
 
 	stockService := service.NewStockService(stockRepo)
 	authService := service.NewAuthService(userRepo, roleRepo, jwtManager)
 	productService := service.NewProductService(productRepo)
 	warehouseService := service.NewWarehouseService(warehouseRepo)
 	storeService := service.NewStoreService(storeRepo)
+	supplierOrderService := service.NewSupplierOrderService(supplierOrderRepo)
+	supplierOrderItemService := service.NewSupplierOrderItemService(supplierOrderItemRepo)
 
 	stockHandler := handlers.NewStockHandler(stockService)
 	healthHandler := handlers.NewHealthHandler(pg)
@@ -39,6 +43,8 @@ func NewRouter(pg *db.Postgres, cfg config.Config) *chi.Mux {
 	productHandler := handlers.NewProductHandler(productService)
 	warehouseHandler := handlers.NewWarehouseHandler(warehouseService)
 	storeHandler := handlers.NewStoreHandler(storeService)
+	supplierOrderHandler := handlers.NewSupplierOrderHandler(supplierOrderService)
+	supplierOrderItemHandler := handlers.NewSupplierOrderItemHandler(supplierOrderItemService)
 
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Get("/health", healthHandler.DBHealth)
@@ -74,6 +80,25 @@ func NewRouter(pg *db.Postgres, cfg config.Config) *chi.Mux {
 				r.Get("/{id}", storeHandler.GetByID)
 				r.Put("/{id}", storeHandler.Update)
 				r.Delete("/{id}", storeHandler.Delete)
+			})
+
+			r.Route("/supplier-orders", func(r chi.Router) {
+				r.Get("/", supplierOrderHandler.List)
+				r.Post("/", supplierOrderHandler.Create)
+				r.Get("/{id}", supplierOrderHandler.GetByID)
+				r.Put("/{id}", supplierOrderHandler.Update)
+				r.Delete("/{id}", supplierOrderHandler.Delete)
+
+				r.Route("/{orderId}/items", func(r chi.Router) {
+					r.Get("/", supplierOrderItemHandler.GetByOrderID)
+				})
+			})
+
+			r.Route("/supplier-order-items", func(r chi.Router) {
+				r.Get("/{id}", supplierOrderItemHandler.GetByID)
+				r.Post("/", supplierOrderItemHandler.Create)
+				r.Put("/{id}", supplierOrderItemHandler.Update)
+				r.Delete("/{id}", supplierOrderItemHandler.Delete)
 			})
 		})
 	})

@@ -245,4 +245,3 @@ func (r *ProductRepository) Delete(ctx context.Context, productID int) error {
 
 	return nil
 }
-

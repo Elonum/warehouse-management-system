@@ -171,4 +171,3 @@ func (r *StoreRepository) Delete(ctx context.Context, storeID int) error {
 
 	return nil
 }
-

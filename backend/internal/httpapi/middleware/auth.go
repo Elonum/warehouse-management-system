@@ -85,4 +85,3 @@ func writeAuthError(w http.ResponseWriter, message string) {
 
 	json.NewEncoder(w).Encode(response)
 }
-

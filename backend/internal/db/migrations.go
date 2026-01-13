@@ -50,4 +50,3 @@ func RunMigrations(cfg Config, migrationsPath string) error {
 
 	return nil
 }
-

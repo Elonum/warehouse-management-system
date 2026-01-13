@@ -44,4 +44,3 @@ func GetRoleID(ctx context.Context) int {
 	}
 	return 0
 }
-

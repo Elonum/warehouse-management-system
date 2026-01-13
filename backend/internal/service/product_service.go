@@ -127,4 +127,3 @@ func (s *ProductService) Delete(ctx context.Context, productID int) error {
 	log.Info().Int("productId", productID).Msg("Product deleted successfully")
 	return nil
 }
-

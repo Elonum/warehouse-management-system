@@ -35,4 +35,3 @@ func Get() zerolog.Logger {
 func WithContext(ctx interface{}) zerolog.Logger {
 	return log.With().Interface("context", ctx).Logger()
 }
-

@@ -18,4 +18,3 @@ type WarehouseUpdateRequest struct {
 	WarehouseTypeID *int    `json:"warehouseTypeId,omitempty"`
 	Location        *string `json:"location,omitempty"`
 }
-

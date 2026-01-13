@@ -86,4 +86,3 @@ func (s *StoreService) Delete(ctx context.Context, storeID int) error {
 	log.Info().Int("storeId", storeID).Msg("Store deleted successfully")
 	return nil
 }
-

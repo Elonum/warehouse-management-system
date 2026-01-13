@@ -94,4 +94,3 @@ func (s *WarehouseService) Delete(ctx context.Context, warehouseID int) error {
 	log.Info().Int("warehouseId", warehouseID).Msg("Warehouse deleted successfully")
 	return nil
 }
-

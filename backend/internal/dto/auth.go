@@ -6,16 +6,16 @@ type LoginRequest struct {
 }
 
 type LoginResponse struct {
-	Token string      `json:"token"`
+	Token string       `json:"token"`
 	User  UserResponse `json:"user"`
 }
 
 type RegisterRequest struct {
-	Email     string  `json:"email"`
-	Password  string  `json:"password"`
-	RoleID    int     `json:"roleId"`
-	Name      *string `json:"name,omitempty"`
-	Surname   *string `json:"surname,omitempty"`
+	Email      string  `json:"email"`
+	Password   string  `json:"password"`
+	RoleID     int     `json:"roleId"`
+	Name       *string `json:"name,omitempty"`
+	Surname    *string `json:"surname,omitempty"`
 	Patronymic *string `json:"patronymic,omitempty"`
 }
 
@@ -27,4 +27,3 @@ type UserResponse struct {
 	Patronymic *string `json:"patronymic,omitempty"`
 	RoleID     int     `json:"roleId"`
 }
-

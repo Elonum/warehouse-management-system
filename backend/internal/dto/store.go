@@ -12,4 +12,3 @@ type StoreCreateRequest struct {
 type StoreUpdateRequest struct {
 	Name string `json:"name"`
 }
-

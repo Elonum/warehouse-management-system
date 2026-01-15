@@ -28,6 +28,11 @@ func NewRouter(pg *db.Postgres, cfg config.Config) *chi.Mux {
 	storeRepo := repository.NewStoreRepository(pg.Pool)
 	supplierOrderRepo := repository.NewSupplierOrderRepository(pg.Pool)
 	supplierOrderItemRepo := repository.NewSupplierOrderItemRepository(pg.Pool)
+	mpShipmentRepo := repository.NewMpShipmentRepository(pg.Pool)
+	mpShipmentItemRepo := repository.NewMpShipmentItemRepository(pg.Pool)
+	orderStatusRepo := repository.NewOrderStatusRepository(pg.Pool)
+	shipmentStatusRepo := repository.NewShipmentStatusRepository(pg.Pool)
+	supplierOrderDocumentRepo := repository.NewSupplierOrderDocumentRepository(pg.Pool)
 
 	stockService := service.NewStockService(stockRepo)
 	authService := service.NewAuthService(userRepo, roleRepo, jwtManager)
@@ -36,6 +41,11 @@ func NewRouter(pg *db.Postgres, cfg config.Config) *chi.Mux {
 	storeService := service.NewStoreService(storeRepo)
 	supplierOrderService := service.NewSupplierOrderService(supplierOrderRepo)
 	supplierOrderItemService := service.NewSupplierOrderItemService(supplierOrderItemRepo)
+	mpShipmentService := service.NewMpShipmentService(mpShipmentRepo)
+	mpShipmentItemService := service.NewMpShipmentItemService(mpShipmentItemRepo)
+	orderStatusService := service.NewOrderStatusService(orderStatusRepo)
+	shipmentStatusService := service.NewShipmentStatusService(shipmentStatusRepo)
+	supplierOrderDocumentService := service.NewSupplierOrderDocumentService(supplierOrderDocumentRepo)
 
 	stockHandler := handlers.NewStockHandler(stockService)
 	healthHandler := handlers.NewHealthHandler(pg)
@@ -45,6 +55,11 @@ func NewRouter(pg *db.Postgres, cfg config.Config) *chi.Mux {
 	storeHandler := handlers.NewStoreHandler(storeService)
 	supplierOrderHandler := handlers.NewSupplierOrderHandler(supplierOrderService)
 	supplierOrderItemHandler := handlers.NewSupplierOrderItemHandler(supplierOrderItemService)
+	mpShipmentHandler := handlers.NewMpShipmentHandler(mpShipmentService)
+	mpShipmentItemHandler := handlers.NewMpShipmentItemHandler(mpShipmentItemService)
+	orderStatusHandler := handlers.NewOrderStatusHandler(orderStatusService)
+	shipmentStatusHandler := handlers.NewShipmentStatusHandler(shipmentStatusService)
+	supplierOrderDocumentHandler := handlers.NewSupplierOrderDocumentHandler(supplierOrderDocumentService)
 
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Get("/health", healthHandler.DBHealth)
@@ -92,6 +107,10 @@ func NewRouter(pg *db.Postgres, cfg config.Config) *chi.Mux {
 				r.Route("/{orderId}/items", func(r chi.Router) {
 					r.Get("/", supplierOrderItemHandler.GetByOrderID)
 				})
+
+				r.Route("/{orderId}/documents", func(r chi.Router) {
+					r.Get("/", supplierOrderDocumentHandler.GetByOrderID)
+				})
 			})
 
 			r.Route("/supplier-order-items", func(r chi.Router) {
@@ -99,6 +118,48 @@ func NewRouter(pg *db.Postgres, cfg config.Config) *chi.Mux {
 				r.Post("/", supplierOrderItemHandler.Create)
 				r.Put("/{id}", supplierOrderItemHandler.Update)
 				r.Delete("/{id}", supplierOrderItemHandler.Delete)
+			})
+
+			r.Route("/mp-shipments", func(r chi.Router) {
+				r.Get("/", mpShipmentHandler.List)
+				r.Post("/", mpShipmentHandler.Create)
+				r.Get("/{id}", mpShipmentHandler.GetByID)
+				r.Put("/{id}", mpShipmentHandler.Update)
+				r.Delete("/{id}", mpShipmentHandler.Delete)
+
+				r.Route("/{shipmentId}/items", func(r chi.Router) {
+					r.Get("/", mpShipmentItemHandler.GetByShipmentID)
+				})
+			})
+
+			r.Route("/mp-shipment-items", func(r chi.Router) {
+				r.Get("/{id}", mpShipmentItemHandler.GetByID)
+				r.Post("/", mpShipmentItemHandler.Create)
+				r.Put("/{id}", mpShipmentItemHandler.Update)
+				r.Delete("/{id}", mpShipmentItemHandler.Delete)
+			})
+
+			r.Route("/order-statuses", func(r chi.Router) {
+				r.Get("/", orderStatusHandler.List)
+				r.Post("/", orderStatusHandler.Create)
+				r.Get("/{id}", orderStatusHandler.GetByID)
+				r.Put("/{id}", orderStatusHandler.Update)
+				r.Delete("/{id}", orderStatusHandler.Delete)
+			})
+
+			r.Route("/shipment-statuses", func(r chi.Router) {
+				r.Get("/", shipmentStatusHandler.List)
+				r.Post("/", shipmentStatusHandler.Create)
+				r.Get("/{id}", shipmentStatusHandler.GetByID)
+				r.Put("/{id}", shipmentStatusHandler.Update)
+				r.Delete("/{id}", shipmentStatusHandler.Delete)
+			})
+
+			r.Route("/supplier-order-documents", func(r chi.Router) {
+				r.Get("/{id}", supplierOrderDocumentHandler.GetByID)
+				r.Post("/", supplierOrderDocumentHandler.Create)
+				r.Put("/{id}", supplierOrderDocumentHandler.Update)
+				r.Delete("/{id}", supplierOrderDocumentHandler.Delete)
 			})
 		})
 	})

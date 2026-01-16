@@ -25,6 +25,7 @@ func NewRouter(pg *db.Postgres, cfg config.Config) *chi.Mux {
 	roleRepo := repository.NewRoleRepository(pg.Pool)
 	productRepo := repository.NewProductRepository(pg.Pool)
 	warehouseRepo := repository.NewWarehouseRepository(pg.Pool)
+	warehouseTypeRepo := repository.NewWarehouseTypeRepository(pg.Pool)
 	storeRepo := repository.NewStoreRepository(pg.Pool)
 	supplierOrderRepo := repository.NewSupplierOrderRepository(pg.Pool)
 	supplierOrderItemRepo := repository.NewSupplierOrderItemRepository(pg.Pool)
@@ -37,7 +38,8 @@ func NewRouter(pg *db.Postgres, cfg config.Config) *chi.Mux {
 	stockService := service.NewStockService(stockRepo)
 	authService := service.NewAuthService(userRepo, roleRepo, jwtManager)
 	productService := service.NewProductService(productRepo)
-	warehouseService := service.NewWarehouseService(warehouseRepo)
+	warehouseService := service.NewWarehouseService(warehouseRepo, warehouseTypeRepo)
+	warehouseTypeService := service.NewWarehouseTypeService(warehouseTypeRepo)
 	storeService := service.NewStoreService(storeRepo)
 	supplierOrderService := service.NewSupplierOrderService(supplierOrderRepo)
 	supplierOrderItemService := service.NewSupplierOrderItemService(supplierOrderItemRepo)
@@ -52,6 +54,7 @@ func NewRouter(pg *db.Postgres, cfg config.Config) *chi.Mux {
 	authHandler := handlers.NewAuthHandler(authService)
 	productHandler := handlers.NewProductHandler(productService)
 	warehouseHandler := handlers.NewWarehouseHandler(warehouseService)
+	warehouseTypeHandler := handlers.NewWarehouseTypeHandler(warehouseTypeService)
 	storeHandler := handlers.NewStoreHandler(storeService)
 	supplierOrderHandler := handlers.NewSupplierOrderHandler(supplierOrderService)
 	supplierOrderItemHandler := handlers.NewSupplierOrderItemHandler(supplierOrderItemService)
@@ -87,6 +90,14 @@ func NewRouter(pg *db.Postgres, cfg config.Config) *chi.Mux {
 				r.Get("/{id}", warehouseHandler.GetByID)
 				r.Put("/{id}", warehouseHandler.Update)
 				r.Delete("/{id}", warehouseHandler.Delete)
+			})
+
+			r.Route("/warehouse-types", func(r chi.Router) {
+				r.Get("/", warehouseTypeHandler.List)
+				r.Post("/", warehouseTypeHandler.Create)
+				r.Get("/{id}", warehouseTypeHandler.GetByID)
+				r.Put("/{id}", warehouseTypeHandler.Update)
+				r.Delete("/{id}", warehouseTypeHandler.Delete)
 			})
 
 			r.Route("/stores", func(r chi.Router) {

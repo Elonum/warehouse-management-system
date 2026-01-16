@@ -10,11 +10,15 @@ import (
 )
 
 type WarehouseService struct {
-	repo *repository.WarehouseRepository
+	repo              *repository.WarehouseRepository
+	warehouseTypeRepo *repository.WarehouseTypeRepository
 }
 
-func NewWarehouseService(repo *repository.WarehouseRepository) *WarehouseService {
-	return &WarehouseService{repo: repo}
+func NewWarehouseService(repo *repository.WarehouseRepository, warehouseTypeRepo *repository.WarehouseTypeRepository) *WarehouseService {
+	return &WarehouseService{
+		repo:              repo,
+		warehouseTypeRepo: warehouseTypeRepo,
+	}
 }
 
 func (s *WarehouseService) GetByID(ctx context.Context, warehouseID int) (*dto.WarehouseResponse, error) {
@@ -53,6 +57,18 @@ func (s *WarehouseService) List(ctx context.Context, limit, offset int) ([]dto.W
 }
 
 func (s *WarehouseService) Create(ctx context.Context, req dto.WarehouseCreateRequest) (*dto.WarehouseResponse, error) {
+	if req.WarehouseTypeID != nil {
+		_, err := s.warehouseTypeRepo.GetByID(ctx, *req.WarehouseTypeID)
+		if err != nil {
+			if err == repository.ErrWarehouseTypeNotFound {
+				log.Warn().Int("warehouseTypeId", *req.WarehouseTypeID).Msg("Warehouse type not found")
+				return nil, repository.ErrWarehouseTypeNotFound
+			}
+			log.Error().Err(err).Int("warehouseTypeId", *req.WarehouseTypeID).Msg("Failed to validate warehouse type")
+			return nil, err
+		}
+	}
+
 	warehouse, err := s.repo.Create(ctx, req.Name, req.WarehouseTypeID, req.Location)
 	if err != nil {
 		log.Error().Err(err).Str("name", req.Name).Msg("Failed to create warehouse")
@@ -69,6 +85,18 @@ func (s *WarehouseService) Create(ctx context.Context, req dto.WarehouseCreateRe
 }
 
 func (s *WarehouseService) Update(ctx context.Context, warehouseID int, req dto.WarehouseUpdateRequest) (*dto.WarehouseResponse, error) {
+	if req.WarehouseTypeID != nil {
+		_, err := s.warehouseTypeRepo.GetByID(ctx, *req.WarehouseTypeID)
+		if err != nil {
+			if err == repository.ErrWarehouseTypeNotFound {
+				log.Warn().Int("warehouseTypeId", *req.WarehouseTypeID).Msg("Warehouse type not found")
+				return nil, repository.ErrWarehouseTypeNotFound
+			}
+			log.Error().Err(err).Int("warehouseTypeId", *req.WarehouseTypeID).Msg("Failed to validate warehouse type")
+			return nil, err
+		}
+	}
+
 	warehouse, err := s.repo.Update(ctx, warehouseID, req.Name, req.WarehouseTypeID, req.Location)
 	if err != nil {
 		log.Error().Err(err).Int("warehouseId", warehouseID).Msg("Failed to update warehouse")

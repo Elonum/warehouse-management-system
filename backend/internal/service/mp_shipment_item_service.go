@@ -10,11 +10,19 @@ import (
 )
 
 type MpShipmentItemService struct {
-	repo *repository.MpShipmentItemRepository
+	repo          *repository.MpShipmentItemRepository
+	shipmentRepo  *repository.MpShipmentRepository
+	productRepo   *repository.ProductRepository
+	warehouseRepo *repository.WarehouseRepository
 }
 
-func NewMpShipmentItemService(repo *repository.MpShipmentItemRepository) *MpShipmentItemService {
-	return &MpShipmentItemService{repo: repo}
+func NewMpShipmentItemService(repo *repository.MpShipmentItemRepository, shipmentRepo *repository.MpShipmentRepository, productRepo *repository.ProductRepository, warehouseRepo *repository.WarehouseRepository) *MpShipmentItemService {
+	return &MpShipmentItemService{
+		repo:          repo,
+		shipmentRepo:  shipmentRepo,
+		productRepo:   productRepo,
+		warehouseRepo: warehouseRepo,
+	}
 }
 
 func (s *MpShipmentItemService) GetByID(ctx context.Context, itemID int) (*dto.MpShipmentItemResponse, error) {
@@ -59,6 +67,41 @@ func (s *MpShipmentItemService) GetByShipmentID(ctx context.Context, shipmentID 
 }
 
 func (s *MpShipmentItemService) Create(ctx context.Context, req dto.MpShipmentItemCreateRequest) (*dto.MpShipmentItemResponse, error) {
+	_, err := s.shipmentRepo.GetByID(ctx, req.ShipmentID)
+	if err != nil {
+		if err == repository.ErrMpShipmentNotFound {
+			log.Warn().Int("shipmentId", req.ShipmentID).Msg("Mp shipment not found")
+			return nil, repository.ErrMpShipmentNotFound
+		}
+		log.Error().Err(err).Int("shipmentId", req.ShipmentID).Msg("Failed to validate mp shipment")
+		return nil, err
+	}
+
+	_, err = s.productRepo.GetByID(ctx, req.ProductID)
+	if err != nil {
+		if err == repository.ErrProductNotFound {
+			log.Warn().Int("productId", req.ProductID).Msg("Product not found")
+			return nil, repository.ErrProductNotFound
+		}
+		log.Error().Err(err).Int("productId", req.ProductID).Msg("Failed to validate product")
+		return nil, err
+	}
+
+	_, err = s.warehouseRepo.GetByID(ctx, req.WarehouseID)
+	if err != nil {
+		if err == repository.ErrWarehouseNotFound {
+			log.Warn().Int("warehouseId", req.WarehouseID).Msg("Warehouse not found")
+			return nil, repository.ErrWarehouseNotFound
+		}
+		log.Error().Err(err).Int("warehouseId", req.WarehouseID).Msg("Failed to validate warehouse")
+		return nil, err
+	}
+
+	if req.AcceptedQty > req.SentQty {
+		log.Warn().Int("sentQty", req.SentQty).Int("acceptedQty", req.AcceptedQty).Msg("Accepted quantity cannot exceed sent quantity")
+		return nil, repository.ErrInvalidQuantity
+	}
+
 	item, err := s.repo.Create(ctx,
 		req.ShipmentID,
 		req.ProductID,
@@ -85,6 +128,41 @@ func (s *MpShipmentItemService) Create(ctx context.Context, req dto.MpShipmentIt
 }
 
 func (s *MpShipmentItemService) Update(ctx context.Context, itemID int, req dto.MpShipmentItemUpdateRequest) (*dto.MpShipmentItemResponse, error) {
+	_, err := s.shipmentRepo.GetByID(ctx, req.ShipmentID)
+	if err != nil {
+		if err == repository.ErrMpShipmentNotFound {
+			log.Warn().Int("shipmentId", req.ShipmentID).Msg("Mp shipment not found")
+			return nil, repository.ErrMpShipmentNotFound
+		}
+		log.Error().Err(err).Int("shipmentId", req.ShipmentID).Msg("Failed to validate mp shipment")
+		return nil, err
+	}
+
+	_, err = s.productRepo.GetByID(ctx, req.ProductID)
+	if err != nil {
+		if err == repository.ErrProductNotFound {
+			log.Warn().Int("productId", req.ProductID).Msg("Product not found")
+			return nil, repository.ErrProductNotFound
+		}
+		log.Error().Err(err).Int("productId", req.ProductID).Msg("Failed to validate product")
+		return nil, err
+	}
+
+	_, err = s.warehouseRepo.GetByID(ctx, req.WarehouseID)
+	if err != nil {
+		if err == repository.ErrWarehouseNotFound {
+			log.Warn().Int("warehouseId", req.WarehouseID).Msg("Warehouse not found")
+			return nil, repository.ErrWarehouseNotFound
+		}
+		log.Error().Err(err).Int("warehouseId", req.WarehouseID).Msg("Failed to validate warehouse")
+		return nil, err
+	}
+
+	if req.AcceptedQty > req.SentQty {
+		log.Warn().Int("sentQty", req.SentQty).Int("acceptedQty", req.AcceptedQty).Msg("Accepted quantity cannot exceed sent quantity")
+		return nil, repository.ErrInvalidQuantity
+	}
+
 	item, err := s.repo.Update(ctx, itemID,
 		req.ShipmentID,
 		req.ProductID,

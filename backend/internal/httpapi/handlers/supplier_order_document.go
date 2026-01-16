@@ -96,6 +96,11 @@ func (h *SupplierOrderDocumentHandler) Create(w http.ResponseWriter, r *http.Req
 
 	doc, err := h.service.Create(r.Context(), req)
 	if err != nil {
+		if err == repository.ErrSupplierOrderNotFound {
+			log.Warn().Int("orderId", req.OrderID).Msg("Supplier order not found")
+			writeError(w, http.StatusBadRequest, "ORDER_NOT_FOUND", "specified supplier order does not exist")
+			return
+		}
 		log.Error().Err(err).Int("orderId", req.OrderID).Str("name", req.Name).Msg("Failed to create supplier order document")
 		writeError(w, http.StatusInternalServerError, "DOCUMENT_CREATE_FAILED", "failed to create supplier order document")
 		return
@@ -142,6 +147,11 @@ func (h *SupplierOrderDocumentHandler) Update(w http.ResponseWriter, r *http.Req
 		if err == repository.ErrSupplierOrderDocumentNotFound {
 			log.Warn().Int("documentId", documentID).Msg("Supplier order document not found for update")
 			writeError(w, http.StatusNotFound, "DOCUMENT_NOT_FOUND", "supplier order document not found")
+			return
+		}
+		if err == repository.ErrSupplierOrderNotFound {
+			log.Warn().Int("orderId", req.OrderID).Msg("Supplier order not found")
+			writeError(w, http.StatusBadRequest, "ORDER_NOT_FOUND", "specified supplier order does not exist")
 			return
 		}
 		log.Error().Err(err).Int("documentId", documentID).Msg("Failed to update supplier order document")

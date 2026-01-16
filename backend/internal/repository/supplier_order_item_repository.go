@@ -13,6 +13,7 @@ import (
 var (
 	ErrSupplierOrderItemNotFound = errors.New("supplier order item not found")
 	ErrSupplierOrderItemExists   = errors.New("supplier order item already exists")
+	ErrInvalidQuantity           = errors.New("invalid quantity")
 )
 
 type SupplierOrderItem struct {

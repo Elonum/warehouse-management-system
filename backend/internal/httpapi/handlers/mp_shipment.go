@@ -143,6 +143,26 @@ func (h *MpShipmentHandler) Create(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusConflict, "SHIPMENT_EXISTS", "mp shipment with this shipmentNumber already exists")
 			return
 		}
+		if err == repository.ErrStoreNotFound {
+			log.Warn().Interface("storeId", req.StoreID).Msg("Store not found")
+			writeError(w, http.StatusBadRequest, "STORE_NOT_FOUND", "specified store does not exist")
+			return
+		}
+		if err == repository.ErrWarehouseNotFound {
+			log.Warn().Interface("warehouseId", req.WarehouseID).Msg("Warehouse not found")
+			writeError(w, http.StatusBadRequest, "WAREHOUSE_NOT_FOUND", "specified warehouse does not exist")
+			return
+		}
+		if err == repository.ErrShipmentStatusNotFound {
+			log.Warn().Interface("statusId", req.StatusID).Msg("Shipment status not found")
+			writeError(w, http.StatusBadRequest, "SHIPMENT_STATUS_NOT_FOUND", "specified shipment status does not exist")
+			return
+		}
+		if err == repository.ErrInvalidQuantity {
+			log.Warn().Int("sentQty", req.SentQty).Int("acceptedQty", req.AcceptedQty).Msg("Invalid quantity")
+			writeError(w, http.StatusBadRequest, "INVALID_QUANTITY", "accepted quantity cannot exceed sent quantity")
+			return
+		}
 		log.Error().Err(err).Str("shipmentNumber", req.ShipmentNumber).Int("userId", userID).Msg("Failed to create mp shipment")
 		writeError(w, http.StatusInternalServerError, "SHIPMENT_CREATE_FAILED", "failed to create mp shipment")
 		return
@@ -204,6 +224,26 @@ func (h *MpShipmentHandler) Update(w http.ResponseWriter, r *http.Request) {
 		if err == repository.ErrMpShipmentExists {
 			log.Warn().Int("shipmentId", shipmentID).Str("shipmentNumber", req.ShipmentNumber).Msg("Mp shipment with shipmentNumber already exists")
 			writeError(w, http.StatusConflict, "SHIPMENT_EXISTS", "mp shipment with this shipmentNumber already exists")
+			return
+		}
+		if err == repository.ErrStoreNotFound {
+			log.Warn().Interface("storeId", req.StoreID).Msg("Store not found")
+			writeError(w, http.StatusBadRequest, "STORE_NOT_FOUND", "specified store does not exist")
+			return
+		}
+		if err == repository.ErrWarehouseNotFound {
+			log.Warn().Interface("warehouseId", req.WarehouseID).Msg("Warehouse not found")
+			writeError(w, http.StatusBadRequest, "WAREHOUSE_NOT_FOUND", "specified warehouse does not exist")
+			return
+		}
+		if err == repository.ErrShipmentStatusNotFound {
+			log.Warn().Interface("statusId", req.StatusID).Msg("Shipment status not found")
+			writeError(w, http.StatusBadRequest, "SHIPMENT_STATUS_NOT_FOUND", "specified shipment status does not exist")
+			return
+		}
+		if err == repository.ErrInvalidQuantity {
+			log.Warn().Int("sentQty", req.SentQty).Int("acceptedQty", req.AcceptedQty).Msg("Invalid quantity")
+			writeError(w, http.StatusBadRequest, "INVALID_QUANTITY", "accepted quantity cannot exceed sent quantity")
 			return
 		}
 		log.Error().Err(err).Int("shipmentId", shipmentID).Int("userId", userID).Msg("Failed to update mp shipment")

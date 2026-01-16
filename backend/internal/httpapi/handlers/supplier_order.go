@@ -119,6 +119,21 @@ func (h *SupplierOrderHandler) Create(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusConflict, "ORDER_EXISTS", "supplier order with this orderNumber already exists")
 			return
 		}
+		if err == repository.ErrOrderStatusNotFound {
+			log.Warn().Interface("statusId", req.StatusID).Msg("Order status not found")
+			writeError(w, http.StatusBadRequest, "ORDER_STATUS_NOT_FOUND", "specified order status does not exist")
+			return
+		}
+		if err == repository.ErrSupplierOrderNotFound {
+			log.Warn().Interface("parentOrderId", req.ParentOrderID).Msg("Parent order not found")
+			writeError(w, http.StatusBadRequest, "PARENT_ORDER_NOT_FOUND", "specified parent order does not exist")
+			return
+		}
+		if err == repository.ErrInvalidDateRange {
+			log.Warn().Msg("Invalid date range")
+			writeError(w, http.StatusBadRequest, "INVALID_DATE_RANGE", "invalid date range: planned receipt date must be after purchase date, actual receipt date must be after planned receipt date")
+			return
+		}
 		log.Error().Err(err).Str("orderNumber", req.OrderNumber).Int("userId", userID).Msg("Failed to create supplier order")
 		writeError(w, http.StatusInternalServerError, "ORDER_CREATE_FAILED", "failed to create supplier order")
 		return
@@ -168,6 +183,21 @@ func (h *SupplierOrderHandler) Update(w http.ResponseWriter, r *http.Request) {
 		if err == repository.ErrSupplierOrderExists {
 			log.Warn().Int("orderId", orderID).Str("orderNumber", req.OrderNumber).Msg("Supplier order with orderNumber already exists")
 			writeError(w, http.StatusConflict, "ORDER_EXISTS", "supplier order with this orderNumber already exists")
+			return
+		}
+		if err == repository.ErrOrderStatusNotFound {
+			log.Warn().Interface("statusId", req.StatusID).Msg("Order status not found")
+			writeError(w, http.StatusBadRequest, "ORDER_STATUS_NOT_FOUND", "specified order status does not exist")
+			return
+		}
+		if err == repository.ErrInvalidParentOrder {
+			log.Warn().Int("orderId", orderID).Interface("parentOrderId", req.ParentOrderID).Msg("Order cannot be parent of itself")
+			writeError(w, http.StatusBadRequest, "INVALID_PARENT_ORDER", "order cannot be parent of itself")
+			return
+		}
+		if err == repository.ErrInvalidDateRange {
+			log.Warn().Msg("Invalid date range")
+			writeError(w, http.StatusBadRequest, "INVALID_DATE_RANGE", "invalid date range: planned receipt date must be after purchase date, actual receipt date must be after planned receipt date")
 			return
 		}
 		log.Error().Err(err).Int("orderId", orderID).Int("userId", userID).Msg("Failed to update supplier order")

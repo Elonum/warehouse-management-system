@@ -10,11 +10,15 @@ import (
 )
 
 type SupplierOrderDocumentService struct {
-	repo *repository.SupplierOrderDocumentRepository
+	repo      *repository.SupplierOrderDocumentRepository
+	orderRepo *repository.SupplierOrderRepository
 }
 
-func NewSupplierOrderDocumentService(repo *repository.SupplierOrderDocumentRepository) *SupplierOrderDocumentService {
-	return &SupplierOrderDocumentService{repo: repo}
+func NewSupplierOrderDocumentService(repo *repository.SupplierOrderDocumentRepository, orderRepo *repository.SupplierOrderRepository) *SupplierOrderDocumentService {
+	return &SupplierOrderDocumentService{
+		repo:      repo,
+		orderRepo: orderRepo,
+	}
 }
 
 func (s *SupplierOrderDocumentService) GetByID(ctx context.Context, documentID int) (*dto.SupplierOrderDocumentResponse, error) {
@@ -55,6 +59,16 @@ func (s *SupplierOrderDocumentService) GetByOrderID(ctx context.Context, orderID
 }
 
 func (s *SupplierOrderDocumentService) Create(ctx context.Context, req dto.SupplierOrderDocumentCreateRequest) (*dto.SupplierOrderDocumentResponse, error) {
+	_, err := s.orderRepo.GetByID(ctx, req.OrderID)
+	if err != nil {
+		if err == repository.ErrSupplierOrderNotFound {
+			log.Warn().Int("orderId", req.OrderID).Msg("Supplier order not found")
+			return nil, repository.ErrSupplierOrderNotFound
+		}
+		log.Error().Err(err).Int("orderId", req.OrderID).Msg("Failed to validate supplier order")
+		return nil, err
+	}
+
 	doc, err := s.repo.Create(ctx, req.OrderID, req.Name, req.Description, req.FilePath)
 	if err != nil {
 		log.Error().Err(err).Int("orderId", req.OrderID).Str("name", req.Name).Msg("Failed to create supplier order document")
@@ -72,6 +86,16 @@ func (s *SupplierOrderDocumentService) Create(ctx context.Context, req dto.Suppl
 }
 
 func (s *SupplierOrderDocumentService) Update(ctx context.Context, documentID int, req dto.SupplierOrderDocumentUpdateRequest) (*dto.SupplierOrderDocumentResponse, error) {
+	_, err := s.orderRepo.GetByID(ctx, req.OrderID)
+	if err != nil {
+		if err == repository.ErrSupplierOrderNotFound {
+			log.Warn().Int("orderId", req.OrderID).Msg("Supplier order not found")
+			return nil, repository.ErrSupplierOrderNotFound
+		}
+		log.Error().Err(err).Int("orderId", req.OrderID).Msg("Failed to validate supplier order")
+		return nil, err
+	}
+
 	doc, err := s.repo.Update(ctx, documentID, req.OrderID, req.Name, req.Description, req.FilePath)
 	if err != nil {
 		log.Error().Err(err).Int("documentId", documentID).Msg("Failed to update supplier order document")

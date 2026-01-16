@@ -120,6 +120,26 @@ func (h *SupplierOrderItemHandler) Create(w http.ResponseWriter, r *http.Request
 			writeError(w, http.StatusConflict, "ITEM_EXISTS", "supplier order item already exists")
 			return
 		}
+		if err == repository.ErrSupplierOrderNotFound {
+			log.Warn().Int("orderId", req.OrderID).Msg("Supplier order not found")
+			writeError(w, http.StatusBadRequest, "ORDER_NOT_FOUND", "specified supplier order does not exist")
+			return
+		}
+		if err == repository.ErrProductNotFound {
+			log.Warn().Int("productId", req.ProductID).Msg("Product not found")
+			writeError(w, http.StatusBadRequest, "PRODUCT_NOT_FOUND", "specified product does not exist")
+			return
+		}
+		if err == repository.ErrWarehouseNotFound {
+			log.Warn().Int("warehouseId", req.WarehouseID).Msg("Warehouse not found")
+			writeError(w, http.StatusBadRequest, "WAREHOUSE_NOT_FOUND", "specified warehouse does not exist")
+			return
+		}
+		if err == repository.ErrInvalidQuantity {
+			log.Warn().Int("orderedQty", req.OrderedQty).Int("receivedQty", req.ReceivedQty).Msg("Invalid quantity")
+			writeError(w, http.StatusBadRequest, "INVALID_QUANTITY", "received quantity cannot exceed ordered quantity")
+			return
+		}
 		log.Error().Err(err).Int("orderId", req.OrderID).Int("productId", req.ProductID).Int("userId", userID).Msg("Failed to create supplier order item")
 		writeError(w, http.StatusInternalServerError, "ITEM_CREATE_FAILED", "failed to create supplier order item")
 		return
@@ -189,6 +209,26 @@ func (h *SupplierOrderItemHandler) Update(w http.ResponseWriter, r *http.Request
 		if err == repository.ErrSupplierOrderItemExists {
 			log.Warn().Int("itemId", itemID).Int("orderId", req.OrderID).Int("productId", req.ProductID).Msg("Supplier order item already exists")
 			writeError(w, http.StatusConflict, "ITEM_EXISTS", "supplier order item already exists")
+			return
+		}
+		if err == repository.ErrSupplierOrderNotFound {
+			log.Warn().Int("orderId", req.OrderID).Msg("Supplier order not found")
+			writeError(w, http.StatusBadRequest, "ORDER_NOT_FOUND", "specified supplier order does not exist")
+			return
+		}
+		if err == repository.ErrProductNotFound {
+			log.Warn().Int("productId", req.ProductID).Msg("Product not found")
+			writeError(w, http.StatusBadRequest, "PRODUCT_NOT_FOUND", "specified product does not exist")
+			return
+		}
+		if err == repository.ErrWarehouseNotFound {
+			log.Warn().Int("warehouseId", req.WarehouseID).Msg("Warehouse not found")
+			writeError(w, http.StatusBadRequest, "WAREHOUSE_NOT_FOUND", "specified warehouse does not exist")
+			return
+		}
+		if err == repository.ErrInvalidQuantity {
+			log.Warn().Int("orderedQty", req.OrderedQty).Int("receivedQty", req.ReceivedQty).Msg("Invalid quantity")
+			writeError(w, http.StatusBadRequest, "INVALID_QUANTITY", "received quantity cannot exceed ordered quantity")
 			return
 		}
 		log.Error().Err(err).Int("itemId", itemID).Int("userId", userID).Msg("Failed to update supplier order item")

@@ -104,6 +104,26 @@ func (h *MpShipmentItemHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	item, err := h.service.Create(r.Context(), req)
 	if err != nil {
+		if err == repository.ErrMpShipmentNotFound {
+			log.Warn().Int("shipmentId", req.ShipmentID).Msg("Mp shipment not found")
+			writeError(w, http.StatusBadRequest, "SHIPMENT_NOT_FOUND", "specified mp shipment does not exist")
+			return
+		}
+		if err == repository.ErrProductNotFound {
+			log.Warn().Int("productId", req.ProductID).Msg("Product not found")
+			writeError(w, http.StatusBadRequest, "PRODUCT_NOT_FOUND", "specified product does not exist")
+			return
+		}
+		if err == repository.ErrWarehouseNotFound {
+			log.Warn().Int("warehouseId", req.WarehouseID).Msg("Warehouse not found")
+			writeError(w, http.StatusBadRequest, "WAREHOUSE_NOT_FOUND", "specified warehouse does not exist")
+			return
+		}
+		if err == repository.ErrInvalidQuantity {
+			log.Warn().Int("sentQty", req.SentQty).Int("acceptedQty", req.AcceptedQty).Msg("Invalid quantity")
+			writeError(w, http.StatusBadRequest, "INVALID_QUANTITY", "accepted quantity cannot exceed sent quantity")
+			return
+		}
 		log.Error().Err(err).Int("shipmentId", req.ShipmentID).Int("productId", req.ProductID).Msg("Failed to create mp shipment item")
 		writeError(w, http.StatusInternalServerError, "ITEM_CREATE_FAILED", "failed to create mp shipment item")
 		return
@@ -158,6 +178,26 @@ func (h *MpShipmentItemHandler) Update(w http.ResponseWriter, r *http.Request) {
 		if err == repository.ErrMpShipmentItemNotFound {
 			log.Warn().Int("itemId", itemID).Msg("Mp shipment item not found for update")
 			writeError(w, http.StatusNotFound, "ITEM_NOT_FOUND", "mp shipment item not found")
+			return
+		}
+		if err == repository.ErrMpShipmentNotFound {
+			log.Warn().Int("shipmentId", req.ShipmentID).Msg("Mp shipment not found")
+			writeError(w, http.StatusBadRequest, "SHIPMENT_NOT_FOUND", "specified mp shipment does not exist")
+			return
+		}
+		if err == repository.ErrProductNotFound {
+			log.Warn().Int("productId", req.ProductID).Msg("Product not found")
+			writeError(w, http.StatusBadRequest, "PRODUCT_NOT_FOUND", "specified product does not exist")
+			return
+		}
+		if err == repository.ErrWarehouseNotFound {
+			log.Warn().Int("warehouseId", req.WarehouseID).Msg("Warehouse not found")
+			writeError(w, http.StatusBadRequest, "WAREHOUSE_NOT_FOUND", "specified warehouse does not exist")
+			return
+		}
+		if err == repository.ErrInvalidQuantity {
+			log.Warn().Int("sentQty", req.SentQty).Int("acceptedQty", req.AcceptedQty).Msg("Invalid quantity")
+			writeError(w, http.StatusBadRequest, "INVALID_QUANTITY", "accepted quantity cannot exceed sent quantity")
 			return
 		}
 		log.Error().Err(err).Int("itemId", itemID).Msg("Failed to update mp shipment item")

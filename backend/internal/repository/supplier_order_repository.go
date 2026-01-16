@@ -14,6 +14,8 @@ import (
 var (
 	ErrSupplierOrderNotFound = errors.New("supplier order not found")
 	ErrSupplierOrderExists   = errors.New("supplier order already exists")
+	ErrInvalidDateRange      = errors.New("invalid date range")
+	ErrInvalidParentOrder    = errors.New("invalid parent order")
 )
 
 type SupplierOrder struct {

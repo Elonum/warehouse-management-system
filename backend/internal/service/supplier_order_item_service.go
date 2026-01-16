@@ -10,11 +10,19 @@ import (
 )
 
 type SupplierOrderItemService struct {
-	repo *repository.SupplierOrderItemRepository
+	repo          *repository.SupplierOrderItemRepository
+	orderRepo     *repository.SupplierOrderRepository
+	productRepo   *repository.ProductRepository
+	warehouseRepo *repository.WarehouseRepository
 }
 
-func NewSupplierOrderItemService(repo *repository.SupplierOrderItemRepository) *SupplierOrderItemService {
-	return &SupplierOrderItemService{repo: repo}
+func NewSupplierOrderItemService(repo *repository.SupplierOrderItemRepository, orderRepo *repository.SupplierOrderRepository, productRepo *repository.ProductRepository, warehouseRepo *repository.WarehouseRepository) *SupplierOrderItemService {
+	return &SupplierOrderItemService{
+		repo:          repo,
+		orderRepo:     orderRepo,
+		productRepo:   productRepo,
+		warehouseRepo: warehouseRepo,
+	}
 }
 
 func (s *SupplierOrderItemService) GetByID(ctx context.Context, itemID int) (*dto.SupplierOrderItemResponse, error) {
@@ -73,6 +81,41 @@ func (s *SupplierOrderItemService) GetByOrderID(ctx context.Context, orderID int
 }
 
 func (s *SupplierOrderItemService) Create(ctx context.Context, userID int, req dto.SupplierOrderItemCreateRequest) (*dto.SupplierOrderItemResponse, error) {
+	_, err := s.orderRepo.GetByID(ctx, req.OrderID)
+	if err != nil {
+		if err == repository.ErrSupplierOrderNotFound {
+			log.Warn().Int("orderId", req.OrderID).Msg("Supplier order not found")
+			return nil, repository.ErrSupplierOrderNotFound
+		}
+		log.Error().Err(err).Int("orderId", req.OrderID).Msg("Failed to validate supplier order")
+		return nil, err
+	}
+
+	_, err = s.productRepo.GetByID(ctx, req.ProductID)
+	if err != nil {
+		if err == repository.ErrProductNotFound {
+			log.Warn().Int("productId", req.ProductID).Msg("Product not found")
+			return nil, repository.ErrProductNotFound
+		}
+		log.Error().Err(err).Int("productId", req.ProductID).Msg("Failed to validate product")
+		return nil, err
+	}
+
+	_, err = s.warehouseRepo.GetByID(ctx, req.WarehouseID)
+	if err != nil {
+		if err == repository.ErrWarehouseNotFound {
+			log.Warn().Int("warehouseId", req.WarehouseID).Msg("Warehouse not found")
+			return nil, repository.ErrWarehouseNotFound
+		}
+		log.Error().Err(err).Int("warehouseId", req.WarehouseID).Msg("Failed to validate warehouse")
+		return nil, err
+	}
+
+	if req.ReceivedQty > req.OrderedQty {
+		log.Warn().Int("orderedQty", req.OrderedQty).Int("receivedQty", req.ReceivedQty).Msg("Received quantity cannot exceed ordered quantity")
+		return nil, repository.ErrInvalidQuantity
+	}
+
 	item, err := s.repo.Create(ctx,
 		req.OrderID,
 		req.ProductID,
@@ -113,6 +156,41 @@ func (s *SupplierOrderItemService) Create(ctx context.Context, userID int, req d
 }
 
 func (s *SupplierOrderItemService) Update(ctx context.Context, itemID, userID int, req dto.SupplierOrderItemUpdateRequest) (*dto.SupplierOrderItemResponse, error) {
+	_, err := s.orderRepo.GetByID(ctx, req.OrderID)
+	if err != nil {
+		if err == repository.ErrSupplierOrderNotFound {
+			log.Warn().Int("orderId", req.OrderID).Msg("Supplier order not found")
+			return nil, repository.ErrSupplierOrderNotFound
+		}
+		log.Error().Err(err).Int("orderId", req.OrderID).Msg("Failed to validate supplier order")
+		return nil, err
+	}
+
+	_, err = s.productRepo.GetByID(ctx, req.ProductID)
+	if err != nil {
+		if err == repository.ErrProductNotFound {
+			log.Warn().Int("productId", req.ProductID).Msg("Product not found")
+			return nil, repository.ErrProductNotFound
+		}
+		log.Error().Err(err).Int("productId", req.ProductID).Msg("Failed to validate product")
+		return nil, err
+	}
+
+	_, err = s.warehouseRepo.GetByID(ctx, req.WarehouseID)
+	if err != nil {
+		if err == repository.ErrWarehouseNotFound {
+			log.Warn().Int("warehouseId", req.WarehouseID).Msg("Warehouse not found")
+			return nil, repository.ErrWarehouseNotFound
+		}
+		log.Error().Err(err).Int("warehouseId", req.WarehouseID).Msg("Failed to validate warehouse")
+		return nil, err
+	}
+
+	if req.ReceivedQty > req.OrderedQty {
+		log.Warn().Int("orderedQty", req.OrderedQty).Int("receivedQty", req.ReceivedQty).Msg("Received quantity cannot exceed ordered quantity")
+		return nil, repository.ErrInvalidQuantity
+	}
+
 	item, err := s.repo.Update(ctx, itemID,
 		req.OrderID,
 		req.ProductID,

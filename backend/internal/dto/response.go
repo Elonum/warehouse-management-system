@@ -1,7 +1,7 @@
 package dto
 
 type APIResponse[T any] struct {
-	Data  T      `json:"data,omitempty"`
+	Data  T      `json:"data"`
 	Meta  *Meta  `json:"meta,omitempty"`
 	Error *Error `json:"error,omitempty"`
 }

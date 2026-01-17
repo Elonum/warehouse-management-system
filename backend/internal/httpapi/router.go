@@ -34,6 +34,11 @@ func NewRouter(pg *db.Postgres, cfg config.Config) *chi.Mux {
 	orderStatusRepo := repository.NewOrderStatusRepository(pg.Pool)
 	shipmentStatusRepo := repository.NewShipmentStatusRepository(pg.Pool)
 	supplierOrderDocumentRepo := repository.NewSupplierOrderDocumentRepository(pg.Pool)
+	inventoryStatusRepo := repository.NewInventoryStatusRepository(pg.Pool)
+	inventoryRepo := repository.NewInventoryRepository(pg.Pool)
+	inventoryItemRepo := repository.NewInventoryItemRepository(pg.Pool)
+	productCostRepo := repository.NewProductCostRepository(pg.Pool)
+	stockSnapshotRepo := repository.NewStockSnapshotRepository(pg.Pool)
 
 	stockService := service.NewStockService(stockRepo)
 	authService := service.NewAuthService(userRepo, roleRepo, jwtManager)
@@ -48,6 +53,11 @@ func NewRouter(pg *db.Postgres, cfg config.Config) *chi.Mux {
 	mpShipmentItemService := service.NewMpShipmentItemService(mpShipmentItemRepo, mpShipmentRepo, productRepo, warehouseRepo)
 	orderStatusService := service.NewOrderStatusService(orderStatusRepo)
 	shipmentStatusService := service.NewShipmentStatusService(shipmentStatusRepo)
+	inventoryStatusService := service.NewInventoryStatusService(inventoryStatusRepo)
+	inventoryService := service.NewInventoryService(inventoryRepo, inventoryStatusRepo)
+	inventoryItemService := service.NewInventoryItemService(inventoryItemRepo, inventoryRepo, productRepo, warehouseRepo)
+	productCostService := service.NewProductCostService(productCostRepo, productRepo)
+	stockSnapshotService := service.NewStockSnapshotService(stockSnapshotRepo, warehouseRepo, productRepo)
 
 	stockHandler := handlers.NewStockHandler(stockService)
 	healthHandler := handlers.NewHealthHandler(pg)
@@ -63,6 +73,11 @@ func NewRouter(pg *db.Postgres, cfg config.Config) *chi.Mux {
 	orderStatusHandler := handlers.NewOrderStatusHandler(orderStatusService)
 	shipmentStatusHandler := handlers.NewShipmentStatusHandler(shipmentStatusService)
 	supplierOrderDocumentHandler := handlers.NewSupplierOrderDocumentHandler(supplierOrderDocumentService)
+	inventoryStatusHandler := handlers.NewInventoryStatusHandler(inventoryStatusService)
+	inventoryHandler := handlers.NewInventoryHandler(inventoryService)
+	inventoryItemHandler := handlers.NewInventoryItemHandler(inventoryItemService)
+	productCostHandler := handlers.NewProductCostHandler(productCostService)
+	stockSnapshotHandler := handlers.NewStockSnapshotHandler(stockSnapshotService)
 
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Get("/health", healthHandler.DBHealth)
@@ -171,6 +186,49 @@ func NewRouter(pg *db.Postgres, cfg config.Config) *chi.Mux {
 				r.Post("/", supplierOrderDocumentHandler.Create)
 				r.Put("/{id}", supplierOrderDocumentHandler.Update)
 				r.Delete("/{id}", supplierOrderDocumentHandler.Delete)
+			})
+
+			r.Route("/inventory-statuses", func(r chi.Router) {
+				r.Get("/", inventoryStatusHandler.List)
+				r.Post("/", inventoryStatusHandler.Create)
+				r.Get("/{id}", inventoryStatusHandler.GetByID)
+				r.Put("/{id}", inventoryStatusHandler.Update)
+				r.Delete("/{id}", inventoryStatusHandler.Delete)
+			})
+
+			r.Route("/inventories", func(r chi.Router) {
+				r.Get("/", inventoryHandler.List)
+				r.Post("/", inventoryHandler.Create)
+				r.Get("/{id}", inventoryHandler.GetByID)
+				r.Put("/{id}", inventoryHandler.Update)
+				r.Delete("/{id}", inventoryHandler.Delete)
+
+				r.Route("/{inventoryId}/items", func(r chi.Router) {
+					r.Get("/", inventoryItemHandler.GetByInventoryID)
+				})
+			})
+
+			r.Route("/inventory-items", func(r chi.Router) {
+				r.Get("/{id}", inventoryItemHandler.GetByID)
+				r.Post("/", inventoryItemHandler.Create)
+				r.Put("/{id}", inventoryItemHandler.Update)
+				r.Delete("/{id}", inventoryItemHandler.Delete)
+			})
+
+			r.Route("/product-costs", func(r chi.Router) {
+				r.Get("/", productCostHandler.List)
+				r.Post("/", productCostHandler.Create)
+				r.Get("/{id}", productCostHandler.GetByID)
+				r.Put("/{id}", productCostHandler.Update)
+				r.Delete("/{id}", productCostHandler.Delete)
+			})
+
+			r.Route("/stock-snapshots", func(r chi.Router) {
+				r.Get("/", stockSnapshotHandler.List)
+				r.Post("/", stockSnapshotHandler.Create)
+				r.Get("/{id}", stockSnapshotHandler.GetByID)
+				r.Put("/{id}", stockSnapshotHandler.Update)
+				r.Delete("/{id}", stockSnapshotHandler.Delete)
 			})
 		})
 	})

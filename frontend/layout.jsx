@@ -52,10 +52,17 @@ export default function Layout({ children, currentPageName }) {
     const loadUser = async () => {
       try {
         const userData = await api.auth.me();
-        
-        setUser(userData);
+        setUser({
+          id: userData.userId,
+          email: userData.email,
+          name: userData.name || '',
+          surname: userData.surname || '',
+          full_name: `${userData.name || ''} ${userData.surname || ''}`.trim() || userData.email,
+          role: 'user',
+        });
       } catch (e) {
         console.log('User not logged in');
+        setUser(null);
       }
     };
     loadUser();
@@ -71,6 +78,7 @@ export default function Layout({ children, currentPageName }) {
 
   const handleLogout = () => {
     api.auth.logout();
+    setUser(null);
   };
 
   return (

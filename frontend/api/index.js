@@ -1,17 +1,19 @@
 /**
  * API Client Entry Point
  * 
- * По умолчанию использует Mock API для разработки без backend
+ * По умолчанию использует реальный API клиент
  * 
- * Для переключения на реальный API:
- * 1. Установите VITE_API_URL в .env файле
- * 2. Или измените импорт ниже на './apiClient'
+ * Для переключения на Mock API (для разработки без backend):
+ * 1. Закомментируйте строки ниже
+ * 2. Раскомментируйте строки с mockApiClient
  */
 
-// По умолчанию используем mock API (для разработки без backend)
-export { api } from './mockApiClient';
-export { api as default } from './mockApiClient';
+// Используем реальный API клиент
+import { api as apiClient, ApiError } from './apiClient';
 
-// Для использования реального API раскомментируйте строки ниже и закомментируйте строки выше:
-// export { api } from './apiClient';
-// export { api as default } from './apiClient';
+export { apiClient as api, ApiError };
+export { apiClient as default };
+
+// Для использования Mock API (для разработки без backend) раскомментируйте строки ниже:
+// export { api } from './mockApiClient';
+// export { api as default } from './mockApiClient';

@@ -34,6 +34,7 @@ export default function DataTable({
   pageSize = 10,
   onRowClick,
   emptyMessage = "Нет данных",
+  isLoading = false,
   className
 }) {
   const [searchQuery, setSearchQuery] = useState('');
@@ -153,7 +154,16 @@ export default function DataTable({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {paginatedData.length === 0 ? (
+            {isLoading ? (
+              <TableRow>
+                <TableCell 
+                  colSpan={columns.length} 
+                  className="h-32 text-center text-slate-500"
+                >
+                  Загрузка...
+                </TableCell>
+              </TableRow>
+            ) : paginatedData.length === 0 ? (
               <TableRow>
                 <TableCell 
                   colSpan={columns.length} 

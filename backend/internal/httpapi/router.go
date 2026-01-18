@@ -15,6 +15,7 @@ import (
 func NewRouter(pg *db.Postgres, cfg config.Config) *chi.Mux {
 	r := chi.NewRouter()
 
+	r.Use(middleware.CORS)
 	r.Use(middleware.Recovery)
 	r.Use(middleware.Logger)
 

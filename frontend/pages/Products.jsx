@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { api } from '@/api';
+import { api, ApiError } from '@/api';
 import { Plus, Edit2, Trash2, Package, Eye, History, MoreHorizontal } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -29,27 +29,16 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import PageHeader from '@/components/ui/PageHeader';
 import DataTable from '@/components/ui/DataTable';
-import StatusBadge from '@/components/ui/StatusBadge';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 
 const emptyProduct = {
   article: '',
-  name: '',
   barcode: '',
-  unit_weight: '',
-  base_unit_cost: '',
-  category: '',
-  status: 'active'
+  unitWeight: 0,
+  unitCost: null,
 };
 
 export default function Products() {
@@ -58,54 +47,78 @@ export default function Products() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [currentProduct, setCurrentProduct] = useState(null);
   const [formData, setFormData] = useState(emptyProduct);
+  const [error, setError] = useState('');
 
-  const { data: products = [], isLoading } = useQuery({
+  const { data: productsData, isLoading } = useQuery({
     queryKey: ['products'],
-    queryFn: () => api.entities.Product.list('-created_date'),
+    queryFn: () => api.products.list({ limit: 1000, offset: 0 }),
   });
 
+  const products = productsData || [];
+
   const createMutation = useMutation({
-    mutationFn: (data) => api.entities.Product.create(data),
+    mutationFn: (data) => api.products.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['products'] });
       setDialogOpen(false);
       resetForm();
+      setError('');
+    },
+    onError: (err) => {
+      if (err instanceof ApiError) {
+        setError(err.message || 'Ошибка создания товара');
+      } else {
+        setError('Ошибка создания товара');
+      }
     },
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }) => api.entities.Product.update(id, data),
+    mutationFn: ({ id, data }) => api.products.update(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['products'] });
       setDialogOpen(false);
       resetForm();
+      setError('');
+    },
+    onError: (err) => {
+      if (err instanceof ApiError) {
+        setError(err.message || 'Ошибка обновления товара');
+      } else {
+        setError('Ошибка обновления товара');
+      }
     },
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id) => api.entities.Product.delete(id),
+    mutationFn: (id) => api.products.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['products'] });
       setDeleteDialogOpen(false);
       setCurrentProduct(null);
+    },
+    onError: (err) => {
+      if (err instanceof ApiError) {
+        setError(err.message || 'Ошибка удаления товара');
+      } else {
+        setError('Ошибка удаления товара');
+      }
     },
   });
 
   const resetForm = () => {
     setFormData(emptyProduct);
     setCurrentProduct(null);
+    setError('');
   };
 
   const handleEdit = (product) => {
     setCurrentProduct(product);
     setFormData({
       article: product.article || '',
-      name: product.name || '',
       barcode: product.barcode || '',
-      unit_weight: product.unit_weight || '',
-      base_unit_cost: product.base_unit_cost || '',
-      category: product.category || '',
-      status: product.status || 'active'
+      unitWeight: product.unitWeight || 0,
+      unitCost: product.unitCost || null,
     });
     setDialogOpen(true);
   };
@@ -117,14 +130,27 @@ export default function Products() {
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    setError('');
+
     const data = {
-      ...formData,
-      unit_weight: formData.unit_weight ? parseFloat(formData.unit_weight) : null,
-      base_unit_cost: formData.base_unit_cost ? parseFloat(formData.base_unit_cost) : null,
+      article: formData.article.trim(),
+      barcode: formData.barcode.trim(),
+      unitWeight: parseInt(formData.unitWeight) || 0,
+      unitCost: formData.unitCost ? parseFloat(formData.unitCost) : null,
     };
 
+    if (!data.article) {
+      setError('Артикул обязателен для заполнения');
+      return;
+    }
+
+    if (!data.barcode) {
+      setError('Штрихкод обязателен для заполнения');
+      return;
+    }
+
     if (currentProduct) {
-      updateMutation.mutate({ id: currentProduct.id, data });
+      updateMutation.mutate({ id: currentProduct.productId, data });
     } else {
       createMutation.mutate(data);
     }
@@ -141,50 +167,36 @@ export default function Products() {
       ),
     },
     {
-      accessorKey: 'name',
-      header: 'Наименование',
+      accessorKey: 'barcode',
+      header: 'Штрихкод',
       cell: ({ row }) => (
         <div className="flex items-center gap-3">
           <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-slate-100 dark:bg-slate-800">
             <Package className="w-5 h-5 text-slate-500" />
           </div>
-          <span className="font-medium text-slate-900 dark:text-slate-100">
-            {row.original.name}
+          <span className="font-mono text-sm text-slate-600 dark:text-slate-400">
+            {row.original.barcode || '—'}
           </span>
         </div>
       ),
     },
     {
-      accessorKey: 'barcode',
-      header: 'Штрихкод',
-      cell: ({ row }) => (
-        <span className="font-mono text-sm text-slate-600 dark:text-slate-400">
-          {row.original.barcode || '—'}
-        </span>
-      ),
-    },
-    {
-      accessorKey: 'unit_weight',
-      header: 'Вес (кг)',
+      accessorKey: 'unitWeight',
+      header: 'Вес (г)',
       cell: ({ row }) => (
         <span className="text-slate-600 dark:text-slate-400">
-          {row.original.unit_weight ? `${row.original.unit_weight} kg` : '—'}
+          {row.original.unitWeight ? `${row.original.unitWeight} г` : '—'}
         </span>
       ),
     },
     {
-      accessorKey: 'base_unit_cost',
-      header: 'Базовая цена',
+      accessorKey: 'unitCost',
+      header: 'Цена',
       cell: ({ row }) => (
         <span className="font-medium text-slate-900 dark:text-slate-100">
-          {row.original.base_unit_cost ? `$${row.original.base_unit_cost.toFixed(2)}` : '—'}
+          {row.original.unitCost ? `₽${row.original.unitCost.toFixed(2)}` : '—'}
         </span>
       ),
-    },
-    {
-      accessorKey: 'status',
-      header: 'Статус',
-      cell: ({ row }) => <StatusBadge status={row.original.status} />,
     },
     {
       id: 'actions',
@@ -199,15 +211,9 @@ export default function Products() {
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuItem asChild>
-              <Link to={`${createPageUrl('Stock')}?product=${row.original.id}`}>
+              <Link to={`${createPageUrl('Stock')}?product=${row.original.productId}`}>
                 <Eye className="w-4 h-4 mr-2" />
                 Остатки
-              </Link>
-            </DropdownMenuItem>
-            <DropdownMenuItem asChild>
-              <Link to={`${createPageUrl('StockMovements')}?product=${row.original.id}`}>
-                <History className="w-4 h-4 mr-2" />
-                История движений
               </Link>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
@@ -245,6 +251,7 @@ export default function Products() {
         data={products}
         searchPlaceholder="Поиск товаров..."
         emptyMessage="Товары не найдены"
+        isLoading={isLoading}
       />
 
       {/* Create/Edit Dialog */}
@@ -256,6 +263,11 @@ export default function Products() {
             </DialogTitle>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
+            {error && (
+              <div className="p-3 text-sm text-red-600 bg-red-50 dark:bg-red-900/20 dark:text-red-400 rounded-lg">
+                {error}
+              </div>
+            )}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="article">Артикул *</Label>
@@ -267,73 +279,41 @@ export default function Products() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="barcode">Штрихкод</Label>
+                <Label htmlFor="barcode">Штрихкод *</Label>
                 <Input
                   id="barcode"
                   value={formData.barcode}
                   onChange={(e) => setFormData({ ...formData, barcode: e.target.value })}
-                />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="name">Название товара *</Label>
-              <Input
-                id="name"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                required
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="unit_weight">Вес (кг)</Label>
-                <Input
-                  id="unit_weight"
-                  type="number"
-                  step="0.01"
-                  value={formData.unit_weight}
-                  onChange={(e) => setFormData({ ...formData, unit_weight: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="base_unit_cost">Базовая цена ($)</Label>
-                <Input
-                  id="base_unit_cost"
-                  type="number"
-                  step="0.01"
-                  value={formData.base_unit_cost}
-                  onChange={(e) => setFormData({ ...formData, base_unit_cost: e.target.value })}
+                  required
                 />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="category">Категория</Label>
+                <Label htmlFor="unitWeight">Вес (г) *</Label>
                 <Input
-                  id="category"
-                  value={formData.category}
-                  onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                  id="unitWeight"
+                  type="number"
+                  min="0"
+                  value={formData.unitWeight}
+                  onChange={(e) => setFormData({ ...formData, unitWeight: e.target.value })}
+                  required
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="status">Статус</Label>
-                <Select
-                  value={formData.status}
-                  onValueChange={(value) => setFormData({ ...formData, status: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="active">Активный</SelectItem>
-                    <SelectItem value="inactive">Неактивный</SelectItem>
-                    <SelectItem value="discontinued">Снят с производства</SelectItem>
-                  </SelectContent>
-                </Select>
+                <Label htmlFor="unitCost">Цена (₽)</Label>
+                <Input
+                  id="unitCost"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={formData.unitCost || ''}
+                  onChange={(e) => setFormData({ ...formData, unitCost: e.target.value || null })}
+                />
               </div>
             </div>
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
+              <Button type="button" variant="outline" onClick={() => { setDialogOpen(false); resetForm(); }}>
                 Отмена
               </Button>
               <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending}>
@@ -350,13 +330,13 @@ export default function Products() {
           <AlertDialogHeader>
             <AlertDialogTitle>Удалить товар</AlertDialogTitle>
             <AlertDialogDescription>
-              Вы уверены, что хотите удалить "{currentProduct?.name}"? Это действие невозможно отменить.
+              Вы уверены, что хотите удалить товар "{currentProduct?.article}"? Это действие невозможно отменить.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Отмена</AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => deleteMutation.mutate(currentProduct.id)}
+              onClick={() => deleteMutation.mutate(currentProduct.productId)}
               className="bg-red-600 hover:bg-red-700"
             >
               Удалить

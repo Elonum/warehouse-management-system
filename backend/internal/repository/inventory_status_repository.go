@@ -172,5 +172,3 @@ func (r *InventoryStatusRepository) Delete(ctx context.Context, statusID int) er
 
 	return nil
 }
-
-

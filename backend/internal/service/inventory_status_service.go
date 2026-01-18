@@ -86,5 +86,3 @@ func (s *InventoryStatusService) Delete(ctx context.Context, statusID int) error
 	log.Info().Int("statusId", statusID).Msg("Inventory status deleted successfully")
 	return nil
 }
-
-

@@ -12,5 +12,3 @@ type InventoryStatusCreateRequest struct {
 type InventoryStatusUpdateRequest struct {
 	Name string `json:"name"`
 }
-
-

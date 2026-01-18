@@ -18,12 +18,3 @@ type RegisterRequest struct {
 	Surname    *string `json:"surname,omitempty"`
 	Patronymic *string `json:"patronymic,omitempty"`
 }
-
-type UserResponse struct {
-	UserID     int     `json:"userId"`
-	Email      string  `json:"email"`
-	Name       *string `json:"name,omitempty"`
-	Surname    *string `json:"surname,omitempty"`
-	Patronymic *string `json:"patronymic,omitempty"`
-	RoleID     int     `json:"roleId"`
-}

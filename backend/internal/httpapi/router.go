@@ -58,10 +58,14 @@ func NewRouter(pg *db.Postgres, cfg config.Config) *chi.Mux {
 	inventoryItemService := service.NewInventoryItemService(inventoryItemRepo, inventoryRepo, productRepo, warehouseRepo)
 	productCostService := service.NewProductCostService(productCostRepo, productRepo)
 	stockSnapshotService := service.NewStockSnapshotService(stockSnapshotRepo, warehouseRepo, productRepo)
+	userService := service.NewUserService(userRepo, roleRepo)
+	roleService := service.NewRoleService(roleRepo)
 
 	stockHandler := handlers.NewStockHandler(stockService)
 	healthHandler := handlers.NewHealthHandler(pg)
 	authHandler := handlers.NewAuthHandler(authService)
+	userHandler := handlers.NewUserHandler(userService)
+	roleHandler := handlers.NewRoleHandler(roleService)
 	productHandler := handlers.NewProductHandler(productService)
 	warehouseHandler := handlers.NewWarehouseHandler(warehouseService)
 	warehouseTypeHandler := handlers.NewWarehouseTypeHandler(warehouseTypeService)
@@ -229,6 +233,22 @@ func NewRouter(pg *db.Postgres, cfg config.Config) *chi.Mux {
 				r.Get("/{id}", stockSnapshotHandler.GetByID)
 				r.Put("/{id}", stockSnapshotHandler.Update)
 				r.Delete("/{id}", stockSnapshotHandler.Delete)
+			})
+
+			r.Route("/users", func(r chi.Router) {
+				r.Get("/", userHandler.List)
+				r.Post("/", userHandler.Create)
+				r.Get("/{id}", userHandler.GetByID)
+				r.Put("/{id}", userHandler.Update)
+				r.Delete("/{id}", userHandler.Delete)
+			})
+
+			r.Route("/roles", func(r chi.Router) {
+				r.Get("/", roleHandler.List)
+				r.Post("/", roleHandler.Create)
+				r.Get("/{id}", roleHandler.GetByID)
+				r.Put("/{id}", roleHandler.Update)
+				r.Delete("/{id}", roleHandler.Delete)
 			})
 		})
 	})

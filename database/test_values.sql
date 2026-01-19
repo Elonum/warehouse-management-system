@@ -1,185 +1,138 @@
-BEGIN;
+-- ===== Тестовые данные для базы данных с UUID =====
+-- ВНИМАНИЕ: Этот скрипт использует фиксированные UUID для связей между таблицами
+-- При необходимости можно использовать uuid_generate_v4() для генерации новых UUID
 
--- =========================
--- 1. Роли пользователей
--- =========================
-INSERT INTO user_roles (name) VALUES
-('admin'),
-('purchasing_manager'),
-('logistician'),
-('accountant');
+-- ===== Роли и пользователи =====
 
--- =========================
--- 2. Пользователи
--- =========================
-INSERT INTO users (email, name, surname, patronymic, password_hash, role_id) VALUES
-('admin@senseone.ru', 'Иван', 'Иванов', 'Иванович', 'hash_admin', 1),
-('buyer@senseone.ru', 'Анна', 'Смирнова', 'Олеговна', 'hash_buyer', 2),
-('logist@senseone.ru', 'Дмитрий', 'Кузнецов', 'Алексеевич', 'hash_logist', 3),
-('accountant@senseone.ru', 'Мария', 'Петрова', 'Сергеевна', 'hash_accountant', 4);
+INSERT INTO user_roles (role_id, name) VALUES
+('11111111-1111-1111-1111-111111111111', 'Администратор'),
+('22222222-2222-2222-2222-222222222222', 'Менеджер'),
+('33333333-3333-3333-3333-333333333333', 'Кладовщик')
+ON CONFLICT (role_id) DO NOTHING;
 
--- =========================
--- 3. Типы складов
--- =========================
-INSERT INTO warehouse_types (name) VALUES
-('Основной склад'),
-('Фулфилмент'),
-('Транзитный склад');
+-- Пароль для всех тестовых пользователей: "password123" (bcrypt hash)
+-- ВАЖНО: Замените хеш на реальный bcrypt хеш для вашего пароля!
+INSERT INTO users (user_id, email, name, surname, patronymic, password_hash, role_id) VALUES
+('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'admin@warehouse.ru', 'Иван', 'Иванов', 'Иванович', '$2a$10$rQZ8vK5J5J5J5J5J5J5J5O5J5J5J5J5J5J5J5J5J5J5J5J5J5J5J5J', '11111111-1111-1111-1111-111111111111'),
+('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'manager@warehouse.ru', 'Петр', 'Петров', 'Петрович', '$2a$10$rQZ8vK5J5J5J5J5J5J5J5O5J5J5J5J5J5J5J5J5J5J5J5J5J5J5J5J', '22222222-2222-2222-2222-222222222222'),
+('cccccccc-cccc-cccc-cccc-cccccccccccc', 'storekeeper@warehouse.ru', 'Сергей', 'Сергеев', 'Сергеевич', '$2a$10$rQZ8vK5J5J5J5J5J5J5J5O5J5J5J5J5J5J5J5J5J5J5J5J5J5J5J5J', '33333333-3333-3333-3333-333333333333')
+ON CONFLICT (user_id) DO NOTHING;
 
--- =========================
--- 4. Магазины / маркетплейсы
--- =========================
-INSERT INTO stores (name) VALUES
-('InnoGoods'),
-('InnoBra');
+-- ===== Справочники =====
 
--- =========================
--- 5. Склады
--- =========================
-INSERT INTO warehouses (name, warehouse_type_id, location) VALUES
-('Склад Казань', 1, 'г. Казань'),
-('Склад Москва', 2, 'г. Москва'),
-('Склад Китай', 3, 'г. Шэньчжэнь');
+INSERT INTO warehouse_types (warehouse_type_id, name) VALUES
+('10000000-0000-0000-0000-000000000001', 'Основной склад'),
+('10000000-0000-0000-0000-000000000002', 'Склад возвратов'),
+('10000000-0000-0000-0000-000000000003', 'Временный склад')
+ON CONFLICT (warehouse_type_id) DO NOTHING;
 
--- =========================
--- 6. Товары
--- =========================
-INSERT INTO products (article, barcode, unit_weight, unit_cost) VALUES
-('ING-001', '460000000001', 500, 350.00),
-('ING-002', '460000000002', 700, 520.00),
-('ING-003', '460000000003', 300, 210.00);
+INSERT INTO stores (store_id, name) VALUES
+('20000000-0000-0000-0000-000000000001', 'Wildberries'),
+('20000000-0000-0000-0000-000000000002', 'Ozon'),
+('20000000-0000-0000-0000-000000000003', 'Яндекс.Маркет')
+ON CONFLICT (store_id) DO NOTHING;
 
--- =========================
--- 7. Статусы заказов
--- =========================
-INSERT INTO order_statuses (name) VALUES
-('Создан'),
-('В пути'),
-('Принят'),
-('Закрыт');
+INSERT INTO warehouses (warehouse_id, name, warehouse_type_id, location) VALUES
+('30000000-0000-0000-0000-000000000001', 'Склад Москва', '10000000-0000-0000-0000-000000000001', 'Москва, ул. Складская, 1'),
+('30000000-0000-0000-0000-000000000002', 'Склад Казань', '10000000-0000-0000-0000-000000000001', 'Казань, ул. Складская, 2'),
+('30000000-0000-0000-0000-000000000003', 'Склад возвратов', '10000000-0000-0000-0000-000000000002', 'Москва, ул. Возвратная, 1')
+ON CONFLICT (warehouse_id) DO NOTHING;
 
--- =========================
--- 8. Заказы поставщикам
--- =========================
-INSERT INTO supplier_orders (
-    order_number, buyer, status_id,
-    purchase_date, planned_receipt_date, actual_receipt_date,
-    logistics_china_msk, logistics_msk_kzn, logistics_additional, logistics_total,
-    order_item_cost, positions_qty, total_qty, order_item_weight,
-    created_by
-) VALUES
-(
-    'SO-001', 'SENSE ONE', 3,
-    '2025-01-10', '2025-02-01', '2025-02-05',
-    12000, 4000, 1000, 17000,
-    45000, 2, 150, 120,
-    2
-);
+INSERT INTO products (product_id, article, barcode, unit_weight, unit_cost) VALUES
+('40000000-0000-0000-0000-000000000001', 'PROD-001', '1234567890123', 500, 1500.00),
+('40000000-0000-0000-0000-000000000002', 'PROD-002', '1234567890124', 750, 2300.50),
+('40000000-0000-0000-0000-000000000003', 'PROD-003', '1234567890125', 300, 850.00),
+('40000000-0000-0000-0000-000000000004', 'PROD-004', '1234567890126', 1200, 3500.00),
+('40000000-0000-0000-0000-000000000005', 'PROD-005', '1234567890127', 250, 650.00)
+ON CONFLICT (product_id) DO NOTHING;
 
--- =========================
--- 9. Позиции заказов поставщика
--- =========================
-INSERT INTO supplier_order_items (
-    order_id, product_id, warehouse_id,
-    ordered_qty, received_qty, purchase_price,
-    total_price, total_weight,
-    total_logistics, unit_logistics,
-    unit_self_cost, total_self_cost,
-    fulfillment_cost
-) VALUES
-(1, 1, 1, 100, 100, 300, 30000, 50, 8000, 80, 380, 38000, 15),
-(1, 2, 1, 50, 50, 400, 20000, 35, 9000, 180, 580, 29000, 20);
+-- ===== Заказы поставщикам =====
 
--- =========================
--- 10. Документы по заказам
--- =========================
-INSERT INTO supplier_order_documents (order_id, name, description, file_path) VALUES
-(1, 'invoice.pdf', 'Инвойс от поставщика', '/docs/invoice_so_001.pdf'),
-(1, 'packing_list.pdf', 'Упаковочный лист', '/docs/packing_so_001.pdf');
+INSERT INTO order_statuses (order_status_id, name) VALUES
+('50000000-0000-0000-0000-000000000001', 'Черновик'),
+('50000000-0000-0000-0000-000000000002', 'Ожидает поставки'),
+('50000000-0000-0000-0000-000000000003', 'В пути'),
+('50000000-0000-0000-0000-000000000004', 'Получен'),
+('50000000-0000-0000-0000-000000000005', 'Отменен')
+ON CONFLICT (order_status_id) DO NOTHING;
 
--- =========================
--- 11. Статусы отгрузок
--- =========================
-INSERT INTO shipment_statuses (name) VALUES
-('Подготовлено'),
-('Отправлено'),
-('Принято');
+INSERT INTO supplier_orders (order_id, order_number, buyer, status_id, purchase_date, planned_receipt_date, actual_receipt_date, logistics_china_msk, logistics_msk_kzn, logistics_additional, logistics_total, order_item_cost, positions_qty, total_qty, order_item_weight, created_by, created_at) VALUES
+('60000000-0000-0000-0000-000000000001', 'ORD-2024-001', 'ООО "Поставщик"', '50000000-0000-0000-0000-000000000002', '2024-01-15', '2024-02-01', NULL, 5000.00, 2000.00, 500.00, 7500.00, 15000.00, 3, 150, 75.50, 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', CURRENT_TIMESTAMP),
+('60000000-0000-0000-0000-000000000002', 'ORD-2024-002', 'ИП Иванов', '50000000-0000-0000-0000-000000000004', '2024-01-10', '2024-01-25', '2024-01-24', 3000.00, 1500.00, 0.00, 4500.00, 8000.00, 2, 80, 40.00, 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', CURRENT_TIMESTAMP)
+ON CONFLICT (order_id) DO NOTHING;
 
--- =========================
--- 12. Отгрузки на маркетплейсы
--- =========================
-INSERT INTO mp_shipments (
-    shipment_date, shipment_number,
-    store_id, warehouse_id, status_id,
-    logistics_cost, unit_logistics,
-    acceptance_cost, acceptance_date,
-    positions_qty, sent_qty, accepted_qty,
-    created_by
-) VALUES
-(
-    '2025-02-10', 'MP-001',
-    1, 1, 3,
-    6000, 60,
-    1500, '2025-02-12',
-    2, 120, 115,
-    3
-);
+INSERT INTO supplier_order_items (order_item_id, order_id, product_id, warehouse_id, ordered_qty, received_qty, purchase_price, total_price, total_weight, total_logistics, unit_logistics, unit_self_cost, total_self_cost, fulfillment_cost) VALUES
+('70000000-0000-0000-0000-000000000001', '60000000-0000-0000-0000-000000000001', '40000000-0000-0000-0000-000000000001', '30000000-0000-0000-0000-000000000001', 50, 0, 1500.00, 75000.00, 25000, 2500.00, 50.00, 1500.00, 75000.00, 5000.00),
+('70000000-0000-0000-0000-000000000002', '60000000-0000-0000-0000-000000000001', '40000000-0000-0000-0000-000000000002', '30000000-0000-0000-0000-000000000001', 60, 0, 2300.50, 138030.00, 45000, 3000.00, 50.00, 2300.50, 138030.00, 6000.00),
+('70000000-0000-0000-0000-000000000003', '60000000-0000-0000-0000-000000000001', '40000000-0000-0000-0000-000000000003', '30000000-0000-0000-0000-000000000002', 40, 0, 850.00, 34000.00, 12000, 2000.00, 50.00, 850.00, 34000.00, 3000.00),
+('70000000-0000-0000-0000-000000000004', '60000000-0000-0000-0000-000000000002', '40000000-0000-0000-0000-000000000004', '30000000-0000-0000-0000-000000000001', 30, 30, 3500.00, 105000.00, 36000, 1500.00, 50.00, 3500.00, 105000.00, 4000.00),
+('70000000-0000-0000-0000-000000000005', '60000000-0000-0000-0000-000000000002', '40000000-0000-0000-0000-000000000005', '30000000-0000-0000-0000-000000000001', 50, 50, 650.00, 32500.00, 12500, 3000.00, 60.00, 650.00, 32500.00, 2500.00)
+ON CONFLICT (order_item_id) DO NOTHING;
 
--- =========================
--- 13. Позиции отгрузок
--- =========================
-INSERT INTO mp_shipment_items (
-    shipment_id, product_id, warehouse_id,
-    sent_qty, accepted_qty, logistics_for_item
-) VALUES
-(1, 1, 1, 80, 78, 4000),
-(1, 2, 1, 40, 37, 2000);
+INSERT INTO supplier_order_documents (document_id, order_id, name, description, file_path) VALUES
+('80000000-0000-0000-0000-000000000001', '60000000-0000-0000-0000-000000000001', 'Накладная.pdf', 'Товарная накладная на заказ', 'uploads/documents/ORD-2024-001-накладная.pdf'),
+('80000000-0000-0000-0000-000000000002', '60000000-0000-0000-0000-000000000001', 'Счет.pdf', 'Счет на оплату', 'uploads/documents/ORD-2024-001-счет.pdf')
+ON CONFLICT (document_id) DO NOTHING;
 
--- =========================
--- 14. Статусы инвентаризации
--- =========================
-INSERT INTO inventory_statuses (name) VALUES
-('Создана'),
-('Завершена');
+-- ===== Отгрузки на маркетплейсы =====
 
--- =========================
--- 15. Инвентаризации
--- =========================
-INSERT INTO inventories (
-    adjustment_date, status_id, notes, created_by
-) VALUES
-('2025-02-15', 2, 'Плановая инвентаризация', 4);
+INSERT INTO shipment_statuses (shipment_status_id, name) VALUES
+('90000000-0000-0000-0000-000000000001', 'Создан'),
+('90000000-0000-0000-0000-000000000002', 'Отправлен'),
+('90000000-0000-0000-0000-000000000003', 'В пути'),
+('90000000-0000-0000-0000-000000000004', 'Принят'),
+('90000000-0000-0000-0000-000000000005', 'Отклонен')
+ON CONFLICT (shipment_status_id) DO NOTHING;
 
--- =========================
--- 16. Позиции инвентаризации
--- =========================
-INSERT INTO inventory_items (
-    inventory_id, product_id, warehouse_id,
-    receipt_qty, write_off_qty, reason
-) VALUES
-(1, 1, 1, 2, 0, 'Излишек'),
-(1, 2, 1, 0, 1, 'Брак');
+INSERT INTO mp_shipments (shipment_id, shipment_date, shipment_number, store_id, warehouse_id, status_id, logistics_cost, unit_logistics, acceptance_cost, acceptance_date, positions_qty, sent_qty, accepted_qty, created_by, created_at) VALUES
+('a0000000-0000-0000-0000-000000000001', '2024-01-20', 'SHIP-2024-001', '20000000-0000-0000-0000-000000000001', '30000000-0000-0000-0000-000000000001', '90000000-0000-0000-0000-000000000002', 1500.00, 25.00, 500.00, NULL, 2, 100, 0, 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', CURRENT_TIMESTAMP),
+('a0000000-0000-0000-0000-000000000002', '2024-01-18', 'SHIP-2024-002', '20000000-0000-0000-0000-000000000002', '30000000-0000-0000-0000-000000000001', '90000000-0000-0000-0000-000000000004', 2000.00, 30.00, 600.00, '2024-01-22', 3, 150, 150, 'cccccccc-cccc-cccc-cccc-cccccccccccc', CURRENT_TIMESTAMP)
+ON CONFLICT (shipment_id) DO NOTHING;
 
--- =========================
--- 17. Себестоимость по периодам
--- =========================
-INSERT INTO product_costs (
-    product_id, period_start, period_end,
-    unit_cost_to_warehouse, notes, created_by
-) VALUES
-(1, '2025-02-01', '2025-02-28', 380, 'Партия февраль', 4),
-(2, '2025-02-01', '2025-02-28', 580, 'Партия февраль', 4),
-(3, '2025-02-01', '2025-02-28', 230, 'Партия февраль', 4);
+INSERT INTO mp_shipment_items (shipment_item_id, shipment_id, product_id, warehouse_id, sent_qty, accepted_qty, logistics_for_item) VALUES
+('b0000000-0000-0000-0000-000000000001', 'a0000000-0000-0000-0000-000000000001', '40000000-0000-0000-0000-000000000001', '30000000-0000-0000-0000-000000000001', 50, 0, 750.00),
+('b0000000-0000-0000-0000-000000000002', 'a0000000-0000-0000-0000-000000000001', '40000000-0000-0000-0000-000000000002', '30000000-0000-0000-0000-000000000001', 50, 0, 750.00),
+('b0000000-0000-0000-0000-000000000003', 'a0000000-0000-0000-0000-000000000002', '40000000-0000-0000-0000-000000000003', '30000000-0000-0000-0000-000000000001', 60, 60, 1200.00),
+('b0000000-0000-0000-0000-000000000004', 'a0000000-0000-0000-0000-000000000002', '40000000-0000-0000-0000-000000000004', '30000000-0000-0000-0000-000000000001', 50, 50, 500.00),
+('b0000000-0000-0000-0000-000000000005', 'a0000000-0000-0000-0000-000000000002', '40000000-0000-0000-0000-000000000005', '30000000-0000-0000-0000-000000000001', 40, 40, 300.00)
+ON CONFLICT (shipment_item_id) DO NOTHING;
 
--- =========================
--- 18. Снапшоты остатков
--- =========================
-INSERT INTO stock_snapshots (
-    product_id, warehouse_id,
-    snapshot_date, quantity, created_by
-) VALUES
-(1, 1, '2025-01-31', 100, 1),
-(2, 1, '2025-01-31', 50, 1),
-(3, 1, '2025-01-31', 0, 1);
+-- ===== Инвентаризация =====
 
-COMMIT;
+INSERT INTO inventory_statuses (inventory_status_id, name) VALUES
+('c0000000-0000-0000-0000-000000000001', 'Черновик'),
+('c0000000-0000-0000-0000-000000000002', 'В процессе'),
+('c0000000-0000-0000-0000-000000000003', 'Завершена'),
+('c0000000-0000-0000-0000-000000000004', 'Отменена')
+ON CONFLICT (inventory_status_id) DO NOTHING;
+
+INSERT INTO inventories (inventory_id, adjustment_date, status_id, notes, created_by, created_at) VALUES
+('d0000000-0000-0000-0000-000000000001', '2024-01-25', 'c0000000-0000-0000-0000-000000000003', 'Плановая инвентаризация склада Москва', 'cccccccc-cccc-cccc-cccc-cccccccccccc', CURRENT_TIMESTAMP),
+('d0000000-0000-0000-0000-000000000002', '2024-01-28', 'c0000000-0000-0000-0000-000000000002', 'Инвентаризация склада Казань', 'cccccccc-cccc-cccc-cccc-cccccccccccc', CURRENT_TIMESTAMP)
+ON CONFLICT (inventory_id) DO NOTHING;
+
+INSERT INTO inventory_items (inventory_item_id, inventory_id, product_id, warehouse_id, receipt_qty, write_off_qty, reason) VALUES
+('e0000000-0000-0000-0000-000000000001', 'd0000000-0000-0000-0000-000000000001', '40000000-0000-0000-0000-000000000001', '30000000-0000-0000-0000-000000000001', 10, 0, 'Излишек при инвентаризации'),
+('e0000000-0000-0000-0000-000000000002', 'd0000000-0000-0000-0000-000000000001', '40000000-0000-0000-0000-000000000002', '30000000-0000-0000-0000-000000000001', 0, 5, 'Бой товара'),
+('e0000000-0000-0000-0000-000000000003', 'd0000000-0000-0000-0000-000000000002', '40000000-0000-0000-0000-000000000003', '30000000-0000-0000-0000-000000000002', 15, 0, 'Поступление товара')
+ON CONFLICT (inventory_item_id) DO NOTHING;
+
+-- ===== Себестоимость и снапшоты =====
+
+INSERT INTO product_costs (cost_id, product_id, period_start, period_end, unit_cost_to_warehouse, notes, created_by, created_at) VALUES
+('f0000000-0000-0000-0000-000000000001', '40000000-0000-0000-0000-000000000001', '2024-01-01', '2024-03-31', 1500.00, 'Себестоимость на Q1 2024', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', CURRENT_TIMESTAMP),
+('f0000000-0000-0000-0000-000000000002', '40000000-0000-0000-0000-000000000002', '2024-01-01', '2024-03-31', 2300.50, 'Себестоимость на Q1 2024', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', CURRENT_TIMESTAMP),
+('f0000000-0000-0000-0000-000000000003', '40000000-0000-0000-0000-000000000003', '2024-01-01', '2024-03-31', 850.00, 'Себестоимость на Q1 2024', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', CURRENT_TIMESTAMP),
+('f0000000-0000-0000-0000-000000000004', '40000000-0000-0000-0000-000000000004', '2024-01-01', '2024-03-31', 3500.00, 'Себестоимость на Q1 2024', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', CURRENT_TIMESTAMP),
+('f0000000-0000-0000-0000-000000000005', '40000000-0000-0000-0000-000000000005', '2024-01-01', '2024-03-31', 650.00, 'Себестоимость на Q1 2024', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', CURRENT_TIMESTAMP)
+ON CONFLICT (cost_id) DO NOTHING;
+
+INSERT INTO stock_snapshots (snapshot_id, product_id, warehouse_id, snapshot_date, quantity, created_by, created_at) VALUES
+('10000000-0000-0000-0000-000000000001', '40000000-0000-0000-0000-000000000001', '30000000-0000-0000-0000-000000000001', '2024-01-31', 150, 'cccccccc-cccc-cccc-cccc-cccccccccccc', CURRENT_TIMESTAMP),
+('10000000-0000-0000-0000-000000000002', '40000000-0000-0000-0000-000000000002', '30000000-0000-0000-0000-000000000001', '2024-01-31', 200, 'cccccccc-cccc-cccc-cccc-cccccccccccc', CURRENT_TIMESTAMP),
+('10000000-0000-0000-0000-000000000003', '40000000-0000-0000-0000-000000000003', '30000000-0000-0000-0000-000000000001', '2024-01-31', 100, 'cccccccc-cccc-cccc-cccc-cccccccccccc', CURRENT_TIMESTAMP),
+('10000000-0000-0000-0000-000000000004', '40000000-0000-0000-0000-000000000004', '30000000-0000-0000-0000-000000000001', '2024-01-31', 80, 'cccccccc-cccc-cccc-cccc-cccccccccccc', CURRENT_TIMESTAMP),
+('10000000-0000-0000-0000-000000000005', '40000000-0000-0000-0000-000000000005', '30000000-0000-0000-0000-000000000001', '2024-01-31', 120, 'cccccccc-cccc-cccc-cccc-cccccccccccc', CURRENT_TIMESTAMP),
+('10000000-0000-0000-0000-000000000006', '40000000-0000-0000-0000-000000000001', '30000000-0000-0000-0000-000000000002', '2024-01-31', 50, 'cccccccc-cccc-cccc-cccc-cccccccccccc', CURRENT_TIMESTAMP),
+('10000000-0000-0000-0000-000000000007', '40000000-0000-0000-0000-000000000002', '30000000-0000-0000-0000-000000000002', '2024-01-31', 75, 'cccccccc-cccc-cccc-cccc-cccccccccccc', CURRENT_TIMESTAMP)
+ON CONFLICT (snapshot_id) DO NOTHING;

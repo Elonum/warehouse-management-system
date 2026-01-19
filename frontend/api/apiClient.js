@@ -723,6 +723,48 @@ const api = {
       return { success: true };
     },
   },
+
+  upload: {
+    uploadFile: async (file) => {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const token = localStorage.getItem('auth_token');
+      const url = `${API_BASE_URL}/upload`;
+      
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Authorization': token ? `Bearer ${token}` : '',
+        },
+        body: formData,
+      });
+
+      if (!response.ok) {
+        let errorData;
+        try {
+          errorData = await response.json();
+        } catch {
+          errorData = { code: 'UNKNOWN_ERROR', message: response.statusText };
+        }
+        throw new ApiError(
+          errorData.error?.message || errorData.message || 'Ошибка загрузки файла',
+          errorData.error?.code || 'UNKNOWN_ERROR',
+          response.status
+        );
+      }
+
+      const data = await response.json();
+      return data.data || data;
+    },
+
+    getFileUrl: (filePath) => {
+      if (!filePath) return null;
+      const token = localStorage.getItem('auth_token');
+      const fileName = filePath.split('/').pop();
+      return `${API_BASE_URL}/files?path=${encodeURIComponent(fileName)}${token ? `&token=${token}` : ''}`;
+    },
+  },
 };
 
 export { api, ApiError };

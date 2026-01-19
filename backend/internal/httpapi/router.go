@@ -83,6 +83,7 @@ func NewRouter(pg *db.Postgres, cfg config.Config) *chi.Mux {
 	inventoryItemHandler := handlers.NewInventoryItemHandler(inventoryItemService)
 	productCostHandler := handlers.NewProductCostHandler(productCostService)
 	stockSnapshotHandler := handlers.NewStockSnapshotHandler(stockSnapshotService)
+	uploadHandler := handlers.NewUploadHandler()
 
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Get("/health", healthHandler.DBHealth)
@@ -95,6 +96,10 @@ func NewRouter(pg *db.Postgres, cfg config.Config) *chi.Mux {
 
 			r.Get("/auth/me", authHandler.GetMe)
 			r.Get("/stock/current", stockHandler.GetCurrentStock)
+			
+			// File upload endpoints
+			r.Post("/upload", uploadHandler.Upload)
+			r.Get("/files", uploadHandler.ServeFile)
 
 			r.Route("/products", func(r chi.Router) {
 				r.Get("/", productHandler.List)

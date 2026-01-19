@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { api } from '@/api';
+import { api, ApiError } from '@/api';
 import { 
   ArrowLeft, 
   Plus, 
@@ -8,14 +8,13 @@ import {
   Trash2, 
   Upload, 
   FileText, 
-  Download,
   Package,
   Warehouse,
   MoreHorizontal,
   ExternalLink
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import {
   Dialog,
   DialogContent,
@@ -57,218 +56,453 @@ import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 
 const emptyItem = {
-  product_id: '',
-  warehouse_id: '',
-  ordered_quantity: '',
-  received_quantity: '',
-  purchase_price: '',
-  logistics_cost: ''
+  productId: null,
+  warehouseId: null,
+  orderedQty: 0,
+  receivedQty: 0,
+  purchasePrice: null,
+  totalPrice: null,
+  totalWeight: 0,
+  totalLogistics: null,
+  unitLogistics: null,
+  unitSelfCost: null,
+  totalSelfCost: null,
+  fulfillmentCost: null,
 };
 
 export default function SupplierOrderDetails() {
   const urlParams = new URLSearchParams(window.location.search);
-  const orderId = urlParams.get('id');
+  const orderIdParam = urlParams.get('id');
+  const orderId = orderIdParam && !isNaN(parseInt(orderIdParam)) ? parseInt(orderIdParam) : null;
   const queryClient = useQueryClient();
 
   const [itemDialogOpen, setItemDialogOpen] = useState(false);
   const [deleteItemDialogOpen, setDeleteItemDialogOpen] = useState(false);
   const [currentItem, setCurrentItem] = useState(null);
   const [itemForm, setItemForm] = useState(emptyItem);
+  const [error, setError] = useState('');
 
-  const { data: order, isLoading: loadingOrder } = useQuery({
-    queryKey: ['supplier-order', orderId],
+  const { data: orderData, isLoading: loadingOrder } = useQuery({
+    queryKey: ['supplierOrder', orderId],
     queryFn: async () => {
-      const orders = await api.entities.SupplierOrder.filter({ id: orderId });
-      return orders[0];
+      const response = await api.supplierOrders.get(orderId);
+      return response;
     },
-    enabled: !!orderId,
+    enabled: !!orderId && !isNaN(orderId),
   });
 
-  const { data: orderItems = [], isLoading: loadingItems } = useQuery({
-    queryKey: ['supplier-order-items', orderId],
-    queryFn: () => api.entities.SupplierOrderItem.filter({ order_id: orderId }),
-    enabled: !!orderId,
+  const { data: orderItemsData, isLoading: loadingItems, refetch: refetchItems } = useQuery({
+    queryKey: ['supplierOrderItems', orderId],
+    queryFn: async () => {
+      const response = await api.supplierOrders.getItems(orderId);
+      return Array.isArray(response) ? response : [];
+    },
+    enabled: !!orderId && !isNaN(orderId),
   });
 
-  const { data: orderDocuments = [], isLoading: loadingDocs } = useQuery({
-    queryKey: ['supplier-order-documents', orderId],
-    queryFn: () => api.entities.SupplierOrderDocument.filter({ order_id: orderId }),
-    enabled: !!orderId,
+  const { data: orderDocumentsData, isLoading: loadingDocs, refetch: refetchDocuments } = useQuery({
+    queryKey: ['supplierOrderDocuments', orderId],
+    queryFn: async () => {
+      const response = await api.supplierOrders.getDocuments(orderId);
+      return Array.isArray(response) ? response : [];
+    },
+    enabled: !!orderId && !isNaN(orderId),
   });
 
-  const { data: products = [] } = useQuery({
+  const { data: productsData } = useQuery({
     queryKey: ['products'],
-    queryFn: () => api.entities.Product.list(),
+    queryFn: async () => {
+      const response = await api.products.list({ limit: 1000, offset: 0 });
+      return Array.isArray(response) ? response : [];
+    },
   });
 
-  const { data: warehouses = [] } = useQuery({
+  const { data: warehousesData } = useQuery({
     queryKey: ['warehouses'],
-    queryFn: () => api.entities.Warehouse.list(),
+    queryFn: async () => {
+      const response = await api.warehouses.list({ limit: 1000, offset: 0 });
+      return Array.isArray(response) ? response : [];
+    },
   });
+
+  const { data: orderStatusesData } = useQuery({
+    queryKey: ['orderStatuses'],
+    queryFn: async () => {
+      const response = await api.orderStatuses.list({ limit: 100, offset: 0 });
+      return Array.isArray(response) ? response : [];
+    },
+  });
+
+  const order = orderData;
+  const orderItems = Array.isArray(orderItemsData) ? orderItemsData : [];
+  const orderDocuments = Array.isArray(orderDocumentsData) ? orderDocumentsData : [];
+  const products = Array.isArray(productsData) ? productsData : [];
+  const warehouses = Array.isArray(warehousesData) ? warehousesData : [];
+  const orderStatuses = Array.isArray(orderStatusesData) ? orderStatusesData : [];
+
+  const productsMap = useMemo(() => {
+    const map = new Map();
+    products.forEach(p => map.set(p.productId, p));
+    return map;
+  }, [products]);
+
+  const warehousesMap = useMemo(() => {
+    const map = new Map();
+    warehouses.forEach(w => map.set(w.warehouseId, w));
+    return map;
+  }, [warehouses]);
+
+  const orderStatusesMap = useMemo(() => {
+    const map = new Map();
+    orderStatuses.forEach(s => map.set(s.orderStatusId, s.name));
+    return map;
+  }, [orderStatuses]);
+
+  const getOrderStatusName = (statusId) => {
+    if (!statusId) return '—';
+    return orderStatusesMap.get(statusId) || '—';
+  };
 
   // Item mutations
   const createItemMutation = useMutation({
-    mutationFn: (data) => api.entities.SupplierOrderItem.create(data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['supplier-order-items', orderId] });
+    mutationFn: (data) => api.supplierOrderItems.create(data),
+    onSuccess: async () => {
       setItemDialogOpen(false);
-      setItemForm(emptyItem);
-      setCurrentItem(null);
+      resetItemForm();
+      setError('');
+      await refetchItems();
+      await queryClient.invalidateQueries({ queryKey: ['supplierOrder', orderId] });
+    },
+    onError: (err) => {
+      if (err instanceof ApiError) {
+        setError(err.message || 'Ошибка создания позиции');
+      } else {
+        setError('Ошибка создания позиции');
+      }
     },
   });
 
   const updateItemMutation = useMutation({
-    mutationFn: ({ id, data }) => api.entities.SupplierOrderItem.update(id, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['supplier-order-items', orderId] });
+    mutationFn: ({ id, data }) => api.supplierOrderItems.update(id, data),
+    onSuccess: async () => {
       setItemDialogOpen(false);
-      setItemForm(emptyItem);
-      setCurrentItem(null);
+      resetItemForm();
+      setError('');
+      await refetchItems();
+      await queryClient.invalidateQueries({ queryKey: ['supplierOrder', orderId] });
+    },
+    onError: (err) => {
+      if (err instanceof ApiError) {
+        setError(err.message || 'Ошибка обновления позиции');
+      } else {
+        setError('Ошибка обновления позиции');
+      }
     },
   });
 
   const deleteItemMutation = useMutation({
-    mutationFn: (id) => api.entities.SupplierOrderItem.delete(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['supplier-order-items', orderId] });
+    mutationFn: (id) => api.supplierOrderItems.delete(id),
+    onMutate: async (deletedId) => {
+      await queryClient.cancelQueries({ queryKey: ['supplierOrderItems', orderId] });
+      const previousData = queryClient.getQueryData(['supplierOrderItems', orderId]);
+      
+      queryClient.setQueryData(['supplierOrderItems', orderId], (oldData) => {
+        if (!oldData || !Array.isArray(oldData)) return oldData;
+        return oldData.filter((item) => item.orderItemId !== deletedId);
+      });
+      
+      return { previousData };
+    },
+    onSuccess: async () => {
       setDeleteItemDialogOpen(false);
       setCurrentItem(null);
+      setError('');
+      await queryClient.invalidateQueries({ queryKey: ['supplierOrderItems', orderId] });
+      await queryClient.invalidateQueries({ queryKey: ['supplierOrder', orderId] });
+      await refetchItems();
+    },
+    onError: (err, deletedId, context) => {
+      if (context?.previousData) {
+        queryClient.setQueryData(['supplierOrderItems', orderId], context.previousData);
+      }
+      if (err instanceof ApiError) {
+        setError(err.message || 'Ошибка удаления позиции');
+      } else {
+        setError('Ошибка удаления позиции');
+      }
+      setDeleteItemDialogOpen(false);
     },
   });
 
-  // Document upload
-  const uploadDocMutation = useMutation({
-    mutationFn: async (file) => {
-      const { file_url } = await api.integrations.Core.UploadFile({ file });
-      return api.entities.SupplierOrderDocument.create({
-        order_id: orderId,
-        document_name: file.name,
-        document_type: 'other',
-        file_url,
-        file_size: file.size
+  const [documentDialogOpen, setDocumentDialogOpen] = useState(false);
+  const [deleteDocumentDialogOpen, setDeleteDocumentDialogOpen] = useState(false);
+  const [currentDocument, setCurrentDocument] = useState(null);
+  const [documentForm, setDocumentForm] = useState({ name: '', description: '', file: null });
+  const [uploadError, setUploadError] = useState('');
+
+  const resetItemForm = () => {
+    setItemForm(emptyItem);
+    setCurrentItem(null);
+    setError('');
+  };
+
+  const resetDocumentForm = () => {
+    setDocumentForm({ name: '', description: '', file: null });
+    setUploadError('');
+  };
+
+  // Document mutations
+  const uploadDocumentMutation = useMutation({
+    mutationFn: async ({ file, name, description }) => {
+      if (!orderId) {
+        throw new Error('ID заказа не указан');
+      }
+      // First upload the file
+      const uploadResult = await api.upload.uploadFile(file);
+      
+      // Then create document record
+      return await api.supplierOrderDocuments.create({
+        orderId: orderId,
+        name: name || file.name,
+        description: description || null,
+        filePath: uploadResult.filePath,
       });
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['supplier-order-documents', orderId] });
+    onSuccess: async () => {
+      setDocumentDialogOpen(false);
+      resetDocumentForm();
+      setUploadError('');
+      await refetchDocuments();
+    },
+    onError: (err) => {
+      if (err instanceof ApiError) {
+        setUploadError(err.message || 'Ошибка загрузки документа');
+      } else {
+        setUploadError('Ошибка загрузки документа');
+      }
     },
   });
 
-  const deleteDocMutation = useMutation({
-    mutationFn: (id) => api.entities.SupplierOrderDocument.delete(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['supplier-order-documents', orderId] });
+  const deleteDocumentMutation = useMutation({
+    mutationFn: (id) => api.supplierOrderDocuments.delete(id),
+    onSuccess: async () => {
+      setDeleteDocumentDialogOpen(false);
+      setCurrentDocument(null);
+      setUploadError('');
+      await refetchDocuments();
+    },
+    onError: (err) => {
+      if (err instanceof ApiError) {
+        setUploadError(err.message || 'Ошибка удаления документа');
+      } else {
+        setUploadError('Ошибка удаления документа');
+      }
+      setDeleteDocumentDialogOpen(false);
     },
   });
+
+  const handleDocumentSubmit = (e) => {
+    e.preventDefault();
+    setUploadError('');
+
+    if (!documentForm.file) {
+      setUploadError('Выберите файл для загрузки');
+      return;
+    }
+
+    const name = documentForm.name.trim() || documentForm.file.name;
+    if (!name) {
+      setUploadError('Введите название документа');
+      return;
+    }
+
+    uploadDocumentMutation.mutate({
+      file: documentForm.file,
+      name,
+      description: documentForm.description?.trim() || null,
+    });
+  };
 
   const handleEditItem = (item) => {
     setCurrentItem(item);
     setItemForm({
-      product_id: item.product_id || '',
-      warehouse_id: item.warehouse_id || '',
-      ordered_quantity: item.ordered_quantity || '',
-      received_quantity: item.received_quantity || '',
-      purchase_price: item.purchase_price || '',
-      logistics_cost: item.logistics_cost || ''
+      productId: item.productId,
+      warehouseId: item.warehouseId,
+      orderedQty: item.orderedQty || 0,
+      receivedQty: item.receivedQty || 0,
+      purchasePrice: item.purchasePrice || null,
+      totalPrice: item.totalPrice || null,
+      totalWeight: item.totalWeight || 0,
+      totalLogistics: item.totalLogistics || null,
+      unitLogistics: item.unitLogistics || null,
+      unitSelfCost: item.unitSelfCost || null,
+      totalSelfCost: item.totalSelfCost || null,
+      fulfillmentCost: item.fulfillmentCost || null,
     });
     setItemDialogOpen(true);
   };
 
+  const calculateItemTotals = (formData) => {
+    const orderedQty = parseInt(formData.orderedQty) || 0;
+    const purchasePrice = parseFloat(formData.purchasePrice) || 0;
+    const unitLogistics = parseFloat(formData.unitLogistics) || 0;
+    const product = productsMap.get(formData.productId);
+    const unitWeight = product?.unitWeight || 0;
+
+    const totalPrice = purchasePrice * orderedQty;
+    const totalWeight = unitWeight * orderedQty;
+    const totalLogistics = unitLogistics * orderedQty;
+    const unitSelfCost = purchasePrice + unitLogistics;
+    const totalSelfCost = unitSelfCost * orderedQty;
+    const fulfillmentCost = totalLogistics * 0.1; // Пример расчета
+
+    return {
+      totalPrice,
+      totalWeight,
+      totalLogistics,
+      unitSelfCost,
+      totalSelfCost,
+      fulfillmentCost,
+    };
+  };
+
   const handleItemSubmit = (e) => {
     e.preventDefault();
-    const product = products.find(p => p.id === itemForm.product_id);
-    const warehouse = warehouses.find(w => w.id === itemForm.warehouse_id);
-    
+    setError('');
+
+    if (!itemForm.productId) {
+      setError('Выберите товар');
+      return;
+    }
+
+    if (!itemForm.warehouseId) {
+      setError('Выберите склад');
+      return;
+    }
+
+    const orderedQty = parseInt(itemForm.orderedQty) || 0;
+    if (orderedQty <= 0) {
+      setError('Количество должно быть больше 0');
+      return;
+    }
+
+    const receivedQty = parseInt(itemForm.receivedQty) || 0;
+    if (receivedQty > orderedQty) {
+      setError('Полученное количество не может превышать заказанное');
+      return;
+    }
+
+    if (!orderId) {
+      setError('ID заказа не указан');
+      return;
+    }
+
+    const totals = calculateItemTotals(itemForm);
+
     const data = {
-      order_id: orderId,
-      product_id: itemForm.product_id,
-      product_name: product?.name || '',
-      warehouse_id: itemForm.warehouse_id,
-      warehouse_name: warehouse?.name || '',
-      ordered_quantity: parseFloat(itemForm.ordered_quantity) || 0,
-      received_quantity: parseFloat(itemForm.received_quantity) || 0,
-      purchase_price: parseFloat(itemForm.purchase_price) || 0,
-      logistics_cost: parseFloat(itemForm.logistics_cost) || 0,
-      self_cost: (parseFloat(itemForm.purchase_price) || 0) + (parseFloat(itemForm.logistics_cost) || 0)
+      orderId: orderId,
+      productId: itemForm.productId,
+      warehouseId: itemForm.warehouseId,
+      orderedQty: orderedQty,
+      receivedQty: receivedQty,
+      purchasePrice: itemForm.purchasePrice ? parseFloat(itemForm.purchasePrice) : null,
+      totalPrice: totals.totalPrice || null,
+      totalWeight: totals.totalWeight,
+      totalLogistics: totals.totalLogistics || null,
+      unitLogistics: itemForm.unitLogistics ? parseFloat(itemForm.unitLogistics) : null,
+      unitSelfCost: totals.unitSelfCost || null,
+      totalSelfCost: totals.totalSelfCost || null,
+      fulfillmentCost: totals.fulfillmentCost || null,
     };
 
     if (currentItem) {
-      updateItemMutation.mutate({ id: currentItem.id, data });
+      updateItemMutation.mutate({ id: currentItem.orderItemId, data });
     } else {
       createItemMutation.mutate(data);
     }
   };
 
-  const handleFileUpload = (e) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      uploadDocMutation.mutate(file);
-    }
-  };
-
   const itemColumns = [
     {
-      accessorKey: 'product_name',
-      header: 'Product',
-      cell: ({ row }) => (
-        <div className="flex items-center gap-3">
-          <div className="flex items-center justify-center rounded-lg h-9 w-9 bg-slate-100 dark:bg-slate-800">
-            <Package className="w-4 h-4 text-slate-500" />
+      accessorKey: 'productId',
+      header: 'Товар',
+      cell: ({ row }) => {
+        const product = productsMap.get(row.original.productId);
+        return (
+          <div className="flex items-center gap-3">
+            <div className="flex items-center justify-center rounded-lg h-9 w-9 bg-slate-100 dark:bg-slate-800">
+              <Package className="w-4 h-4 text-slate-500" />
+            </div>
+            <div>
+              <p className="font-medium text-slate-900 dark:text-slate-100">
+                {product?.article || `ID: ${row.original.productId}`}
+              </p>
+              {product?.barcode && (
+                <p className="text-xs text-slate-500">
+                  {product.barcode}
+                </p>
+              )}
+            </div>
           </div>
-          <span className="font-medium text-slate-900 dark:text-slate-100">
-            {row.original.product_name || 'Unknown Product'}
-          </span>
-        </div>
-      ),
+        );
+      },
     },
     {
-      accessorKey: 'warehouse_name',
-      header: 'Warehouse',
-      cell: ({ row }) => (
-        <div className="flex items-center gap-2">
-          <Warehouse className="w-4 h-4 text-slate-400" />
-          <span className="text-slate-700 dark:text-slate-300">
-            {row.original.warehouse_name || '—'}
-          </span>
-        </div>
-      ),
+      accessorKey: 'warehouseId',
+      header: 'Склад',
+      cell: ({ row }) => {
+        const warehouse = warehousesMap.get(row.original.warehouseId);
+        return (
+          <div className="flex items-center gap-2">
+            <Warehouse className="w-4 h-4 text-slate-400" />
+            <span className="text-slate-700 dark:text-slate-300">
+              {warehouse?.name || `ID: ${row.original.warehouseId}`}
+            </span>
+          </div>
+        );
+      },
     },
     {
-      accessorKey: 'ordered_quantity',
-      header: 'Ordered',
+      accessorKey: 'orderedQty',
+      header: 'Заказано',
       cell: ({ row }) => (
         <span className="font-medium text-slate-900 dark:text-slate-100">
-          {row.original.ordered_quantity?.toLocaleString() || 0}
+          {row.original.orderedQty?.toLocaleString() || 0}
         </span>
       ),
     },
     {
-      accessorKey: 'received_quantity',
-      header: 'Received',
-      cell: ({ row }) => (
-        <span className={`font-medium ${
-          row.original.received_quantity >= row.original.ordered_quantity
-            ? 'text-emerald-600 dark:text-emerald-400'
-            : 'text-amber-600 dark:text-amber-400'
-        }`}>
-          {row.original.received_quantity?.toLocaleString() || 0}
-        </span>
-      ),
+      accessorKey: 'receivedQty',
+      header: 'Получено',
+      cell: ({ row }) => {
+        const received = row.original.receivedQty || 0;
+        const ordered = row.original.orderedQty || 0;
+        return (
+          <span className={`font-medium ${
+            received >= ordered
+              ? 'text-emerald-600 dark:text-emerald-400'
+              : 'text-amber-600 dark:text-amber-400'
+          }`}>
+            {received.toLocaleString()}
+          </span>
+        );
+      },
     },
     {
-      accessorKey: 'purchase_price',
-      header: 'Unit Price',
+      accessorKey: 'purchasePrice',
+      header: 'Цена закупки',
       cell: ({ row }) => (
         <span className="text-slate-600 dark:text-slate-400">
-          ${row.original.purchase_price?.toFixed(2) || '0.00'}
+          {row.original.purchasePrice ? `₽${row.original.purchasePrice.toFixed(2)}` : '—'}
         </span>
       ),
     },
     {
-      accessorKey: 'self_cost',
-      header: 'Self Cost',
+      accessorKey: 'totalPrice',
+      header: 'Сумма',
       cell: ({ row }) => (
         <span className="font-semibold text-slate-900 dark:text-slate-100">
-          ${row.original.self_cost?.toFixed(2) || '0.00'}
+          {row.original.totalPrice ? `₽${row.original.totalPrice.toLocaleString('ru-RU', { minimumFractionDigits: 2 })}` : '—'}
         </span>
       ),
     },
@@ -286,14 +520,14 @@ export default function SupplierOrderDetails() {
           <DropdownMenuContent align="end">
             <DropdownMenuItem onClick={() => handleEditItem(row.original)}>
               <Edit2 className="w-4 h-4 mr-2" />
-              Edit
+              Редактировать
             </DropdownMenuItem>
             <DropdownMenuItem 
               onClick={() => { setCurrentItem(row.original); setDeleteItemDialogOpen(true); }}
               className="text-red-600"
             >
               <Trash2 className="w-4 h-4 mr-2" />
-              Delete
+              Удалить
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -301,14 +535,45 @@ export default function SupplierOrderDetails() {
     },
   ];
 
-  if (!orderId) {
+  const orderTotals = useMemo(() => {
+    return orderItems.reduce((acc, item) => ({
+      totalQty: acc.totalQty + (item.orderedQty || 0),
+      receivedQty: acc.receivedQty + (item.receivedQty || 0),
+      totalPrice: acc.totalPrice + (item.totalPrice || 0),
+      totalWeight: acc.totalWeight + (item.totalWeight || 0),
+    }), { totalQty: 0, receivedQty: 0, totalPrice: 0, totalWeight: 0 });
+  }, [orderItems]);
+
+  if (!orderId || isNaN(orderId)) {
     return (
       <div className="p-8 text-center">
-        <p className="text-slate-500">No order ID provided</p>
+        <p className="text-slate-500">ID заказа не указан</p>
         <Button asChild className="mt-4">
           <Link to={createPageUrl('SupplierOrders')}>
             <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Orders
+            Назад к заказам
+          </Link>
+        </Button>
+      </div>
+    );
+  }
+
+  if (loadingOrder) {
+    return (
+      <div className="p-8 text-center">
+        <p className="text-slate-500">Загрузка...</p>
+      </div>
+    );
+  }
+
+  if (!order) {
+    return (
+      <div className="p-8 text-center">
+        <p className="text-slate-500">Заказ не найден</p>
+        <Button asChild className="mt-4">
+          <Link to={createPageUrl('SupplierOrders')}>
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Назад к заказам
           </Link>
         </Button>
       </div>
@@ -324,44 +589,44 @@ export default function SupplierOrderDetails() {
           </Link>
         </Button>
         <PageHeader 
-          title={order?.order_number || 'Loading...'}
-          description={order?.supplier_name}
+          title={order.orderNumber || 'Заказ'}
+          description={order.buyer || 'Без покупателя'}
         >
-          <StatusBadge status={order?.status} />
+          <StatusBadge status={getOrderStatusName(order.statusId)} />
         </PageHeader>
       </div>
 
       {/* Order Summary */}
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card className="dark:bg-slate-900 dark:border-slate-800">
           <CardContent className="pt-6">
-            <p className="text-sm text-slate-500">Order Date</p>
+            <p className="text-sm text-slate-500 dark:text-slate-400">Дата заказа</p>
             <p className="mt-1 text-lg font-semibold text-slate-900 dark:text-slate-100">
-              {order?.order_date ? format(new Date(order.order_date), 'MMM d, yyyy') : '—'}
+              {order.purchaseDate ? format(new Date(order.purchaseDate), 'dd.MM.yyyy') : '—'}
             </p>
           </CardContent>
         </Card>
         <Card className="dark:bg-slate-900 dark:border-slate-800">
           <CardContent className="pt-6">
-            <p className="text-sm text-slate-500">Expected Delivery</p>
+            <p className="text-sm text-slate-500 dark:text-slate-400">План. получение</p>
             <p className="mt-1 text-lg font-semibold text-slate-900 dark:text-slate-100">
-              {order?.expected_date ? format(new Date(order.expected_date), 'MMM d, yyyy') : '—'}
+              {order.plannedReceiptDate ? format(new Date(order.plannedReceiptDate), 'dd.MM.yyyy') : '—'}
             </p>
           </CardContent>
         </Card>
         <Card className="dark:bg-slate-900 dark:border-slate-800">
           <CardContent className="pt-6">
-            <p className="text-sm text-slate-500">Logistics Cost</p>
+            <p className="text-sm text-slate-500 dark:text-slate-400">Логистика</p>
             <p className="mt-1 text-lg font-semibold text-slate-900 dark:text-slate-100">
-              ${order?.logistics_cost?.toFixed(2) || '0.00'}
+              {order.logisticsTotal ? `₽${order.logisticsTotal.toLocaleString('ru-RU', { minimumFractionDigits: 2 })}` : '—'}
             </p>
           </CardContent>
         </Card>
         <Card className="dark:bg-slate-900 dark:border-slate-800">
           <CardContent className="pt-6">
-            <p className="text-sm text-slate-500">Total</p>
+            <p className="text-sm text-slate-500 dark:text-slate-400">Сумма заказа</p>
             <p className="mt-1 text-lg font-semibold text-indigo-600 dark:text-indigo-400">
-              ${order?.total?.toFixed(2) || '0.00'}
+              {order.orderItemCost ? `₽${order.orderItemCost.toLocaleString('ru-RU', { minimumFractionDigits: 2 })}` : '—'}
             </p>
           </CardContent>
         </Card>
@@ -369,53 +634,53 @@ export default function SupplierOrderDetails() {
 
       <Tabs defaultValue="items">
         <TabsList>
-          <TabsTrigger value="items">Order Items ({orderItems.length})</TabsTrigger>
-          <TabsTrigger value="documents">Documents ({orderDocuments.length})</TabsTrigger>
+          <TabsTrigger value="items">Позиции заказа ({orderItems.length})</TabsTrigger>
+          <TabsTrigger value="documents">Документы ({orderDocuments.length})</TabsTrigger>
         </TabsList>
 
         <TabsContent value="items" className="space-y-4">
-          <div className="flex justify-end">
-            <Button onClick={() => { setCurrentItem(null); setItemForm(emptyItem); setItemDialogOpen(true); }}>
+          <div className="flex justify-between items-center">
+            <div className="text-sm text-slate-600 dark:text-slate-400">
+              Всего: {orderTotals.totalQty} шт. | Получено: {orderTotals.receivedQty} шт. | 
+              Сумма: ₽{orderTotals.totalPrice.toLocaleString('ru-RU', { minimumFractionDigits: 2 })}
+            </div>
+            <Button onClick={() => { resetItemForm(); setItemDialogOpen(true); }}>
               <Plus className="w-4 h-4 mr-2" />
-              Add Item
+              Добавить позицию
             </Button>
           </div>
           <DataTable
             columns={itemColumns}
             data={orderItems}
             searchable={false}
-            emptyMessage="No items added to this order"
+            emptyMessage="Позиции не добавлены"
+            isLoading={loadingItems}
           />
         </TabsContent>
 
         <TabsContent value="documents" className="space-y-4">
+          {uploadError && (
+            <div className="p-3 text-sm text-red-600 bg-red-50 dark:bg-red-900/20 dark:text-red-400 rounded-lg">
+              {uploadError}
+            </div>
+          )}
           <div className="flex justify-end">
-            <label>
-              <input
-                type="file"
-                className="hidden"
-                onChange={handleFileUpload}
-                disabled={uploadDocMutation.isPending}
-              />
-              <Button asChild disabled={uploadDocMutation.isPending}>
-                <span>
-                  <Upload className="w-4 h-4 mr-2" />
-                  {uploadDocMutation.isPending ? 'Uploading...' : 'Upload Document'}
-                </span>
-              </Button>
-            </label>
+            <Button onClick={() => { resetDocumentForm(); setDocumentDialogOpen(true); }}>
+              <Upload className="w-4 h-4 mr-2" />
+              Загрузить документ
+            </Button>
           </div>
           <div className="grid gap-4">
             {orderDocuments.length === 0 ? (
               <Card className="dark:bg-slate-900 dark:border-slate-800">
                 <CardContent className="py-12 text-center">
                   <FileText className="w-12 h-12 mx-auto mb-4 text-slate-300" />
-                  <p className="text-slate-500">No documents uploaded</p>
+                  <p className="text-slate-500">Документы не загружены</p>
                 </CardContent>
               </Card>
             ) : (
               orderDocuments.map(doc => (
-                <Card key={doc.id} className="dark:bg-slate-900 dark:border-slate-800">
+                <Card key={doc.documentId} className="dark:bg-slate-900 dark:border-slate-800">
                   <CardContent className="flex items-center justify-between py-4">
                     <div className="flex items-center gap-3">
                       <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-slate-100 dark:bg-slate-800">
@@ -423,26 +688,36 @@ export default function SupplierOrderDetails() {
                       </div>
                       <div>
                         <p className="font-medium text-slate-900 dark:text-slate-100">
-                          {doc.document_name}
+                          {doc.name}
                         </p>
-                        <p className="text-sm text-slate-500">
-                          {doc.file_size ? `${(doc.file_size / 1024).toFixed(1)} KB` : ''} • {doc.document_type}
-                        </p>
+                        {doc.description && (
+                          <p className="text-sm text-slate-500">
+                            {doc.description}
+                          </p>
+                        )}
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Button variant="ghost" size="icon" asChild>
-                        <a href={doc.file_url} target="_blank" rel="noopener noreferrer">
-                          <ExternalLink className="w-4 h-4" />
-                        </a>
-                      </Button>
-                      <Button 
-                        variant="ghost" 
-                        size="icon"
-                        onClick={() => deleteDocMutation.mutate(doc.id)}
-                      >
-                        <Trash2 className="w-4 h-4 text-red-500" />
-                      </Button>
+                      {doc.filePath && (
+                        <>
+                          <Button variant="ghost" size="icon" asChild>
+                            <a href={api.upload.getFileUrl(doc.filePath) || '#'} target="_blank" rel="noopener noreferrer">
+                              <ExternalLink className="w-4 h-4" />
+                            </a>
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="icon"
+                            onClick={() => {
+                              setCurrentDocument(doc);
+                              setDeleteDocumentDialogOpen(true);
+                            }}
+                            disabled={deleteDocumentMutation.isPending}
+                          >
+                            <Trash2 className="w-4 h-4 text-red-500" />
+                          </Button>
+                        </>
+                      )}
                     </div>
                   </CardContent>
                 </Card>
@@ -453,99 +728,195 @@ export default function SupplierOrderDetails() {
       </Tabs>
 
       {/* Item Dialog */}
-      <Dialog open={itemDialogOpen} onOpenChange={setItemDialogOpen}>
-        <DialogContent className="max-w-lg">
+      <Dialog 
+        open={itemDialogOpen} 
+        onOpenChange={(open) => {
+          setItemDialogOpen(open);
+          if (!open) {
+            resetItemForm();
+          }
+        }}
+      >
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
-              {currentItem ? 'Edit Item' : 'Add Item'}
+              {currentItem ? 'Редактировать позицию' : 'Добавить позицию'}
             </DialogTitle>
           </DialogHeader>
           <form onSubmit={handleItemSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="product">Product *</Label>
-              <Select
-                value={itemForm.product_id}
-                onValueChange={(value) => setItemForm({ ...itemForm, product_id: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select product" />
-                </SelectTrigger>
-                <SelectContent>
-                  {products.map(product => (
-                    <SelectItem key={product.id} value={product.id}>
-                      {product.name} ({product.article})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="warehouse">Warehouse *</Label>
-              <Select
-                value={itemForm.warehouse_id}
-                onValueChange={(value) => setItemForm({ ...itemForm, warehouse_id: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select warehouse" />
-                </SelectTrigger>
-                <SelectContent>
-                  {warehouses.map(warehouse => (
-                    <SelectItem key={warehouse.id} value={warehouse.id}>
-                      {warehouse.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            {error && (
+              <div className="p-3 text-sm text-red-600 bg-red-50 dark:bg-red-900/20 dark:text-red-400 rounded-lg">
+                {error}
+              </div>
+            )}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="productId">Товар *</Label>
+                <Select
+                  value={itemForm.productId ? itemForm.productId.toString() : ''}
+                  onValueChange={(value) => {
+                    const product = productsMap.get(parseInt(value));
+                    setItemForm({ 
+                      ...itemForm, 
+                      productId: value ? parseInt(value) : null,
+                      totalWeight: product ? (product.unitWeight || 0) * (parseInt(itemForm.orderedQty) || 0) : 0,
+                    });
+                  }}
+                >
+                  <SelectTrigger id="productId">
+                    <SelectValue placeholder="Выберите товар" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {products.map(product => (
+                      <SelectItem key={product.productId} value={product.productId.toString()}>
+                        {product.article} {product.barcode ? `(${product.barcode})` : ''}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="warehouseId">Склад *</Label>
+                <Select
+                  value={itemForm.warehouseId ? itemForm.warehouseId.toString() : ''}
+                  onValueChange={(value) => {
+                    setItemForm({ 
+                      ...itemForm, 
+                      warehouseId: value ? parseInt(value) : null 
+                    });
+                  }}
+                >
+                  <SelectTrigger id="warehouseId">
+                    <SelectValue placeholder="Выберите склад" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {warehouses.map(warehouse => (
+                      <SelectItem key={warehouse.warehouseId} value={warehouse.warehouseId.toString()}>
+                        {warehouse.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="ordered_quantity">Ordered Qty *</Label>
+                <Label htmlFor="orderedQty">Заказано *</Label>
                 <Input
-                  id="ordered_quantity"
+                  id="orderedQty"
                   type="number"
-                  value={itemForm.ordered_quantity}
-                  onChange={(e) => setItemForm({ ...itemForm, ordered_quantity: e.target.value })}
+                  min="1"
+                  value={itemForm.orderedQty}
+                  onChange={(e) => {
+                    const qty = parseInt(e.target.value) || 0;
+                    const product = productsMap.get(itemForm.productId);
+                    const totals = calculateItemTotals({ ...itemForm, orderedQty: qty });
+                    setItemForm({ 
+                      ...itemForm, 
+                      orderedQty: qty,
+                      totalWeight: totals.totalWeight,
+                      totalPrice: totals.totalPrice,
+                      totalLogistics: totals.totalLogistics,
+                      totalSelfCost: totals.totalSelfCost,
+                    });
+                  }}
                   required
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="received_quantity">Received Qty</Label>
+                <Label htmlFor="receivedQty">Получено</Label>
                 <Input
-                  id="received_quantity"
+                  id="receivedQty"
                   type="number"
-                  value={itemForm.received_quantity}
-                  onChange={(e) => setItemForm({ ...itemForm, received_quantity: e.target.value })}
+                  min="0"
+                  max={itemForm.orderedQty}
+                  value={itemForm.receivedQty}
+                  onChange={(e) => setItemForm({ ...itemForm, receivedQty: parseInt(e.target.value) || 0 })}
                 />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="purchase_price">Purchase Price ($)</Label>
+                <Label htmlFor="purchasePrice">Цена закупки (₽)</Label>
                 <Input
-                  id="purchase_price"
+                  id="purchasePrice"
                   type="number"
                   step="0.01"
-                  value={itemForm.purchase_price}
-                  onChange={(e) => setItemForm({ ...itemForm, purchase_price: e.target.value })}
+                  min="0"
+                  value={itemForm.purchasePrice || ''}
+                  onChange={(e) => {
+                    const price = parseFloat(e.target.value) || null;
+                    const totals = calculateItemTotals({ ...itemForm, purchasePrice: price });
+                    setItemForm({ 
+                      ...itemForm, 
+                      purchasePrice: price,
+                      totalPrice: totals.totalPrice,
+                      totalSelfCost: totals.totalSelfCost,
+                      unitSelfCost: totals.unitSelfCost,
+                    });
+                  }}
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="logistics_cost">Logistics Cost ($)</Label>
+                <Label htmlFor="unitLogistics">Логистика за единицу (₽)</Label>
                 <Input
-                  id="logistics_cost"
+                  id="unitLogistics"
                   type="number"
                   step="0.01"
-                  value={itemForm.logistics_cost}
-                  onChange={(e) => setItemForm({ ...itemForm, logistics_cost: e.target.value })}
+                  min="0"
+                  value={itemForm.unitLogistics || ''}
+                  onChange={(e) => {
+                    const logistics = parseFloat(e.target.value) || null;
+                    const totals = calculateItemTotals({ ...itemForm, unitLogistics: logistics });
+                    setItemForm({ 
+                      ...itemForm, 
+                      unitLogistics: logistics,
+                      totalLogistics: totals.totalLogistics,
+                      totalSelfCost: totals.totalSelfCost,
+                      unitSelfCost: totals.unitSelfCost,
+                    });
+                  }}
                 />
               </div>
             </div>
+            {(itemForm.totalPrice || itemForm.totalSelfCost) && (
+              <div className="p-3 bg-slate-50 dark:bg-slate-800 rounded-lg">
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <span className="text-slate-500">Сумма:</span>{' '}
+                    <span className="font-semibold">₽{itemForm.totalPrice?.toFixed(2) || '0.00'}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-500">Себестоимость:</span>{' '}
+                    <span className="font-semibold">₽{itemForm.totalSelfCost?.toFixed(2) || '0.00'}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-500">Вес:</span>{' '}
+                    <span className="font-semibold">{itemForm.totalWeight} г</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-500">Логистика:</span>{' '}
+                    <span className="font-semibold">₽{itemForm.totalLogistics?.toFixed(2) || '0.00'}</span>
+                  </div>
+                </div>
+              </div>
+            )}
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setItemDialogOpen(false)}>
-                Cancel
+              <Button 
+                type="button" 
+                variant="outline" 
+                onClick={() => {
+                  setItemDialogOpen(false);
+                  resetItemForm();
+                }}
+              >
+                Отмена
               </Button>
-              <Button type="submit">
-                {currentItem ? 'Update' : 'Add'}
+              <Button 
+                type="submit" 
+                disabled={createItemMutation.isPending || updateItemMutation.isPending}
+              >
+                {currentItem ? 'Обновить' : 'Добавить'}
               </Button>
             </DialogFooter>
           </form>
@@ -556,18 +927,141 @@ export default function SupplierOrderDetails() {
       <AlertDialog open={deleteItemDialogOpen} onOpenChange={setDeleteItemDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Item</AlertDialogTitle>
+            <AlertDialogTitle>Удалить позицию</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to remove this item from the order?
+              Вы уверены, что хотите удалить эту позицию из заказа?
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel onClick={() => setDeleteItemDialogOpen(false)}>
+              Отмена
+            </AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => deleteItemMutation.mutate(currentItem.id)}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                deleteItemMutation.mutate(currentItem.orderItemId);
+              }}
               className="bg-red-600 hover:bg-red-700"
+              disabled={deleteItemMutation.isPending}
             >
-              Delete
+              {deleteItemMutation.isPending ? 'Удаление...' : 'Удалить'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Document Upload Dialog */}
+      <Dialog 
+        open={documentDialogOpen} 
+        onOpenChange={(open) => {
+          setDocumentDialogOpen(open);
+          if (!open) {
+            resetDocumentForm();
+          }
+        }}
+      >
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Загрузить документ</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleDocumentSubmit} className="space-y-4">
+            {uploadError && (
+              <div className="p-3 text-sm text-red-600 bg-red-50 dark:bg-red-900/20 dark:text-red-400 rounded-lg">
+                {uploadError}
+              </div>
+            )}
+            <div className="space-y-2">
+              <Label htmlFor="doc-file">Файл *</Label>
+              <Input
+                id="doc-file"
+                type="file"
+                accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.rtf,.odt,.ods,.jpg,.jpeg,.png,.gif,.bmp,.webp,.svg,.zip,.rar,.7z,.tar,.gz,.csv,.xml"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    setDocumentForm({ 
+                      ...documentForm, 
+                      file,
+                      name: documentForm.name || file.name 
+                    });
+                  }
+                }}
+                required
+              />
+              <p className="text-xs text-slate-500">
+                Разрешенные форматы: PDF, DOC, DOCX, XLS, XLSX, TXT, RTF, ODT, ODS, изображения, архивы, CSV, XML (макс. 50 МБ)
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="doc-name">Название документа *</Label>
+              <Input
+                id="doc-name"
+                value={documentForm.name}
+                onChange={(e) => setDocumentForm({ ...documentForm, name: e.target.value })}
+                placeholder={documentForm.file?.name || 'Введите название'}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="doc-description">Описание</Label>
+              <Input
+                id="doc-description"
+                value={documentForm.description || ''}
+                onChange={(e) => setDocumentForm({ ...documentForm, description: e.target.value })}
+                placeholder="Необязательное описание документа"
+              />
+            </div>
+            <DialogFooter>
+              <Button 
+                type="button" 
+                variant="outline" 
+                onClick={() => {
+                  setDocumentDialogOpen(false);
+                  resetDocumentForm();
+                }}
+              >
+                Отмена
+              </Button>
+              <Button 
+                type="submit" 
+                disabled={uploadDocumentMutation.isPending || !documentForm.file}
+              >
+                {uploadDocumentMutation.isPending ? 'Загрузка...' : 'Загрузить'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Document Dialog */}
+      <AlertDialog open={deleteDocumentDialogOpen} onOpenChange={setDeleteDocumentDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Удалить документ</AlertDialogTitle>
+            <AlertDialogDescription>
+              Вы уверены, что хотите удалить документ "{currentDocument?.name}"? Это действие нельзя отменить.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => {
+              setDeleteDocumentDialogOpen(false);
+              setCurrentDocument(null);
+            }}>
+              Отмена
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (currentDocument) {
+                  deleteDocumentMutation.mutate(currentDocument.documentId);
+                }
+              }}
+              className="bg-red-600 hover:bg-red-700"
+              disabled={deleteDocumentMutation.isPending}
+            >
+              {deleteDocumentMutation.isPending ? 'Удаление...' : 'Удалить'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { api } from '@/api';
+import { api, ApiError } from '@/api';
 import { 
   Plus, 
   Edit2, 
@@ -10,8 +10,7 @@ import {
   Eye,
   ChevronDown,
   ChevronRight,
-  FileText,
-  Package
+  Copy,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -40,7 +39,6 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import {
   Select,
   SelectContent,
@@ -48,11 +46,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
 import PageHeader from '@/components/ui/PageHeader';
 import StatusBadge from '@/components/ui/StatusBadge';
 import { format } from 'date-fns';
@@ -60,13 +53,21 @@ import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 
 const emptyOrder = {
-  order_number: '',
-  supplier_name: '',
-  status: 'draft',
-  order_date: '',
-  expected_date: '',
-  logistics_cost: '',
-  notes: ''
+  orderNumber: '',
+  buyer: null,
+  statusId: null,
+  purchaseDate: null,
+  plannedReceiptDate: null,
+  actualReceiptDate: null,
+  logisticsChinaMsk: null,
+  logisticsMskKzn: null,
+  logisticsAdditional: null,
+  logisticsTotal: null,
+  orderItemCost: null,
+  positionsQty: 0,
+  totalQty: 0,
+  orderItemWeight: null,
+  parentOrderId: null,
 };
 
 export default function SupplierOrders() {
@@ -76,77 +77,200 @@ export default function SupplierOrders() {
   const [currentOrder, setCurrentOrder] = useState(null);
   const [formData, setFormData] = useState(emptyOrder);
   const [expandedOrders, setExpandedOrders] = useState({});
+  const [error, setError] = useState('');
 
-  const { data: orders = [], isLoading } = useQuery({
-    queryKey: ['supplier-orders'],
-    queryFn: () => api.entities.SupplierOrder.list('-created_date'),
+  const { data: ordersData, isLoading, refetch: refetchOrders } = useQuery({
+    queryKey: ['supplierOrders'],
+    queryFn: async () => {
+      const response = await api.supplierOrders.list({ limit: 1000, offset: 0 });
+      return Array.isArray(response) ? response : [];
+    },
   });
 
+  const { data: orderStatusesData } = useQuery({
+    queryKey: ['orderStatuses'],
+    queryFn: async () => {
+      const response = await api.orderStatuses.list({ limit: 100, offset: 0 });
+      return Array.isArray(response) ? response : [];
+    },
+  });
+
+  const orders = Array.isArray(ordersData) ? ordersData : [];
+  const orderStatuses = Array.isArray(orderStatusesData) ? orderStatusesData : [];
+
+  const orderStatusesMap = useMemo(() => {
+    const map = new Map();
+    orderStatuses.forEach(s => map.set(s.orderStatusId, s.name));
+    return map;
+  }, [orderStatuses]);
+
+  const getOrderStatusName = (statusId) => {
+    if (!statusId) return '—';
+    return orderStatusesMap.get(statusId) || '—';
+  };
+
   // Group orders by parent
-  const parentOrders = orders.filter(o => !o.parent_order_id);
-  const childOrdersMap = orders.reduce((acc, order) => {
-    if (order.parent_order_id) {
-      if (!acc[order.parent_order_id]) acc[order.parent_order_id] = [];
-      acc[order.parent_order_id].push(order);
-    }
-    return acc;
-  }, {});
+  const parentOrders = orders.filter(o => !o.parentOrderId);
+  const childOrdersMap = useMemo(() => {
+    const map = new Map();
+    orders.forEach(order => {
+      if (order.parentOrderId) {
+        if (!map.has(order.parentOrderId)) {
+          map.set(order.parentOrderId, []);
+        }
+        map.get(order.parentOrderId).push(order);
+      }
+    });
+    return map;
+  }, [orders]);
 
   const createMutation = useMutation({
-    mutationFn: (data) => api.entities.SupplierOrder.create(data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['supplier-orders'] });
+    mutationFn: (data) => api.supplierOrders.create(data),
+    onSuccess: async () => {
       setDialogOpen(false);
       resetForm();
+      setError('');
+      await refetchOrders();
+    },
+    onError: (err) => {
+      if (err instanceof ApiError) {
+        setError(err.message || 'Ошибка создания заказа');
+      } else {
+        setError('Ошибка создания заказа');
+      }
     },
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }) => api.entities.SupplierOrder.update(id, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['supplier-orders'] });
+    mutationFn: ({ id, data }) => api.supplierOrders.update(id, data),
+    onSuccess: async () => {
       setDialogOpen(false);
       resetForm();
+      setError('');
+      await refetchOrders();
+    },
+    onError: (err) => {
+      if (err instanceof ApiError) {
+        setError(err.message || 'Ошибка обновления заказа');
+      } else {
+        setError('Ошибка обновления заказа');
+      }
     },
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id) => api.entities.SupplierOrder.delete(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['supplier-orders'] });
+    mutationFn: (id) => api.supplierOrders.delete(id),
+    onMutate: async (deletedId) => {
+      await queryClient.cancelQueries({ queryKey: ['supplierOrders'] });
+      const previousData = queryClient.getQueryData(['supplierOrders']);
+      
+      queryClient.setQueryData(['supplierOrders'], (oldData) => {
+        if (!oldData || !Array.isArray(oldData)) return oldData;
+        return oldData.filter((order) => order.orderId !== deletedId);
+      });
+      
+      return { previousData };
+    },
+    onSuccess: async () => {
       setDeleteDialogOpen(false);
       setCurrentOrder(null);
+      setError('');
+      await queryClient.invalidateQueries({ queryKey: ['supplierOrders'] });
+      await refetchOrders();
+    },
+    onError: (err, deletedId, context) => {
+      if (context?.previousData) {
+        queryClient.setQueryData(['supplierOrders'], context.previousData);
+      }
+      if (err instanceof ApiError) {
+        setError(err.message || 'Ошибка удаления заказа');
+      } else {
+        setError('Ошибка удаления заказа');
+      }
+      setDeleteDialogOpen(false);
     },
   });
 
   const resetForm = () => {
     setFormData(emptyOrder);
     setCurrentOrder(null);
+    setError('');
   };
 
   const handleEdit = (order) => {
     setCurrentOrder(order);
     setFormData({
-      order_number: order.order_number || '',
-      supplier_name: order.supplier_name || '',
-      status: order.status || 'draft',
-      order_date: order.order_date || '',
-      expected_date: order.expected_date || '',
-      logistics_cost: order.logistics_cost || '',
-      notes: order.notes || ''
+      orderNumber: order.orderNumber || '',
+      buyer: order.buyer || null,
+      statusId: order.statusId || null,
+      purchaseDate: order.purchaseDate ? format(new Date(order.purchaseDate), 'yyyy-MM-dd') : null,
+      plannedReceiptDate: order.plannedReceiptDate ? format(new Date(order.plannedReceiptDate), 'yyyy-MM-dd') : null,
+      actualReceiptDate: order.actualReceiptDate ? format(new Date(order.actualReceiptDate), 'yyyy-MM-dd') : null,
+      logisticsChinaMsk: order.logisticsChinaMsk || null,
+      logisticsMskKzn: order.logisticsMskKzn || null,
+      logisticsAdditional: order.logisticsAdditional || null,
+      logisticsTotal: order.logisticsTotal || null,
+      orderItemCost: order.orderItemCost || null,
+      positionsQty: order.positionsQty || 0,
+      totalQty: order.totalQty || 0,
+      orderItemWeight: order.orderItemWeight || null,
+      parentOrderId: order.parentOrderId || null,
+    });
+    setDialogOpen(true);
+  };
+
+  const handleCreateSubOrder = (parentOrder) => {
+    setCurrentOrder(null);
+    setFormData({
+      orderNumber: `${parentOrder.orderNumber}-SUB`,
+      buyer: parentOrder.buyer || null,
+      statusId: parentOrder.statusId || null,
+      purchaseDate: parentOrder.purchaseDate ? format(new Date(parentOrder.purchaseDate), 'yyyy-MM-dd') : null,
+      plannedReceiptDate: parentOrder.plannedReceiptDate ? format(new Date(parentOrder.plannedReceiptDate), 'yyyy-MM-dd') : null,
+      actualReceiptDate: null,
+      logisticsChinaMsk: parentOrder.logisticsChinaMsk || null,
+      logisticsMskKzn: parentOrder.logisticsMskKzn || null,
+      logisticsAdditional: parentOrder.logisticsAdditional || null,
+      logisticsTotal: parentOrder.logisticsTotal || null,
+      orderItemCost: null,
+      positionsQty: 0,
+      totalQty: 0,
+      orderItemWeight: null,
+      parentOrderId: parentOrder.orderId,
     });
     setDialogOpen(true);
   };
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    setError('');
+
+    const orderNumber = formData.orderNumber.trim();
+    if (!orderNumber) {
+      setError('Номер заказа обязателен');
+      return;
+    }
+
     const data = {
-      ...formData,
-      logistics_cost: formData.logistics_cost ? parseFloat(formData.logistics_cost) : null,
+      orderNumber,
+      buyer: formData.buyer?.trim() || null,
+      statusId: formData.statusId ? parseInt(formData.statusId) : null,
+      purchaseDate: formData.purchaseDate ? new Date(formData.purchaseDate).toISOString() : null,
+      plannedReceiptDate: formData.plannedReceiptDate ? new Date(formData.plannedReceiptDate).toISOString() : null,
+      actualReceiptDate: formData.actualReceiptDate ? new Date(formData.actualReceiptDate).toISOString() : null,
+      logisticsChinaMsk: formData.logisticsChinaMsk ? parseFloat(formData.logisticsChinaMsk) : null,
+      logisticsMskKzn: formData.logisticsMskKzn ? parseFloat(formData.logisticsMskKzn) : null,
+      logisticsAdditional: formData.logisticsAdditional ? parseFloat(formData.logisticsAdditional) : null,
+      logisticsTotal: formData.logisticsTotal ? parseFloat(formData.logisticsTotal) : null,
+      orderItemCost: formData.orderItemCost ? parseFloat(formData.orderItemCost) : null,
+      positionsQty: parseInt(formData.positionsQty) || 0,
+      totalQty: parseInt(formData.totalQty) || 0,
+      orderItemWeight: formData.orderItemWeight ? parseFloat(formData.orderItemWeight) : null,
+      parentOrderId: formData.parentOrderId ? parseInt(formData.parentOrderId) : null,
     };
 
     if (currentOrder) {
-      updateMutation.mutate({ id: currentOrder.id, data });
+      updateMutation.mutate({ id: currentOrder.orderId, data });
     } else {
       createMutation.mutate(data);
     }
@@ -160,8 +284,8 @@ export default function SupplierOrders() {
   };
 
   const OrderRow = ({ order, isChild = false }) => {
-    const hasChildren = childOrdersMap[order.id]?.length > 0;
-    const isExpanded = expandedOrders[order.id];
+    const hasChildren = childOrdersMap.has(order.orderId) && childOrdersMap.get(order.orderId).length > 0;
+    const isExpanded = expandedOrders[order.orderId];
 
     return (
       <>
@@ -170,10 +294,11 @@ export default function SupplierOrders() {
             <div className="flex items-center gap-2">
               {hasChildren && (
                 <Button
+                  type="button"
                   variant="ghost"
                   size="icon"
                   className="w-6 h-6"
-                  onClick={() => toggleExpanded(order.id)}
+                  onClick={() => toggleExpanded(order.orderId)}
                 >
                   {isExpanded ? (
                     <ChevronDown className="w-4 h-4" />
@@ -189,34 +314,34 @@ export default function SupplierOrders() {
                 </div>
                 <div>
                   <p className="font-medium text-slate-900 dark:text-slate-100">
-                    {order.order_number}
+                    {order.orderNumber}
                   </p>
                   {isChild && (
-                    <p className="text-xs text-slate-500">Sub-order</p>
+                    <p className="text-xs text-slate-500">Подзаказ</p>
                   )}
                 </div>
               </div>
             </div>
           </td>
           <td className="px-4 py-3 text-slate-700 dark:text-slate-300">
-            {order.supplier_name}
+            {order.buyer || '—'}
           </td>
           <td className="px-4 py-3">
-            <StatusBadge status={order.status} />
+            <StatusBadge status={getOrderStatusName(order.statusId)} />
           </td>
           <td className="px-4 py-3 text-slate-600 dark:text-slate-400">
-            {order.order_date ? format(new Date(order.order_date), 'MMM d, yyyy') : '—'}
+            {order.purchaseDate ? format(new Date(order.purchaseDate), 'dd.MM.yyyy') : '—'}
           </td>
           <td className="px-4 py-3 text-slate-600 dark:text-slate-400">
-            {order.expected_date ? format(new Date(order.expected_date), 'MMM d, yyyy') : '—'}
+            {order.plannedReceiptDate ? format(new Date(order.plannedReceiptDate), 'dd.MM.yyyy') : '—'}
           </td>
           <td className="px-4 py-3">
             <div>
               <p className="font-semibold text-slate-900 dark:text-slate-100">
-                ${(order.total || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                {order.orderItemCost ? `₽${order.orderItemCost.toLocaleString('ru-RU', { minimumFractionDigits: 2 })}` : '—'}
               </p>
               <p className="text-xs text-slate-500">
-                {order.total_quantity || 0} items
+                {order.totalQty || 0} шт.
               </p>
             </div>
           </td>
@@ -229,29 +354,35 @@ export default function SupplierOrders() {
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 <DropdownMenuItem asChild>
-                  <Link to={`${createPageUrl('SupplierOrderDetails')}?id=${order.id}`}>
+                  <Link to={`${createPageUrl('SupplierOrderDetails')}?id=${order.orderId}`}>
                     <Eye className="w-4 h-4 mr-2" />
-                    View Details
+                    Детали
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => handleEdit(order)}>
                   <Edit2 className="w-4 h-4 mr-2" />
-                  Edit
+                  Редактировать
                 </DropdownMenuItem>
+                {!isChild && (
+                  <DropdownMenuItem onClick={() => handleCreateSubOrder(order)}>
+                    <Copy className="w-4 h-4 mr-2" />
+                    Создать подзаказ
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem 
                   onClick={() => { setCurrentOrder(order); setDeleteDialogOpen(true); }}
                   className="text-red-600"
                 >
                   <Trash2 className="w-4 h-4 mr-2" />
-                  Delete
+                  Удалить
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </td>
         </tr>
-        {hasChildren && isExpanded && childOrdersMap[order.id].map(child => (
-          <OrderRow key={child.id} order={child} isChild={true} />
+        {hasChildren && isExpanded && childOrdersMap.get(order.orderId).map(child => (
+          <OrderRow key={child.orderId} order={child} isChild={true} />
         ))}
       </>
     );
@@ -260,138 +391,208 @@ export default function SupplierOrders() {
   return (
     <div className="space-y-6">
       <PageHeader 
-        title="Supplier Orders" 
-        description="Manage purchase orders from suppliers"
+        title="Заказы поставщикам" 
+        description="Управление заказами поставщикам"
       >
         <Button onClick={() => { resetForm(); setDialogOpen(true); }}>
           <Plus className="w-4 h-4 mr-2" />
-          New Order
+          Новый заказ
         </Button>
       </PageHeader>
 
       <div className="overflow-hidden bg-white border rounded-lg dark:bg-slate-900 dark:border-slate-800">
-        <table className="w-full">
-          <thead>
-            <tr className="border-b bg-slate-50 dark:bg-slate-800/50 dark:border-slate-800">
-              <th className="px-4 py-3 text-sm font-semibold text-left text-slate-700 dark:text-slate-300">Order Number</th>
-              <th className="px-4 py-3 text-sm font-semibold text-left text-slate-700 dark:text-slate-300">Supplier</th>
-              <th className="px-4 py-3 text-sm font-semibold text-left text-slate-700 dark:text-slate-300">Status</th>
-              <th className="px-4 py-3 text-sm font-semibold text-left text-slate-700 dark:text-slate-300">Order Date</th>
-              <th className="px-4 py-3 text-sm font-semibold text-left text-slate-700 dark:text-slate-300">Expected</th>
-              <th className="px-4 py-3 text-sm font-semibold text-left text-slate-700 dark:text-slate-300">Total</th>
-              <th className="px-4 py-3 text-sm font-semibold text-left text-slate-700 dark:text-slate-300"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {parentOrders.length === 0 ? (
-              <tr>
-                <td colSpan={7} className="px-4 py-12 text-center text-slate-500">
-                  No orders found
-                </td>
+        {isLoading ? (
+          <div className="px-4 py-12 text-center text-slate-500">
+            Загрузка...
+          </div>
+        ) : (
+          <table className="w-full">
+            <thead>
+              <tr className="border-b bg-slate-50 dark:bg-slate-800/50 dark:border-slate-800">
+                <th className="px-4 py-3 text-sm font-semibold text-left text-slate-700 dark:text-slate-300">Номер заказа</th>
+                <th className="px-4 py-3 text-sm font-semibold text-left text-slate-700 dark:text-slate-300">Покупатель</th>
+                <th className="px-4 py-3 text-sm font-semibold text-left text-slate-700 dark:text-slate-300">Статус</th>
+                <th className="px-4 py-3 text-sm font-semibold text-left text-slate-700 dark:text-slate-300">Дата заказа</th>
+                <th className="px-4 py-3 text-sm font-semibold text-left text-slate-700 dark:text-slate-300">План. получение</th>
+                <th className="px-4 py-3 text-sm font-semibold text-left text-slate-700 dark:text-slate-300">Сумма</th>
+                <th className="px-4 py-3 text-sm font-semibold text-left text-slate-700 dark:text-slate-300"></th>
               </tr>
-            ) : (
-              parentOrders.map(order => (
-                <OrderRow key={order.id} order={order} />
-              ))
-            )}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {parentOrders.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="px-4 py-12 text-center text-slate-500">
+                    Заказы не найдены
+                  </td>
+                </tr>
+              ) : (
+                parentOrders.map(order => (
+                  <OrderRow key={order.orderId} order={order} />
+                ))
+              )}
+            </tbody>
+          </table>
+        )}
       </div>
 
       {/* Create/Edit Dialog */}
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-lg">
+      <Dialog 
+        open={dialogOpen} 
+        onOpenChange={(open) => {
+          setDialogOpen(open);
+          if (!open) {
+            resetForm();
+          }
+        }}
+      >
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
-              {currentOrder ? 'Edit Order' : 'New Supplier Order'}
+              {currentOrder ? 'Редактировать заказ' : 'Новый заказ поставщику'}
             </DialogTitle>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
+            {error && (
+              <div className="p-3 text-sm text-red-600 bg-red-50 dark:bg-red-900/20 dark:text-red-400 rounded-lg">
+                {error}
+              </div>
+            )}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="order_number">Order Number *</Label>
+                <Label htmlFor="orderNumber">Номер заказа *</Label>
                 <Input
-                  id="order_number"
-                  value={formData.order_number}
-                  onChange={(e) => setFormData({ ...formData, order_number: e.target.value })}
+                  id="orderNumber"
+                  value={formData.orderNumber}
+                  onChange={(e) => setFormData({ ...formData, orderNumber: e.target.value })}
                   required
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="status">Status</Label>
+                <Label htmlFor="statusId">Статус</Label>
                 <Select
-                  value={formData.status}
-                  onValueChange={(value) => setFormData({ ...formData, status: value })}
+                  value={formData.statusId ? formData.statusId.toString() : ''}
+                  onValueChange={(value) => {
+                    setFormData({ 
+                      ...formData, 
+                      statusId: value && value !== '' ? parseInt(value) : null 
+                    });
+                  }}
                 >
-                  <SelectTrigger>
-                    <SelectValue />
+                  <SelectTrigger id="statusId">
+                    <SelectValue placeholder="Выберите статус">
+                      {formData.statusId ? getOrderStatusName(formData.statusId) : ''}
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="draft">Draft</SelectItem>
-                    <SelectItem value="pending">Pending</SelectItem>
-                    <SelectItem value="confirmed">Confirmed</SelectItem>
-                    <SelectItem value="in_transit">In Transit</SelectItem>
-                    <SelectItem value="partially_received">Partially Received</SelectItem>
-                    <SelectItem value="received">Received</SelectItem>
-                    <SelectItem value="cancelled">Cancelled</SelectItem>
+                    <SelectItem value="">Не указан</SelectItem>
+                    {orderStatuses.map((status) => (
+                      <SelectItem key={status.orderStatusId} value={status.orderStatusId.toString()}>
+                        {status.name}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="supplier_name">Supplier Name *</Label>
+              <Label htmlFor="buyer">Покупатель</Label>
               <Input
-                id="supplier_name"
-                value={formData.supplier_name}
-                onChange={(e) => setFormData({ ...formData, supplier_name: e.target.value })}
-                required
+                id="buyer"
+                value={formData.buyer || ''}
+                onChange={(e) => setFormData({ ...formData, buyer: e.target.value || null })}
               />
+            </div>
+            <div className="grid grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="purchaseDate">Дата заказа</Label>
+                <Input
+                  id="purchaseDate"
+                  type="date"
+                  value={formData.purchaseDate || ''}
+                  onChange={(e) => setFormData({ ...formData, purchaseDate: e.target.value || null })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="plannedReceiptDate">План. получение</Label>
+                <Input
+                  id="plannedReceiptDate"
+                  type="date"
+                  value={formData.plannedReceiptDate || ''}
+                  onChange={(e) => setFormData({ ...formData, plannedReceiptDate: e.target.value || null })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="actualReceiptDate">Факт. получение</Label>
+                <Input
+                  id="actualReceiptDate"
+                  type="date"
+                  value={formData.actualReceiptDate || ''}
+                  onChange={(e) => setFormData({ ...formData, actualReceiptDate: e.target.value || null })}
+                />
+              </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="order_date">Order Date</Label>
+                <Label htmlFor="positionsQty">Количество позиций</Label>
                 <Input
-                  id="order_date"
-                  type="date"
-                  value={formData.order_date}
-                  onChange={(e) => setFormData({ ...formData, order_date: e.target.value })}
+                  id="positionsQty"
+                  type="number"
+                  min="0"
+                  value={formData.positionsQty}
+                  onChange={(e) => setFormData({ ...formData, positionsQty: e.target.value })}
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="expected_date">Expected Delivery</Label>
+                <Label htmlFor="totalQty">Общее количество</Label>
                 <Input
-                  id="expected_date"
-                  type="date"
-                  value={formData.expected_date}
-                  onChange={(e) => setFormData({ ...formData, expected_date: e.target.value })}
+                  id="totalQty"
+                  type="number"
+                  min="0"
+                  value={formData.totalQty}
+                  onChange={(e) => setFormData({ ...formData, totalQty: e.target.value })}
                 />
               </div>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="logistics_cost">Logistics Cost ($)</Label>
-              <Input
-                id="logistics_cost"
-                type="number"
-                step="0.01"
-                value={formData.logistics_cost}
-                onChange={(e) => setFormData({ ...formData, logistics_cost: e.target.value })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="notes">Notes</Label>
-              <Textarea
-                id="notes"
-                value={formData.notes}
-                onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                rows={3}
-              />
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="orderItemCost">Стоимость товара (₽)</Label>
+                <Input
+                  id="orderItemCost"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={formData.orderItemCost || ''}
+                  onChange={(e) => setFormData({ ...formData, orderItemCost: e.target.value || null })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="logisticsTotal">Общая логистика (₽)</Label>
+                <Input
+                  id="logisticsTotal"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={formData.logisticsTotal || ''}
+                  onChange={(e) => setFormData({ ...formData, logisticsTotal: e.target.value || null })}
+                />
+              </div>
             </div>
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
-                Cancel
+              <Button 
+                type="button" 
+                variant="outline" 
+                onClick={() => {
+                  setDialogOpen(false);
+                  resetForm();
+                }}
+              >
+                Отмена
               </Button>
-              <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending}>
-                {currentOrder ? 'Update' : 'Create'}
+              <Button 
+                type="submit" 
+                disabled={createMutation.isPending || updateMutation.isPending}
+              >
+                {currentOrder ? 'Обновить' : 'Создать'}
               </Button>
             </DialogFooter>
           </form>
@@ -402,18 +603,25 @@ export default function SupplierOrders() {
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Order</AlertDialogTitle>
+            <AlertDialogTitle>Удалить заказ</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete order "{currentOrder?.order_number}"? This action cannot be undone.
+              Вы уверены, что хотите удалить заказ "{currentOrder?.orderNumber}"? Это действие невозможно отменить.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel onClick={() => setDeleteDialogOpen(false)}>
+              Отмена
+            </AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => deleteMutation.mutate(currentOrder.id)}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                deleteMutation.mutate(currentOrder.orderId);
+              }}
               className="bg-red-600 hover:bg-red-700"
+              disabled={deleteMutation.isPending}
             >
-              Delete
+              {deleteMutation.isPending ? 'Удаление...' : 'Удалить'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

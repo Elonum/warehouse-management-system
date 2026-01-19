@@ -38,9 +38,14 @@ export function SelectTrigger({ className, children, ...props }) {
   const { value, isOpen, setIsOpen } = React.useContext(SelectContext)
   return (
     <Button
+      type="button"
       variant="outline"
       className={cn('w-full justify-between', className)}
-      onClick={() => setIsOpen(!isOpen)}
+      onClick={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsOpen(!isOpen);
+      }}
       {...props}
     >
       {children || <SelectValue />}
@@ -49,8 +54,11 @@ export function SelectTrigger({ className, children, ...props }) {
   )
 }
 
-export function SelectValue({ placeholder = 'Select...' }) {
+export function SelectValue({ placeholder = 'Select...', children }) {
   const { value } = React.useContext(SelectContext)
+  if (children) {
+    return <span>{children}</span>
+  }
   return <span>{value || placeholder}</span>
 }
 
@@ -80,9 +88,11 @@ export function SelectItem({ className, children, value, ...props }) {
         'relative flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-slate-100 dark:hover:bg-slate-800 focus:bg-slate-100 dark:focus:bg-slate-800',
         className
       )}
-      onClick={() => {
-        onValueChange?.(value)
-        setIsOpen(false)
+      onClick={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        onValueChange?.(value);
+        setIsOpen(false);
       }}
       {...props}
     >

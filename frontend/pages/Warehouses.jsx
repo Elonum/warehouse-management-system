@@ -257,16 +257,17 @@ export default function Warehouses() {
     e.preventDefault();
     setError('');
     
-    const data = {
-      name: warehouseForm.name.trim(),
-      warehouseTypeId: warehouseForm.warehouseTypeId ? parseInt(warehouseForm.warehouseTypeId) : null,
-      location: warehouseForm.location?.trim() || null,
-    };
-
-    if (!data.name) {
+    const name = warehouseForm.name.trim();
+    if (!name) {
       setError('Название склада обязательно');
       return;
     }
+
+    const data = {
+      name,
+      warehouseTypeId: warehouseForm.warehouseTypeId ? (typeof warehouseForm.warehouseTypeId === 'number' ? warehouseForm.warehouseTypeId : parseInt(warehouseForm.warehouseTypeId)) : null,
+      location: warehouseForm.location?.trim() || null,
+    };
 
     if (currentItem) {
       updateWarehouseMutation.mutate({ id: currentItem.warehouseId, data });
@@ -296,8 +297,15 @@ export default function Warehouses() {
   };
 
   const getWarehouseTypeName = (warehouseTypeId) => {
+    if (!warehouseTypeId) return '—';
     const type = warehouseTypes.find(t => t.warehouseTypeId === warehouseTypeId);
     return type ? type.name : '—';
+  };
+
+  const getSelectedWarehouseTypeName = () => {
+    if (!warehouseForm.warehouseTypeId) return '';
+    const type = warehouseTypes.find(t => t.warehouseTypeId === warehouseForm.warehouseTypeId);
+    return type ? type.name : '';
   };
 
   const warehouseColumns = [
@@ -461,7 +469,17 @@ export default function Warehouses() {
       </Tabs>
 
       {/* Warehouse Dialog */}
-      <Dialog open={warehouseDialogOpen} onOpenChange={setWarehouseDialogOpen}>
+      <Dialog 
+        open={warehouseDialogOpen} 
+        onOpenChange={(open) => {
+          setWarehouseDialogOpen(open);
+          if (!open) {
+            setWarehouseForm(emptyWarehouse);
+            setCurrentItem(null);
+            setError('');
+          }
+        }}
+      >
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>
@@ -486,11 +504,18 @@ export default function Warehouses() {
             <div className="space-y-2">
               <Label htmlFor="wh-type">Тип склада</Label>
               <Select
-                value={warehouseForm.warehouseTypeId?.toString() || ''}
-                onValueChange={(value) => setWarehouseForm({ ...warehouseForm, warehouseTypeId: value ? parseInt(value) : null })}
+                value={warehouseForm.warehouseTypeId ? warehouseForm.warehouseTypeId.toString() : ''}
+                onValueChange={(value) => {
+                  setWarehouseForm({ 
+                    ...warehouseForm, 
+                    warehouseTypeId: value && value !== '' ? parseInt(value) : null 
+                  });
+                }}
               >
-                <SelectTrigger>
-                  <SelectValue placeholder="Выберите тип" />
+                <SelectTrigger id="wh-type">
+                  <SelectValue placeholder="Выберите тип">
+                    {getSelectedWarehouseTypeName()}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="">Не указан</SelectItem>
@@ -511,10 +536,22 @@ export default function Warehouses() {
               />
             </div>
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => { setWarehouseDialogOpen(false); setError(''); }}>
+              <Button 
+                type="button" 
+                variant="outline" 
+                onClick={() => {
+                  setWarehouseDialogOpen(false);
+                  setWarehouseForm(emptyWarehouse);
+                  setCurrentItem(null);
+                  setError('');
+                }}
+              >
                 Отмена
               </Button>
-              <Button type="submit" disabled={createWarehouseMutation.isPending || updateWarehouseMutation.isPending}>
+              <Button 
+                type="submit" 
+                disabled={createWarehouseMutation.isPending || updateWarehouseMutation.isPending}
+              >
                 {currentItem ? 'Обновить' : 'Создать'}
               </Button>
             </DialogFooter>
@@ -523,7 +560,17 @@ export default function Warehouses() {
       </Dialog>
 
       {/* Store Dialog */}
-      <Dialog open={storeDialogOpen} onOpenChange={setStoreDialogOpen}>
+      <Dialog 
+        open={storeDialogOpen} 
+        onOpenChange={(open) => {
+          setStoreDialogOpen(open);
+          if (!open) {
+            setStoreForm(emptyStore);
+            setCurrentItem(null);
+            setError('');
+          }
+        }}
+      >
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>
@@ -546,10 +593,22 @@ export default function Warehouses() {
               />
             </div>
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => { setStoreDialogOpen(false); setError(''); }}>
+              <Button 
+                type="button" 
+                variant="outline" 
+                onClick={() => {
+                  setStoreDialogOpen(false);
+                  setStoreForm(emptyStore);
+                  setCurrentItem(null);
+                  setError('');
+                }}
+              >
                 Отмена
               </Button>
-              <Button type="submit" disabled={createStoreMutation.isPending || updateStoreMutation.isPending}>
+              <Button 
+                type="submit" 
+                disabled={createStoreMutation.isPending || updateStoreMutation.isPending}
+              >
                 {currentItem ? 'Обновить' : 'Создать'}
               </Button>
             </DialogFooter>

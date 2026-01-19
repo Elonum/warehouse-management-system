@@ -19,17 +19,27 @@ export function Button({
   className,
   variant = 'default',
   size = 'default',
+  asChild = false,
   children,
   ...props
 }) {
+  const baseClasses = cn(
+    'inline-flex items-center justify-center rounded-lg text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 disabled:pointer-events-none disabled:opacity-50',
+    buttonVariants[variant],
+    buttonSizes[size],
+    className
+  );
+
+  if (asChild) {
+    return React.cloneElement(React.Children.only(children), {
+      className: cn(baseClasses, children.props.className),
+      ...props,
+    });
+  }
+
   return (
     <button
-      className={cn(
-        'inline-flex items-center justify-center rounded-lg text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 disabled:pointer-events-none disabled:opacity-50',
-        buttonVariants[variant],
-        buttonSizes[size],
-        className
-      )}
+      className={baseClasses}
       {...props}
     >
       {children}

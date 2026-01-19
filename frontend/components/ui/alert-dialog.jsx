@@ -1,6 +1,7 @@
 import React from 'react'
 import { Dialog, DialogContent } from './dialog'
 import { Button } from './button'
+import { cn } from '@/lib/utils'
 
 export function AlertDialog({ open, onOpenChange, children }) {
   return <Dialog open={open} onOpenChange={onOpenChange}>{children}</Dialog>

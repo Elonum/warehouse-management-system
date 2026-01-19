@@ -49,20 +49,23 @@ export default function Products() {
   const [formData, setFormData] = useState(emptyProduct);
   const [error, setError] = useState('');
 
-  const { data: productsData, isLoading } = useQuery({
+  const { data: productsData, isLoading, refetch } = useQuery({
     queryKey: ['products'],
-    queryFn: () => api.products.list({ limit: 1000, offset: 0 }),
+    queryFn: async () => {
+      const response = await api.products.list({ limit: 1000, offset: 0 });
+      return Array.isArray(response) ? response : [];
+    },
   });
 
-  const products = productsData || [];
+  const products = Array.isArray(productsData) ? productsData : [];
 
   const createMutation = useMutation({
     mutationFn: (data) => api.products.create(data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['products'] });
+    onSuccess: async () => {
       setDialogOpen(false);
       resetForm();
       setError('');
+      await refetch();
     },
     onError: (err) => {
       if (err instanceof ApiError) {
@@ -75,11 +78,11 @@ export default function Products() {
 
   const updateMutation = useMutation({
     mutationFn: ({ id, data }) => api.products.update(id, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['products'] });
+    onSuccess: async () => {
       setDialogOpen(false);
       resetForm();
       setError('');
+      await refetch();
     },
     onError: (err) => {
       if (err instanceof ApiError) {
@@ -92,17 +95,34 @@ export default function Products() {
 
   const deleteMutation = useMutation({
     mutationFn: (id) => api.products.delete(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['products'] });
+    onMutate: async (deletedId) => {
+      await queryClient.cancelQueries({ queryKey: ['products'] });
+      const previousData = queryClient.getQueryData(['products']);
+      
+      queryClient.setQueryData(['products'], (oldData) => {
+        if (!oldData || !Array.isArray(oldData)) return oldData;
+        return oldData.filter((product) => product.productId !== deletedId);
+      });
+      
+      return { previousData };
+    },
+    onSuccess: async () => {
       setDeleteDialogOpen(false);
       setCurrentProduct(null);
+      setError('');
+      await queryClient.invalidateQueries({ queryKey: ['products'] });
+      await refetch();
     },
-    onError: (err) => {
+    onError: (err, deletedId, context) => {
+      if (context?.previousData) {
+        queryClient.setQueryData(['products'], context.previousData);
+      }
       if (err instanceof ApiError) {
         setError(err.message || 'Ошибка удаления товара');
       } else {
         setError('Ошибка удаления товара');
       }
+      setDeleteDialogOpen(false);
     },
   });
 
@@ -334,12 +354,21 @@ export default function Products() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Отмена</AlertDialogCancel>
+            <AlertDialogCancel onClick={() => setDeleteDialogOpen(false)}>
+              Отмена
+            </AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => deleteMutation.mutate(currentProduct.productId)}
+              onClick={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+                if (currentProduct?.productId) {
+                  deleteMutation.mutate(currentProduct.productId)
+                }
+              }}
               className="bg-red-600 hover:bg-red-700"
+              disabled={deleteMutation.isPending}
             >
-              Удалить
+              {deleteMutation.isPending ? 'Удаление...' : 'Удалить'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

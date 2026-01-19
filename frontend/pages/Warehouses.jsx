@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { api } from '@/api';
+import { api, ApiError } from '@/api';
 import { Plus, Edit2, Trash2, Warehouse, Store, MoreHorizontal } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -38,20 +38,15 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import PageHeader from '@/components/ui/PageHeader';
 import DataTable from '@/components/ui/DataTable';
-import StatusBadge from '@/components/ui/StatusBadge';
 
 const emptyWarehouse = {
   name: '',
-  warehouse_type: 'main',
-  location: '',
-  capacity: '',
-  status: 'active'
+  warehouseTypeId: null,
+  location: null,
 };
 
 const emptyStore = {
   name: '',
-  marketplace: '',
-  status: 'active'
 };
 
 export default function Warehouses() {
@@ -64,74 +59,173 @@ export default function Warehouses() {
   const [deleteType, setDeleteType] = useState(null);
   const [warehouseForm, setWarehouseForm] = useState(emptyWarehouse);
   const [storeForm, setStoreForm] = useState(emptyStore);
+  const [error, setError] = useState('');
 
-  const { data: warehouses = [], isLoading: loadingWarehouses } = useQuery({
+  const { data: warehousesData, isLoading: loadingWarehouses, refetch: refetchWarehouses } = useQuery({
     queryKey: ['warehouses'],
-    queryFn: () => api.entities.Warehouse.list('-created_date'),
+    queryFn: async () => {
+      const response = await api.warehouses.list({ limit: 1000, offset: 0 });
+      return Array.isArray(response) ? response : [];
+    },
   });
 
-  const { data: stores = [], isLoading: loadingStores } = useQuery({
-    queryKey: ['stores'],
-    queryFn: () => api.entities.Store.list('-created_date'),
+  const { data: warehouseTypesData } = useQuery({
+    queryKey: ['warehouseTypes'],
+    queryFn: async () => {
+      const response = await api.warehouseTypes.list({ limit: 100, offset: 0 });
+      return Array.isArray(response) ? response : [];
+    },
   });
+
+  const { data: storesData, isLoading: loadingStores, refetch: refetchStores } = useQuery({
+    queryKey: ['stores'],
+    queryFn: async () => {
+      const response = await api.stores.list({ limit: 1000, offset: 0 });
+      return Array.isArray(response) ? response : [];
+    },
+  });
+
+  const warehouses = Array.isArray(warehousesData) ? warehousesData : [];
+  const stores = Array.isArray(storesData) ? storesData : [];
+  const warehouseTypes = Array.isArray(warehouseTypesData) ? warehouseTypesData : [];
 
   // Warehouse mutations
   const createWarehouseMutation = useMutation({
-    mutationFn: (data) => api.entities.Warehouse.create(data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['warehouses'] });
+    mutationFn: (data) => api.warehouses.create(data),
+    onSuccess: async () => {
       setWarehouseDialogOpen(false);
       setWarehouseForm(emptyWarehouse);
       setCurrentItem(null);
+      setError('');
+      await refetchWarehouses();
+    },
+    onError: (err) => {
+      if (err instanceof ApiError) {
+        setError(err.message || 'Ошибка создания склада');
+      } else {
+        setError('Ошибка создания склада');
+      }
     },
   });
 
   const updateWarehouseMutation = useMutation({
-    mutationFn: ({ id, data }) => api.entities.Warehouse.update(id, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['warehouses'] });
+    mutationFn: ({ id, data }) => api.warehouses.update(id, data),
+    onSuccess: async () => {
       setWarehouseDialogOpen(false);
       setWarehouseForm(emptyWarehouse);
       setCurrentItem(null);
+      setError('');
+      await refetchWarehouses();
+    },
+    onError: (err) => {
+      if (err instanceof ApiError) {
+        setError(err.message || 'Ошибка обновления склада');
+      } else {
+        setError('Ошибка обновления склада');
+      }
     },
   });
 
   const deleteWarehouseMutation = useMutation({
-    mutationFn: (id) => api.entities.Warehouse.delete(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['warehouses'] });
+    mutationFn: (id) => api.warehouses.delete(id),
+    onMutate: async (deletedId) => {
+      await queryClient.cancelQueries({ queryKey: ['warehouses'] });
+      const previousData = queryClient.getQueryData(['warehouses']);
+      
+      queryClient.setQueryData(['warehouses'], (oldData) => {
+        if (!oldData || !Array.isArray(oldData)) return oldData;
+        return oldData.filter((warehouse) => warehouse.warehouseId !== deletedId);
+      });
+      
+      return { previousData };
+    },
+    onSuccess: async () => {
       setDeleteDialogOpen(false);
       setCurrentItem(null);
+      setError('');
+      await queryClient.invalidateQueries({ queryKey: ['warehouses'] });
+      await refetchWarehouses();
+    },
+    onError: (err, deletedId, context) => {
+      if (context?.previousData) {
+        queryClient.setQueryData(['warehouses'], context.previousData);
+      }
+      if (err instanceof ApiError) {
+        setError(err.message || 'Ошибка удаления склада');
+      } else {
+        setError('Ошибка удаления склада');
+      }
+      setDeleteDialogOpen(false);
     },
   });
 
   // Store mutations
   const createStoreMutation = useMutation({
-    mutationFn: (data) => api.entities.Store.create(data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['stores'] });
+    mutationFn: (data) => api.stores.create(data),
+    onSuccess: async () => {
       setStoreDialogOpen(false);
       setStoreForm(emptyStore);
       setCurrentItem(null);
+      setError('');
+      await refetchStores();
+    },
+    onError: (err) => {
+      if (err instanceof ApiError) {
+        setError(err.message || 'Ошибка создания магазина');
+      } else {
+        setError('Ошибка создания магазина');
+      }
     },
   });
 
   const updateStoreMutation = useMutation({
-    mutationFn: ({ id, data }) => api.entities.Store.update(id, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['stores'] });
+    mutationFn: ({ id, data }) => api.stores.update(id, data),
+    onSuccess: async () => {
       setStoreDialogOpen(false);
       setStoreForm(emptyStore);
       setCurrentItem(null);
+      setError('');
+      await refetchStores();
+    },
+    onError: (err) => {
+      if (err instanceof ApiError) {
+        setError(err.message || 'Ошибка обновления магазина');
+      } else {
+        setError('Ошибка обновления магазина');
+      }
     },
   });
 
   const deleteStoreMutation = useMutation({
-    mutationFn: (id) => api.entities.Store.delete(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['stores'] });
+    mutationFn: (id) => api.stores.delete(id),
+    onMutate: async (deletedId) => {
+      await queryClient.cancelQueries({ queryKey: ['stores'] });
+      const previousData = queryClient.getQueryData(['stores']);
+      
+      queryClient.setQueryData(['stores'], (oldData) => {
+        if (!oldData || !Array.isArray(oldData)) return oldData;
+        return oldData.filter((store) => store.storeId !== deletedId);
+      });
+      
+      return { previousData };
+    },
+    onSuccess: async () => {
       setDeleteDialogOpen(false);
       setCurrentItem(null);
+      setError('');
+      await queryClient.invalidateQueries({ queryKey: ['stores'] });
+      await refetchStores();
+    },
+    onError: (err, deletedId, context) => {
+      if (context?.previousData) {
+        queryClient.setQueryData(['stores'], context.previousData);
+      }
+      if (err instanceof ApiError) {
+        setError(err.message || 'Ошибка удаления магазина');
+      } else {
+        setError('Ошибка удаления магазина');
+      }
+      setDeleteDialogOpen(false);
     },
   });
 
@@ -139,10 +233,8 @@ export default function Warehouses() {
     setCurrentItem(warehouse);
     setWarehouseForm({
       name: warehouse.name || '',
-      warehouse_type: warehouse.warehouse_type || 'main',
-      location: warehouse.location || '',
-      capacity: warehouse.capacity || '',
-      status: warehouse.status || 'active'
+      warehouseTypeId: warehouse.warehouseTypeId || null,
+      location: warehouse.location || null,
     });
     setWarehouseDialogOpen(true);
   };
@@ -151,8 +243,6 @@ export default function Warehouses() {
     setCurrentItem(store);
     setStoreForm({
       name: store.name || '',
-      marketplace: store.marketplace || '',
-      status: store.status || 'active'
     });
     setStoreDialogOpen(true);
   };
@@ -165,12 +255,21 @@ export default function Warehouses() {
 
   const handleWarehouseSubmit = (e) => {
     e.preventDefault();
+    setError('');
+    
     const data = {
-      ...warehouseForm,
-      capacity: warehouseForm.capacity ? parseInt(warehouseForm.capacity) : null,
+      name: warehouseForm.name.trim(),
+      warehouseTypeId: warehouseForm.warehouseTypeId ? parseInt(warehouseForm.warehouseTypeId) : null,
+      location: warehouseForm.location?.trim() || null,
     };
+
+    if (!data.name) {
+      setError('Название склада обязательно');
+      return;
+    }
+
     if (currentItem) {
-      updateWarehouseMutation.mutate({ id: currentItem.id, data });
+      updateWarehouseMutation.mutate({ id: currentItem.warehouseId, data });
     } else {
       createWarehouseMutation.mutate(data);
     }
@@ -178,11 +277,27 @@ export default function Warehouses() {
 
   const handleStoreSubmit = (e) => {
     e.preventDefault();
-    if (currentItem) {
-      updateStoreMutation.mutate({ id: currentItem.id, data: storeForm });
-    } else {
-      createStoreMutation.mutate(storeForm);
+    setError('');
+    
+    const data = {
+      name: storeForm.name.trim(),
+    };
+
+    if (!data.name) {
+      setError('Название магазина обязательно');
+      return;
     }
+
+    if (currentItem) {
+      updateStoreMutation.mutate({ id: currentItem.storeId, data });
+    } else {
+      createStoreMutation.mutate(data);
+    }
+  };
+
+  const getWarehouseTypeName = (warehouseTypeId) => {
+    const type = warehouseTypes.find(t => t.warehouseTypeId === warehouseTypeId);
+    return type ? type.name : '—';
   };
 
   const warehouseColumns = [
@@ -201,9 +316,13 @@ export default function Warehouses() {
       ),
     },
     {
-      accessorKey: 'warehouse_type',
+      accessorKey: 'warehouseTypeId',
       header: 'Тип',
-      cell: ({ row }) => <StatusBadge status={row.original.warehouse_type} />,
+      cell: ({ row }) => (
+        <span className="text-slate-600 dark:text-slate-400">
+          {getWarehouseTypeName(row.original.warehouseTypeId)}
+        </span>
+      ),
     },
     {
       accessorKey: 'location',
@@ -213,20 +332,6 @@ export default function Warehouses() {
           {row.original.location || '—'}
         </span>
       ),
-    },
-    {
-      accessorKey: 'capacity',
-      header: 'Вместимость',
-      cell: ({ row }) => (
-        <span className="text-slate-600 dark:text-slate-400">
-          {row.original.capacity ? row.original.capacity.toLocaleString() : '—'}
-        </span>
-      ),
-    },
-    {
-      accessorKey: 'status',
-      header: 'Status',
-      cell: ({ row }) => <StatusBadge status={row.original.status} />,
     },
     {
       id: 'actions',
@@ -271,20 +376,6 @@ export default function Warehouses() {
           </span>
         </div>
       ),
-    },
-    {
-      accessorKey: 'marketplace',
-      header: 'Площадка',
-      cell: ({ row }) => (
-        <span className="text-slate-600 dark:text-slate-400">
-          {row.original.marketplace || '—'}
-        </span>
-      ),
-    },
-    {
-      accessorKey: 'status',
-      header: 'Status',
-      cell: ({ row }) => <StatusBadge status={row.original.status} />,
     },
     {
       id: 'actions',
@@ -336,12 +427,12 @@ export default function Warehouses() {
           </TabsList>
           
           {activeTab === 'warehouses' ? (
-            <Button onClick={() => { setCurrentItem(null); setWarehouseForm(emptyWarehouse); setWarehouseDialogOpen(true); }}>
+            <Button onClick={() => { setCurrentItem(null); setWarehouseForm(emptyWarehouse); setWarehouseDialogOpen(true); setError(''); }}>
               <Plus className="w-4 h-4 mr-2" />
               Добавить склад
             </Button>
           ) : (
-            <Button onClick={() => { setCurrentItem(null); setStoreForm(emptyStore); setStoreDialogOpen(true); }}>
+            <Button onClick={() => { setCurrentItem(null); setStoreForm(emptyStore); setStoreDialogOpen(true); setError(''); }}>
               <Plus className="w-4 h-4 mr-2" />
               Добавить магазин
             </Button>
@@ -354,6 +445,7 @@ export default function Warehouses() {
             data={warehouses}
             searchPlaceholder="Поиск складов..."
             emptyMessage="Склады не найдены"
+            isLoading={loadingWarehouses}
           />
         </TabsContent>
 
@@ -363,6 +455,7 @@ export default function Warehouses() {
             data={stores}
             searchPlaceholder="Поиск магазинов..."
             emptyMessage="Магазины не найдены"
+            isLoading={loadingStores}
           />
         </TabsContent>
       </Tabs>
@@ -376,6 +469,11 @@ export default function Warehouses() {
             </DialogTitle>
           </DialogHeader>
           <form onSubmit={handleWarehouseSubmit} className="space-y-4">
+            {error && (
+              <div className="p-3 text-sm text-red-600 bg-red-50 dark:bg-red-900/20 dark:text-red-400 rounded-lg">
+                {error}
+              </div>
+            )}
             <div className="space-y-2">
               <Label htmlFor="wh-name">Название склада *</Label>
               <Input
@@ -385,62 +483,38 @@ export default function Warehouses() {
                 required
               />
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="wh-type">Тип</Label>
-                <Select
-                  value={warehouseForm.warehouse_type}
-                  onValueChange={(value) => setWarehouseForm({ ...warehouseForm, warehouse_type: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="main">Основной</SelectItem>
-                    <SelectItem value="distribution">Распределительный</SelectItem>
-                    <SelectItem value="transit">Транзитный</SelectItem>
-                    <SelectItem value="returns">Возвратов</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="wh-capacity">Вместимость</Label>
-                <Input
-                  id="wh-capacity"
-                  type="number"
-                  value={warehouseForm.capacity}
-                  onChange={(e) => setWarehouseForm({ ...warehouseForm, capacity: e.target.value })}
-                />
-              </div>
+            <div className="space-y-2">
+              <Label htmlFor="wh-type">Тип склада</Label>
+              <Select
+                value={warehouseForm.warehouseTypeId?.toString() || ''}
+                onValueChange={(value) => setWarehouseForm({ ...warehouseForm, warehouseTypeId: value ? parseInt(value) : null })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Выберите тип" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">Не указан</SelectItem>
+                  {warehouseTypes.map((type) => (
+                    <SelectItem key={type.warehouseTypeId} value={type.warehouseTypeId.toString()}>
+                      {type.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-2">
               <Label htmlFor="wh-location">Адрес</Label>
               <Input
                 id="wh-location"
-                value={warehouseForm.location}
-                onChange={(e) => setWarehouseForm({ ...warehouseForm, location: e.target.value })}
+                value={warehouseForm.location || ''}
+                onChange={(e) => setWarehouseForm({ ...warehouseForm, location: e.target.value || null })}
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="wh-status">Статус</Label>
-              <Select
-                value={warehouseForm.status}
-                onValueChange={(value) => setWarehouseForm({ ...warehouseForm, status: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="active">Активный</SelectItem>
-                  <SelectItem value="inactive">Неактивный</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setWarehouseDialogOpen(false)}>
+              <Button type="button" variant="outline" onClick={() => { setWarehouseDialogOpen(false); setError(''); }}>
                 Отмена
               </Button>
-              <Button type="submit">
+              <Button type="submit" disabled={createWarehouseMutation.isPending || updateWarehouseMutation.isPending}>
                 {currentItem ? 'Обновить' : 'Создать'}
               </Button>
             </DialogFooter>
@@ -453,12 +527,17 @@ export default function Warehouses() {
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>
-              {currentItem ? 'Edit Store' : 'Add New Store'}
+              {currentItem ? 'Редактировать магазин' : 'Добавить магазин'}
             </DialogTitle>
           </DialogHeader>
           <form onSubmit={handleStoreSubmit} className="space-y-4">
+            {error && (
+              <div className="p-3 text-sm text-red-600 bg-red-50 dark:bg-red-900/20 dark:text-red-400 rounded-lg">
+                {error}
+              </div>
+            )}
             <div className="space-y-2">
-              <Label htmlFor="store-name">Store Name *</Label>
+              <Label htmlFor="store-name">Название магазина *</Label>
               <Input
                 id="store-name"
                 value={storeForm.name}
@@ -466,36 +545,12 @@ export default function Warehouses() {
                 required
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="store-marketplace">Marketplace</Label>
-              <Input
-                id="store-marketplace"
-                value={storeForm.marketplace}
-                onChange={(e) => setStoreForm({ ...storeForm, marketplace: e.target.value })}
-                placeholder="e.g., Amazon, eBay, Shopify"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="store-status">Status</Label>
-              <Select
-                value={storeForm.status}
-                onValueChange={(value) => setStoreForm({ ...storeForm, status: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="inactive">Inactive</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setStoreDialogOpen(false)}>
-                Cancel
+              <Button type="button" variant="outline" onClick={() => { setStoreDialogOpen(false); setError(''); }}>
+                Отмена
               </Button>
-              <Button type="submit">
-                {currentItem ? 'Update' : 'Create'}
+              <Button type="submit" disabled={createStoreMutation.isPending || updateStoreMutation.isPending}>
+                {currentItem ? 'Обновить' : 'Создать'}
               </Button>
             </DialogFooter>
           </form>
@@ -507,25 +562,30 @@ export default function Warehouses() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              Delete {deleteType === 'warehouse' ? 'Warehouse' : 'Store'}
+              Удалить {deleteType === 'warehouse' ? 'склад' : 'магазин'}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete "{currentItem?.name}"? This action cannot be undone.
+              Вы уверены, что хотите удалить "{currentItem?.name}"? Это действие невозможно отменить.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel onClick={() => setDeleteDialogOpen(false)}>
+              Отмена
+            </AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => {
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
                 if (deleteType === 'warehouse') {
-                  deleteWarehouseMutation.mutate(currentItem.id);
+                  deleteWarehouseMutation.mutate(currentItem.warehouseId);
                 } else {
-                  deleteStoreMutation.mutate(currentItem.id);
+                  deleteStoreMutation.mutate(currentItem.storeId);
                 }
               }}
               className="bg-red-600 hover:bg-red-700"
+              disabled={deleteWarehouseMutation.isPending || deleteStoreMutation.isPending}
             >
-              Delete
+              {deleteWarehouseMutation.isPending || deleteStoreMutation.isPending ? 'Удаление...' : 'Удалить'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

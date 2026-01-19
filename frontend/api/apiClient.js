@@ -44,8 +44,12 @@ async function request(endpoint, options = {}) {
       );
     }
 
-    const data = await response.json();
-    return data.data || data;
+    const contentType = response.headers.get('content-type');
+    if (contentType && contentType.includes('application/json')) {
+      const data = await response.json();
+      return data.data !== undefined ? data.data : data;
+    }
+    return null;
   } catch (error) {
     if (error instanceof ApiError) {
       throw error;

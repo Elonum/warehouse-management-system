@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -16,9 +17,9 @@ var (
 )
 
 type Warehouse struct {
-	WarehouseID     int
+	WarehouseID     uuid.UUID
 	Name            string
-	WarehouseTypeID *int
+	WarehouseTypeID *uuid.UUID
 	Location        *string
 }
 
@@ -30,7 +31,7 @@ func NewWarehouseRepository(pool *pgxpool.Pool) *WarehouseRepository {
 	return &WarehouseRepository{pool: pool}
 }
 
-func (r *WarehouseRepository) GetByID(ctx context.Context, warehouseID int) (*Warehouse, error) {
+func (r *WarehouseRepository) GetByID(ctx context.Context, warehouseID uuid.UUID) (*Warehouse, error) {
 	query := `
 		SELECT warehouse_id, name, warehouse_type_id, location
 		FROM warehouses
@@ -96,7 +97,7 @@ func (r *WarehouseRepository) List(ctx context.Context, limit, offset int) ([]Wa
 	return warehouses, nil
 }
 
-func (r *WarehouseRepository) Create(ctx context.Context, name string, warehouseTypeID *int, location *string) (*Warehouse, error) {
+func (r *WarehouseRepository) Create(ctx context.Context, name string, warehouseTypeID *uuid.UUID, location *string) (*Warehouse, error) {
 	query := `
 		INSERT INTO warehouses (name, warehouse_type_id, location)
 		VALUES ($1, $2, $3)
@@ -127,7 +128,7 @@ func (r *WarehouseRepository) Create(ctx context.Context, name string, warehouse
 	return &warehouse, nil
 }
 
-func (r *WarehouseRepository) Update(ctx context.Context, warehouseID int, name string, warehouseTypeID *int, location *string) (*Warehouse, error) {
+func (r *WarehouseRepository) Update(ctx context.Context, warehouseID uuid.UUID, name string, warehouseTypeID *uuid.UUID, location *string) (*Warehouse, error) {
 	query := `
 		UPDATE warehouses
 		SET name = $1, warehouse_type_id = $2, location = $3
@@ -161,7 +162,7 @@ func (r *WarehouseRepository) Update(ctx context.Context, warehouseID int, name 
 	return &warehouse, nil
 }
 
-func (r *WarehouseRepository) Delete(ctx context.Context, warehouseID int) error {
+func (r *WarehouseRepository) Delete(ctx context.Context, warehouseID uuid.UUID) error {
 	query := `
 		DELETE FROM warehouses
 		WHERE warehouse_id = $1

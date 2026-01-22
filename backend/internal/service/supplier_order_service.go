@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 
+	"github.com/google/uuid"
 	"warehouse-backend/internal/dto"
 	"warehouse-backend/internal/repository"
 
@@ -21,18 +22,39 @@ func NewSupplierOrderService(repo *repository.SupplierOrderRepository, orderStat
 	}
 }
 
-func (s *SupplierOrderService) GetByID(ctx context.Context, orderID int) (*dto.SupplierOrderResponse, error) {
+func (s *SupplierOrderService) GetByID(ctx context.Context, orderID uuid.UUID) (*dto.SupplierOrderResponse, error) {
 	order, err := s.repo.GetByID(ctx, orderID)
 	if err != nil {
-		log.Error().Err(err).Int("orderId", orderID).Msg("Failed to get supplier order by ID")
+		log.Error().Err(err).Str("orderId", orderID.String()).Msg("Failed to get supplier order by ID")
 		return nil, err
 	}
 
+	var statusIDStr *string
+	if order.StatusID != nil {
+		str := order.StatusID.String()
+		statusIDStr = &str
+	}
+	var parentOrderIDStr *string
+	if order.ParentOrderID != nil {
+		str := order.ParentOrderID.String()
+		parentOrderIDStr = &str
+	}
+	var createdByStr *string
+	if order.CreatedBy != nil {
+		str := order.CreatedBy.String()
+		createdByStr = &str
+	}
+	var updatedByStr *string
+	if order.UpdatedBy != nil {
+		str := order.UpdatedBy.String()
+		updatedByStr = &str
+	}
+
 	return &dto.SupplierOrderResponse{
-		OrderID:             order.OrderID,
+		OrderID:             order.OrderID.String(),
 		OrderNumber:         order.OrderNumber,
 		Buyer:               order.Buyer,
-		StatusID:            order.StatusID,
+		StatusID:            statusIDStr,
 		PurchaseDate:        order.PurchaseDate,
 		PlannedReceiptDate:  order.PlannedReceiptDate,
 		ActualReceiptDate:   order.ActualReceiptDate,
@@ -44,15 +66,15 @@ func (s *SupplierOrderService) GetByID(ctx context.Context, orderID int) (*dto.S
 		PositionsQty:        order.PositionsQty,
 		TotalQty:            order.TotalQty,
 		OrderItemWeight:     order.OrderItemWeight,
-		ParentOrderID:       order.ParentOrderID,
-		CreatedBy:           order.CreatedBy,
+		ParentOrderID:       parentOrderIDStr,
+		CreatedBy:           createdByStr,
 		CreatedAt:           order.CreatedAt,
-		UpdatedBy:           order.UpdatedBy,
+		UpdatedBy:           updatedByStr,
 		UpdatedAt:           order.UpdatedAt,
 	}, nil
 }
 
-func (s *SupplierOrderService) List(ctx context.Context, limit, offset int, statusID *int) ([]dto.SupplierOrderResponse, error) {
+func (s *SupplierOrderService) List(ctx context.Context, limit, offset int, statusID *uuid.UUID) ([]dto.SupplierOrderResponse, error) {
 	orders, err := s.repo.List(ctx, limit, offset, statusID)
 	if err != nil {
 		log.Error().Err(err).Int("limit", limit).Int("offset", offset).Interface("statusId", statusID).Msg("Failed to list supplier orders")
@@ -61,11 +83,32 @@ func (s *SupplierOrderService) List(ctx context.Context, limit, offset int, stat
 
 	result := make([]dto.SupplierOrderResponse, 0, len(orders))
 	for _, order := range orders {
+		var statusIDStr *string
+		if order.StatusID != nil {
+			str := order.StatusID.String()
+			statusIDStr = &str
+		}
+		var parentOrderIDStr *string
+		if order.ParentOrderID != nil {
+			str := order.ParentOrderID.String()
+			parentOrderIDStr = &str
+		}
+		var createdByStr *string
+		if order.CreatedBy != nil {
+			str := order.CreatedBy.String()
+			createdByStr = &str
+		}
+		var updatedByStr *string
+		if order.UpdatedBy != nil {
+			str := order.UpdatedBy.String()
+			updatedByStr = &str
+		}
+
 		result = append(result, dto.SupplierOrderResponse{
-			OrderID:             order.OrderID,
+			OrderID:             order.OrderID.String(),
 			OrderNumber:         order.OrderNumber,
 			Buyer:               order.Buyer,
-			StatusID:            order.StatusID,
+			StatusID:            statusIDStr,
 			PurchaseDate:        order.PurchaseDate,
 			PlannedReceiptDate:  order.PlannedReceiptDate,
 			ActualReceiptDate:   order.ActualReceiptDate,
@@ -77,10 +120,10 @@ func (s *SupplierOrderService) List(ctx context.Context, limit, offset int, stat
 			PositionsQty:        order.PositionsQty,
 			TotalQty:            order.TotalQty,
 			OrderItemWeight:     order.OrderItemWeight,
-			ParentOrderID:       order.ParentOrderID,
-			CreatedBy:           order.CreatedBy,
+			ParentOrderID:       parentOrderIDStr,
+			CreatedBy:           createdByStr,
 			CreatedAt:           order.CreatedAt,
-			UpdatedBy:           order.UpdatedBy,
+			UpdatedBy:           updatedByStr,
 			UpdatedAt:           order.UpdatedAt,
 		})
 	}
@@ -88,27 +131,43 @@ func (s *SupplierOrderService) List(ctx context.Context, limit, offset int, stat
 	return result, nil
 }
 
-func (s *SupplierOrderService) Create(ctx context.Context, userID int, req dto.SupplierOrderCreateRequest) (*dto.SupplierOrderResponse, error) {
-	if req.StatusID != nil {
-		_, err := s.orderStatusRepo.GetByID(ctx, *req.StatusID)
+func (s *SupplierOrderService) Create(ctx context.Context, userID uuid.UUID, req dto.SupplierOrderCreateRequest) (*dto.SupplierOrderResponse, error) {
+	var statusID *uuid.UUID
+	if req.StatusID != nil && *req.StatusID != "" {
+		id, err := uuid.Parse(*req.StatusID)
+		if err != nil {
+			log.Warn().Str("statusId", *req.StatusID).Msg("Invalid status ID format")
+			return nil, repository.ErrOrderStatusNotFound
+		}
+		statusID = &id
+
+		_, err = s.orderStatusRepo.GetByID(ctx, id)
 		if err != nil {
 			if err == repository.ErrOrderStatusNotFound {
-				log.Warn().Int("statusId", *req.StatusID).Msg("Order status not found")
+				log.Warn().Str("statusId", *req.StatusID).Msg("Order status not found")
 				return nil, repository.ErrOrderStatusNotFound
 			}
-			log.Error().Err(err).Int("statusId", *req.StatusID).Msg("Failed to validate order status")
+			log.Error().Err(err).Str("statusId", *req.StatusID).Msg("Failed to validate order status")
 			return nil, err
 		}
 	}
 
-	if req.ParentOrderID != nil {
-		_, err := s.repo.GetByID(ctx, *req.ParentOrderID)
+	var parentOrderID *uuid.UUID
+	if req.ParentOrderID != nil && *req.ParentOrderID != "" {
+		id, err := uuid.Parse(*req.ParentOrderID)
+		if err != nil {
+			log.Warn().Str("parentOrderId", *req.ParentOrderID).Msg("Invalid parent order ID format")
+			return nil, repository.ErrSupplierOrderNotFound
+		}
+		parentOrderID = &id
+
+		_, err = s.repo.GetByID(ctx, id)
 		if err != nil {
 			if err == repository.ErrSupplierOrderNotFound {
-				log.Warn().Int("parentOrderId", *req.ParentOrderID).Msg("Parent order not found")
+				log.Warn().Str("parentOrderId", *req.ParentOrderID).Msg("Parent order not found")
 				return nil, repository.ErrSupplierOrderNotFound
 			}
-			log.Error().Err(err).Int("parentOrderId", *req.ParentOrderID).Msg("Failed to validate parent order")
+			log.Error().Err(err).Str("parentOrderId", *req.ParentOrderID).Msg("Failed to validate parent order")
 			return nil, err
 		}
 	}
@@ -130,7 +189,7 @@ func (s *SupplierOrderService) Create(ctx context.Context, userID int, req dto.S
 	order, err := s.repo.Create(ctx,
 		req.OrderNumber,
 		req.Buyer,
-		req.StatusID,
+		statusID,
 		req.PurchaseDate,
 		req.PlannedReceiptDate,
 		req.ActualReceiptDate,
@@ -142,20 +201,41 @@ func (s *SupplierOrderService) Create(ctx context.Context, userID int, req dto.S
 		req.OrderItemWeight,
 		req.PositionsQty,
 		req.TotalQty,
-		req.ParentOrderID,
+		parentOrderID,
 		&userID,
 	)
 	if err != nil {
-		log.Error().Err(err).Str("orderNumber", req.OrderNumber).Int("userId", userID).Msg("Failed to create supplier order")
+		log.Error().Err(err).Str("orderNumber", req.OrderNumber).Str("userId", userID.String()).Msg("Failed to create supplier order")
 		return nil, err
 	}
 
-	log.Info().Int("orderId", order.OrderID).Str("orderNumber", order.OrderNumber).Int("userId", userID).Msg("Supplier order created successfully")
+	var statusIDStr *string
+	if order.StatusID != nil {
+		str := order.StatusID.String()
+		statusIDStr = &str
+	}
+	var parentOrderIDStr *string
+	if order.ParentOrderID != nil {
+		str := order.ParentOrderID.String()
+		parentOrderIDStr = &str
+	}
+	var createdByStr *string
+	if order.CreatedBy != nil {
+		str := order.CreatedBy.String()
+		createdByStr = &str
+	}
+	var updatedByStr *string
+	if order.UpdatedBy != nil {
+		str := order.UpdatedBy.String()
+		updatedByStr = &str
+	}
+
+	log.Info().Str("orderId", order.OrderID.String()).Str("orderNumber", order.OrderNumber).Str("userId", userID.String()).Msg("Supplier order created successfully")
 	return &dto.SupplierOrderResponse{
-		OrderID:             order.OrderID,
+		OrderID:             order.OrderID.String(),
 		OrderNumber:         order.OrderNumber,
 		Buyer:               order.Buyer,
-		StatusID:            order.StatusID,
+		StatusID:            statusIDStr,
 		PurchaseDate:        order.PurchaseDate,
 		PlannedReceiptDate:  order.PlannedReceiptDate,
 		ActualReceiptDate:   order.ActualReceiptDate,
@@ -167,39 +247,56 @@ func (s *SupplierOrderService) Create(ctx context.Context, userID int, req dto.S
 		PositionsQty:        order.PositionsQty,
 		TotalQty:            order.TotalQty,
 		OrderItemWeight:     order.OrderItemWeight,
-		ParentOrderID:       order.ParentOrderID,
-		CreatedBy:           order.CreatedBy,
+		ParentOrderID:       parentOrderIDStr,
+		CreatedBy:           createdByStr,
 		CreatedAt:           order.CreatedAt,
-		UpdatedBy:           order.UpdatedBy,
+		UpdatedBy:           updatedByStr,
 		UpdatedAt:           order.UpdatedAt,
 	}, nil
 }
 
-func (s *SupplierOrderService) Update(ctx context.Context, orderID, userID int, req dto.SupplierOrderUpdateRequest) (*dto.SupplierOrderResponse, error) {
-	if req.StatusID != nil {
-		_, err := s.orderStatusRepo.GetByID(ctx, *req.StatusID)
+func (s *SupplierOrderService) Update(ctx context.Context, orderID, userID uuid.UUID, req dto.SupplierOrderUpdateRequest) (*dto.SupplierOrderResponse, error) {
+	var statusID *uuid.UUID
+	if req.StatusID != nil && *req.StatusID != "" {
+		id, err := uuid.Parse(*req.StatusID)
+		if err != nil {
+			log.Warn().Str("statusId", *req.StatusID).Msg("Invalid status ID format")
+			return nil, repository.ErrOrderStatusNotFound
+		}
+		statusID = &id
+
+		_, err = s.orderStatusRepo.GetByID(ctx, id)
 		if err != nil {
 			if err == repository.ErrOrderStatusNotFound {
-				log.Warn().Int("statusId", *req.StatusID).Msg("Order status not found")
+				log.Warn().Str("statusId", *req.StatusID).Msg("Order status not found")
 				return nil, repository.ErrOrderStatusNotFound
 			}
-			log.Error().Err(err).Int("statusId", *req.StatusID).Msg("Failed to validate order status")
+			log.Error().Err(err).Str("statusId", *req.StatusID).Msg("Failed to validate order status")
 			return nil, err
 		}
 	}
 
-	if req.ParentOrderID != nil {
-		if *req.ParentOrderID == orderID {
-			log.Warn().Int("orderId", orderID).Int("parentOrderId", *req.ParentOrderID).Msg("Order cannot be parent of itself")
+	var parentOrderID *uuid.UUID
+	if req.ParentOrderID != nil && *req.ParentOrderID != "" {
+		id, err := uuid.Parse(*req.ParentOrderID)
+		if err != nil {
+			log.Warn().Str("parentOrderId", *req.ParentOrderID).Msg("Invalid parent order ID format")
+			return nil, repository.ErrSupplierOrderNotFound
+		}
+		parentOrderID = &id
+
+		if id == orderID {
+			log.Warn().Str("orderId", orderID.String()).Str("parentOrderId", *req.ParentOrderID).Msg("Order cannot be parent of itself")
 			return nil, repository.ErrInvalidParentOrder
 		}
-		_, err := s.repo.GetByID(ctx, *req.ParentOrderID)
+
+		_, err = s.repo.GetByID(ctx, id)
 		if err != nil {
 			if err == repository.ErrSupplierOrderNotFound {
-				log.Warn().Int("parentOrderId", *req.ParentOrderID).Msg("Parent order not found")
+				log.Warn().Str("parentOrderId", *req.ParentOrderID).Msg("Parent order not found")
 				return nil, repository.ErrSupplierOrderNotFound
 			}
-			log.Error().Err(err).Int("parentOrderId", *req.ParentOrderID).Msg("Failed to validate parent order")
+			log.Error().Err(err).Str("parentOrderId", *req.ParentOrderID).Msg("Failed to validate parent order")
 			return nil, err
 		}
 	}
@@ -221,7 +318,7 @@ func (s *SupplierOrderService) Update(ctx context.Context, orderID, userID int, 
 	order, err := s.repo.Update(ctx, orderID,
 		req.OrderNumber,
 		req.Buyer,
-		req.StatusID,
+		statusID,
 		req.PurchaseDate,
 		req.PlannedReceiptDate,
 		req.ActualReceiptDate,
@@ -233,20 +330,41 @@ func (s *SupplierOrderService) Update(ctx context.Context, orderID, userID int, 
 		req.OrderItemWeight,
 		req.PositionsQty,
 		req.TotalQty,
-		req.ParentOrderID,
+		parentOrderID,
 		&userID,
 	)
 	if err != nil {
-		log.Error().Err(err).Int("orderId", orderID).Int("userId", userID).Msg("Failed to update supplier order")
+		log.Error().Err(err).Str("orderId", orderID.String()).Str("userId", userID.String()).Msg("Failed to update supplier order")
 		return nil, err
 	}
 
-	log.Info().Int("orderId", orderID).Int("userId", userID).Msg("Supplier order updated successfully")
+	var statusIDStr *string
+	if order.StatusID != nil {
+		str := order.StatusID.String()
+		statusIDStr = &str
+	}
+	var parentOrderIDStr *string
+	if order.ParentOrderID != nil {
+		str := order.ParentOrderID.String()
+		parentOrderIDStr = &str
+	}
+	var createdByStr *string
+	if order.CreatedBy != nil {
+		str := order.CreatedBy.String()
+		createdByStr = &str
+	}
+	var updatedByStr *string
+	if order.UpdatedBy != nil {
+		str := order.UpdatedBy.String()
+		updatedByStr = &str
+	}
+
+	log.Info().Str("orderId", orderID.String()).Str("userId", userID.String()).Msg("Supplier order updated successfully")
 	return &dto.SupplierOrderResponse{
-		OrderID:             order.OrderID,
+		OrderID:             order.OrderID.String(),
 		OrderNumber:         order.OrderNumber,
 		Buyer:               order.Buyer,
-		StatusID:            order.StatusID,
+		StatusID:            statusIDStr,
 		PurchaseDate:        order.PurchaseDate,
 		PlannedReceiptDate:  order.PlannedReceiptDate,
 		ActualReceiptDate:   order.ActualReceiptDate,
@@ -258,21 +376,21 @@ func (s *SupplierOrderService) Update(ctx context.Context, orderID, userID int, 
 		PositionsQty:        order.PositionsQty,
 		TotalQty:            order.TotalQty,
 		OrderItemWeight:     order.OrderItemWeight,
-		ParentOrderID:       order.ParentOrderID,
-		CreatedBy:           order.CreatedBy,
+		ParentOrderID:       parentOrderIDStr,
+		CreatedBy:           createdByStr,
 		CreatedAt:           order.CreatedAt,
-		UpdatedBy:           order.UpdatedBy,
+		UpdatedBy:           updatedByStr,
 		UpdatedAt:           order.UpdatedAt,
 	}, nil
 }
 
-func (s *SupplierOrderService) Delete(ctx context.Context, orderID int) error {
+func (s *SupplierOrderService) Delete(ctx context.Context, orderID uuid.UUID) error {
 	err := s.repo.Delete(ctx, orderID)
 	if err != nil {
-		log.Error().Err(err).Int("orderId", orderID).Msg("Failed to delete supplier order")
+		log.Error().Err(err).Str("orderId", orderID.String()).Msg("Failed to delete supplier order")
 		return err
 	}
 
-	log.Info().Int("orderId", orderID).Msg("Supplier order deleted successfully")
+	log.Info().Str("orderId", orderID.String()).Msg("Supplier order deleted successfully")
 	return nil
 }

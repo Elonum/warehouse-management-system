@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -16,7 +17,7 @@ var (
 )
 
 type Role struct {
-	RoleID int
+	RoleID uuid.UUID
 	Name   string
 }
 
@@ -28,7 +29,7 @@ func NewRoleRepository(pool *pgxpool.Pool) *RoleRepository {
 	return &RoleRepository{pool: pool}
 }
 
-func (r *RoleRepository) GetByID(ctx context.Context, roleID int) (*Role, error) {
+func (r *RoleRepository) GetByID(ctx context.Context, roleID uuid.UUID) (*Role, error) {
 	query := `
 		SELECT role_id, name
 		FROM user_roles
@@ -119,7 +120,7 @@ func (r *RoleRepository) Create(ctx context.Context, name string) (*Role, error)
 	return &role, nil
 }
 
-func (r *RoleRepository) Update(ctx context.Context, roleID int, name string) (*Role, error) {
+func (r *RoleRepository) Update(ctx context.Context, roleID uuid.UUID, name string) (*Role, error) {
 	query := `
 		UPDATE user_roles
 		SET name = $1
@@ -152,7 +153,7 @@ func (r *RoleRepository) Update(ctx context.Context, roleID int, name string) (*
 	return &role, nil
 }
 
-func (r *RoleRepository) Delete(ctx context.Context, roleID int) error {
+func (r *RoleRepository) Delete(ctx context.Context, roleID uuid.UUID) error {
 	query := `
 		DELETE FROM user_roles
 		WHERE role_id = $1

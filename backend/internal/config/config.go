@@ -1,10 +1,10 @@
 package config
 
 import (
-	"log"
 	"os"
 
 	"github.com/joho/godotenv"
+	"github.com/rs/zerolog/log"
 )
 
 type Config struct {
@@ -24,7 +24,7 @@ func Load() Config {
 	// Пытаемся загрузить .env из корня проекта, затем из internal/config
 	if err := godotenv.Load(".env"); err != nil {
 		if err := godotenv.Load("internal/config/.env"); err != nil {
-			log.Println(".env file not found, using system env")
+			log.Debug().Msg(".env file not found, using system env")
 		}
 	}
 

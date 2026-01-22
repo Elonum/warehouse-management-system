@@ -5,6 +5,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -15,8 +16,8 @@ var (
 )
 
 type SupplierOrderDocument struct {
-	DocumentID  int
-	OrderID     int
+	DocumentID  uuid.UUID
+	OrderID     uuid.UUID
 	Name        string
 	Description *string
 	FilePath    string
@@ -30,7 +31,7 @@ func NewSupplierOrderDocumentRepository(pool *pgxpool.Pool) *SupplierOrderDocume
 	return &SupplierOrderDocumentRepository{pool: pool}
 }
 
-func (r *SupplierOrderDocumentRepository) GetByID(ctx context.Context, documentID int) (*SupplierOrderDocument, error) {
+func (r *SupplierOrderDocumentRepository) GetByID(ctx context.Context, documentID uuid.UUID) (*SupplierOrderDocument, error) {
 	query := `
 		SELECT document_id, order_id, name, description, file_path
 		FROM supplier_order_documents
@@ -59,7 +60,7 @@ func (r *SupplierOrderDocumentRepository) GetByID(ctx context.Context, documentI
 	return &doc, nil
 }
 
-func (r *SupplierOrderDocumentRepository) GetByOrderID(ctx context.Context, orderID int) ([]SupplierOrderDocument, error) {
+func (r *SupplierOrderDocumentRepository) GetByOrderID(ctx context.Context, orderID uuid.UUID) ([]SupplierOrderDocument, error) {
 	query := `
 		SELECT document_id, order_id, name, description, file_path
 		FROM supplier_order_documents
@@ -98,7 +99,7 @@ func (r *SupplierOrderDocumentRepository) GetByOrderID(ctx context.Context, orde
 	return docs, nil
 }
 
-func (r *SupplierOrderDocumentRepository) Create(ctx context.Context, orderID int, name string, description *string, filePath string) (*SupplierOrderDocument, error) {
+func (r *SupplierOrderDocumentRepository) Create(ctx context.Context, orderID uuid.UUID, name string, description *string, filePath string) (*SupplierOrderDocument, error) {
 	query := `
 		INSERT INTO supplier_order_documents (order_id, name, description, file_path)
 		VALUES ($1, $2, $3, $4)
@@ -124,7 +125,7 @@ func (r *SupplierOrderDocumentRepository) Create(ctx context.Context, orderID in
 	return &doc, nil
 }
 
-func (r *SupplierOrderDocumentRepository) Update(ctx context.Context, documentID int, orderID int, name string, description *string, filePath string) (*SupplierOrderDocument, error) {
+func (r *SupplierOrderDocumentRepository) Update(ctx context.Context, documentID uuid.UUID, orderID uuid.UUID, name string, description *string, filePath string) (*SupplierOrderDocument, error) {
 	query := `
 		UPDATE supplier_order_documents
 		SET order_id = $1, name = $2, description = $3, file_path = $4
@@ -154,7 +155,7 @@ func (r *SupplierOrderDocumentRepository) Update(ctx context.Context, documentID
 	return &doc, nil
 }
 
-func (r *SupplierOrderDocumentRepository) Delete(ctx context.Context, documentID int) error {
+func (r *SupplierOrderDocumentRepository) Delete(ctx context.Context, documentID uuid.UUID) error {
 	query := `
 		DELETE FROM supplier_order_documents
 		WHERE document_id = $1

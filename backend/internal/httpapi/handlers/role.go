@@ -3,7 +3,6 @@ package handlers
 import (
 	"encoding/json"
 	"net/http"
-	"strconv"
 
 	"warehouse-backend/internal/dto"
 	"warehouse-backend/internal/repository"
@@ -23,7 +22,7 @@ func NewRoleHandler(service *service.RoleService) *RoleHandler {
 
 func (h *RoleHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 	idStr := chi.URLParam(r, "id")
-	roleID, err := strconv.Atoi(idStr)
+	roleID, err := parseUUID(idStr)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "INVALID_ROLE_ID", "invalid role id")
 		return
@@ -32,11 +31,11 @@ func (h *RoleHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 	role, err := h.service.GetByID(r.Context(), roleID)
 	if err != nil {
 		if err == repository.ErrRoleNotFound {
-			log.Warn().Int("roleId", roleID).Msg("Role not found")
+			log.Warn().Str("roleId", roleID.String()).Msg("Role not found")
 			writeError(w, http.StatusNotFound, "ROLE_NOT_FOUND", "role not found")
 			return
 		}
-		log.Error().Err(err).Int("roleId", roleID).Msg("Failed to load role")
+		log.Error().Err(err).Str("roleId", roleID.String()).Msg("Failed to load role")
 		writeError(w, http.StatusInternalServerError, "ROLE_LOAD_FAILED", "failed to load role")
 		return
 	}
@@ -118,7 +117,7 @@ func (h *RoleHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 func (h *RoleHandler) Update(w http.ResponseWriter, r *http.Request) {
 	idStr := chi.URLParam(r, "id")
-	roleID, err := strconv.Atoi(idStr)
+	roleID, err := parseUUID(idStr)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "INVALID_ROLE_ID", "invalid role id")
 		return
@@ -138,16 +137,16 @@ func (h *RoleHandler) Update(w http.ResponseWriter, r *http.Request) {
 	role, err := h.service.Update(r.Context(), roleID, req)
 	if err != nil {
 		if err == repository.ErrRoleNotFound {
-			log.Warn().Int("roleId", roleID).Msg("Role not found for update")
+			log.Warn().Str("roleId", roleID.String()).Msg("Role not found for update")
 			writeError(w, http.StatusNotFound, "ROLE_NOT_FOUND", "role not found")
 			return
 		}
 		if err == repository.ErrRoleExists {
-			log.Warn().Int("roleId", roleID).Str("name", req.Name).Msg("Role with name already exists")
+			log.Warn().Str("roleId", roleID.String()).Str("name", req.Name).Msg("Role with name already exists")
 			writeError(w, http.StatusConflict, "ROLE_EXISTS", "role with this name already exists")
 			return
 		}
-		log.Error().Err(err).Int("roleId", roleID).Msg("Failed to update role")
+		log.Error().Err(err).Str("roleId", roleID.String()).Msg("Failed to update role")
 		writeError(w, http.StatusInternalServerError, "ROLE_UPDATE_FAILED", "failed to update role")
 		return
 	}
@@ -163,7 +162,7 @@ func (h *RoleHandler) Update(w http.ResponseWriter, r *http.Request) {
 
 func (h *RoleHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	idStr := chi.URLParam(r, "id")
-	roleID, err := strconv.Atoi(idStr)
+	roleID, err := parseUUID(idStr)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "INVALID_ROLE_ID", "invalid role id")
 		return
@@ -172,11 +171,11 @@ func (h *RoleHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	err = h.service.Delete(r.Context(), roleID)
 	if err != nil {
 		if err == repository.ErrRoleNotFound {
-			log.Warn().Int("roleId", roleID).Msg("Role not found for deletion")
+			log.Warn().Str("roleId", roleID.String()).Msg("Role not found for deletion")
 			writeError(w, http.StatusNotFound, "ROLE_NOT_FOUND", "role not found")
 			return
 		}
-		log.Error().Err(err).Int("roleId", roleID).Msg("Failed to delete role")
+		log.Error().Err(err).Str("roleId", roleID.String()).Msg("Failed to delete role")
 		writeError(w, http.StatusInternalServerError, "ROLE_DELETE_FAILED", "failed to delete role")
 		return
 	}

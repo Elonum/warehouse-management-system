@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/google/uuid"
 	"warehouse-backend/internal/auth"
 	"warehouse-backend/internal/dto"
 )
@@ -32,24 +33,36 @@ func AuthMiddleware(jwtManager *auth.JWTManager) func(http.Handler) http.Handler
 				return
 			}
 
+			userID, err := uuid.Parse(claims.UserID)
+			if err != nil {
+				writeAuthError(w, "invalid user ID in token")
+				return
+			}
+
+			roleID, err := uuid.Parse(claims.RoleID)
+			if err != nil {
+				writeAuthError(w, "invalid role ID in token")
+				return
+			}
+
 			ctx := r.Context()
-			ctx = auth.WithUserID(ctx, claims.UserID)
+			ctx = auth.WithUserID(ctx, userID)
 			ctx = auth.WithEmail(ctx, claims.Email)
-			ctx = auth.WithRoleID(ctx, claims.RoleID)
+			ctx = auth.WithRoleID(ctx, roleID)
 
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
 }
 
-func RequireRole(jwtManager *auth.JWTManager, allowedRoles ...int) func(http.Handler) http.Handler {
+func RequireRole(jwtManager *auth.JWTManager, allowedRoles ...uuid.UUID) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		authMw := AuthMiddleware(jwtManager)
 		handler := authMw(next)
 
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			roleID := auth.GetRoleID(r.Context())
-			if roleID == 0 {
+			if roleID == uuid.Nil {
 				writeAuthError(w, "user role not found")
 				return
 			}

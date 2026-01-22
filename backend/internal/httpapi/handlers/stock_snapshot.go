@@ -3,8 +3,8 @@ package handlers
 import (
 	"encoding/json"
 	"net/http"
-	"strconv"
 
+	"github.com/google/uuid"
 	"warehouse-backend/internal/auth"
 	"warehouse-backend/internal/dto"
 	"warehouse-backend/internal/repository"
@@ -24,7 +24,7 @@ func NewStockSnapshotHandler(service *service.StockSnapshotService) *StockSnapsh
 
 func (h *StockSnapshotHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 	idStr := chi.URLParam(r, "id")
-	snapshotID, err := strconv.Atoi(idStr)
+	snapshotID, err := parseUUID(idStr)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "INVALID_SNAPSHOT_ID", "invalid snapshot id")
 		return
@@ -33,11 +33,11 @@ func (h *StockSnapshotHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 	snapshot, err := h.service.GetByID(r.Context(), snapshotID)
 	if err != nil {
 		if err == repository.ErrStockSnapshotNotFound {
-			log.Warn().Int("snapshotId", snapshotID).Msg("Stock snapshot not found")
+			log.Warn().Str("snapshotId", snapshotID.String()).Msg("Stock snapshot not found")
 			writeError(w, http.StatusNotFound, "SNAPSHOT_NOT_FOUND", "stock snapshot not found")
 			return
 		}
-		log.Error().Err(err).Int("snapshotId", snapshotID).Msg("Failed to load stock snapshot")
+		log.Error().Err(err).Str("snapshotId", snapshotID.String()).Msg("Failed to load stock snapshot")
 		writeError(w, http.StatusInternalServerError, "SNAPSHOT_LOAD_FAILED", "failed to load stock snapshot")
 		return
 	}
@@ -55,9 +55,9 @@ func (h *StockSnapshotHandler) List(w http.ResponseWriter, r *http.Request) {
 	limit := parseInt(r.URL.Query().Get("limit"), 50)
 	offset := parseInt(r.URL.Query().Get("offset"), 0)
 
-	var warehouseID *int
+	var warehouseID *uuid.UUID
 	if v := r.URL.Query().Get("warehouseId"); v != "" {
-		id, err := strconv.Atoi(v)
+		id, err := parseUUID(v)
 		if err != nil {
 			writeError(w, http.StatusBadRequest, "INVALID_WAREHOUSE_ID", "invalid warehouseId")
 			return
@@ -65,9 +65,9 @@ func (h *StockSnapshotHandler) List(w http.ResponseWriter, r *http.Request) {
 		warehouseID = &id
 	}
 
-	var productID *int
+	var productID *uuid.UUID
 	if v := r.URL.Query().Get("productId"); v != "" {
-		id, err := strconv.Atoi(v)
+		id, err := parseUUID(v)
 		if err != nil {
 			writeError(w, http.StatusBadRequest, "INVALID_PRODUCT_ID", "invalid productId")
 			return
@@ -108,7 +108,7 @@ func (h *StockSnapshotHandler) List(w http.ResponseWriter, r *http.Request) {
 
 func (h *StockSnapshotHandler) Create(w http.ResponseWriter, r *http.Request) {
 	userID := auth.GetUserID(r.Context())
-	if userID == 0 {
+	if userID == uuid.Nil {
 		writeError(w, http.StatusUnauthorized, "UNAUTHORIZED", "user not found in context")
 		return
 	}
@@ -119,12 +119,12 @@ func (h *StockSnapshotHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if req.WarehouseID <= 0 {
-		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "warehouseId is required and must be positive")
+	if req.WarehouseID == "" {
+		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "warehouseId is required")
 		return
 	}
-	if req.ProductID <= 0 {
-		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "productId is required and must be positive")
+	if req.ProductID == "" {
+		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "productId is required")
 		return
 	}
 	if req.Quantity < 0 {
@@ -135,17 +135,17 @@ func (h *StockSnapshotHandler) Create(w http.ResponseWriter, r *http.Request) {
 	snapshot, err := h.service.Create(r.Context(), userID, req)
 	if err != nil {
 		if err == repository.ErrStockSnapshotExists {
-			log.Warn().Int("warehouseId", req.WarehouseID).Int("productId", req.ProductID).Time("snapshotDate", req.SnapshotDate).Msg("Stock snapshot already exists")
+			log.Warn().Str("warehouseId", req.WarehouseID).Str("productId", req.ProductID).Time("snapshotDate", req.SnapshotDate).Msg("Stock snapshot already exists")
 			writeError(w, http.StatusConflict, "SNAPSHOT_EXISTS", "stock snapshot already exists")
 			return
 		}
 		if err == repository.ErrWarehouseNotFound {
-			log.Warn().Int("warehouseId", req.WarehouseID).Msg("Warehouse not found")
+			log.Warn().Str("warehouseId", req.WarehouseID).Msg("Warehouse not found")
 			writeError(w, http.StatusBadRequest, "WAREHOUSE_NOT_FOUND", "specified warehouse does not exist")
 			return
 		}
 		if err == repository.ErrProductNotFound {
-			log.Warn().Int("productId", req.ProductID).Msg("Product not found")
+			log.Warn().Str("productId", req.ProductID).Msg("Product not found")
 			writeError(w, http.StatusBadRequest, "PRODUCT_NOT_FOUND", "specified product does not exist")
 			return
 		}
@@ -154,7 +154,7 @@ func (h *StockSnapshotHandler) Create(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusBadRequest, "INVALID_QUANTITY", "quantity must be non-negative")
 			return
 		}
-		log.Error().Err(err).Int("warehouseId", req.WarehouseID).Int("productId", req.ProductID).Int("userId", userID).Msg("Failed to create stock snapshot")
+		log.Error().Err(err).Str("warehouseId", req.WarehouseID).Str("productId", req.ProductID).Str("userId", userID.String()).Msg("Failed to create stock snapshot")
 		writeError(w, http.StatusInternalServerError, "SNAPSHOT_CREATE_FAILED", "failed to create stock snapshot")
 		return
 	}
@@ -170,7 +170,7 @@ func (h *StockSnapshotHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 func (h *StockSnapshotHandler) Update(w http.ResponseWriter, r *http.Request) {
 	idStr := chi.URLParam(r, "id")
-	snapshotID, err := strconv.Atoi(idStr)
+	snapshotID, err := parseUUID(idStr)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "INVALID_SNAPSHOT_ID", "invalid snapshot id")
 		return
@@ -182,12 +182,12 @@ func (h *StockSnapshotHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if req.WarehouseID <= 0 {
-		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "warehouseId is required and must be positive")
+	if req.WarehouseID == "" {
+		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "warehouseId is required")
 		return
 	}
-	if req.ProductID <= 0 {
-		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "productId is required and must be positive")
+	if req.ProductID == "" {
+		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "productId is required")
 		return
 	}
 	if req.Quantity < 0 {
@@ -198,22 +198,22 @@ func (h *StockSnapshotHandler) Update(w http.ResponseWriter, r *http.Request) {
 	snapshot, err := h.service.Update(r.Context(), snapshotID, req)
 	if err != nil {
 		if err == repository.ErrStockSnapshotNotFound {
-			log.Warn().Int("snapshotId", snapshotID).Msg("Stock snapshot not found for update")
+			log.Warn().Str("snapshotId", snapshotID.String()).Msg("Stock snapshot not found for update")
 			writeError(w, http.StatusNotFound, "SNAPSHOT_NOT_FOUND", "stock snapshot not found")
 			return
 		}
 		if err == repository.ErrStockSnapshotExists {
-			log.Warn().Int("snapshotId", snapshotID).Int("warehouseId", req.WarehouseID).Int("productId", req.ProductID).Time("snapshotDate", req.SnapshotDate).Msg("Stock snapshot already exists")
+			log.Warn().Str("snapshotId", snapshotID.String()).Str("warehouseId", req.WarehouseID).Str("productId", req.ProductID).Time("snapshotDate", req.SnapshotDate).Msg("Stock snapshot already exists")
 			writeError(w, http.StatusConflict, "SNAPSHOT_EXISTS", "stock snapshot already exists")
 			return
 		}
 		if err == repository.ErrWarehouseNotFound {
-			log.Warn().Int("warehouseId", req.WarehouseID).Msg("Warehouse not found")
+			log.Warn().Str("warehouseId", req.WarehouseID).Msg("Warehouse not found")
 			writeError(w, http.StatusBadRequest, "WAREHOUSE_NOT_FOUND", "specified warehouse does not exist")
 			return
 		}
 		if err == repository.ErrProductNotFound {
-			log.Warn().Int("productId", req.ProductID).Msg("Product not found")
+			log.Warn().Str("productId", req.ProductID).Msg("Product not found")
 			writeError(w, http.StatusBadRequest, "PRODUCT_NOT_FOUND", "specified product does not exist")
 			return
 		}
@@ -222,7 +222,7 @@ func (h *StockSnapshotHandler) Update(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusBadRequest, "INVALID_QUANTITY", "quantity must be non-negative")
 			return
 		}
-		log.Error().Err(err).Int("snapshotId", snapshotID).Msg("Failed to update stock snapshot")
+		log.Error().Err(err).Str("snapshotId", snapshotID.String()).Msg("Failed to update stock snapshot")
 		writeError(w, http.StatusInternalServerError, "SNAPSHOT_UPDATE_FAILED", "failed to update stock snapshot")
 		return
 	}
@@ -238,7 +238,7 @@ func (h *StockSnapshotHandler) Update(w http.ResponseWriter, r *http.Request) {
 
 func (h *StockSnapshotHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	idStr := chi.URLParam(r, "id")
-	snapshotID, err := strconv.Atoi(idStr)
+	snapshotID, err := parseUUID(idStr)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "INVALID_SNAPSHOT_ID", "invalid snapshot id")
 		return
@@ -247,11 +247,11 @@ func (h *StockSnapshotHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	err = h.service.Delete(r.Context(), snapshotID)
 	if err != nil {
 		if err == repository.ErrStockSnapshotNotFound {
-			log.Warn().Int("snapshotId", snapshotID).Msg("Stock snapshot not found for deletion")
+			log.Warn().Str("snapshotId", snapshotID.String()).Msg("Stock snapshot not found for deletion")
 			writeError(w, http.StatusNotFound, "SNAPSHOT_NOT_FOUND", "stock snapshot not found")
 			return
 		}
-		log.Error().Err(err).Int("snapshotId", snapshotID).Msg("Failed to delete stock snapshot")
+		log.Error().Err(err).Str("snapshotId", snapshotID.String()).Msg("Failed to delete stock snapshot")
 		writeError(w, http.StatusInternalServerError, "SNAPSHOT_DELETE_FAILED", "failed to delete stock snapshot")
 		return
 	}

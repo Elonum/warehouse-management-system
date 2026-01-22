@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -16,13 +17,13 @@ var (
 )
 
 type User struct {
-	UserID       int
+	UserID       uuid.UUID
 	Email        string
 	Name         *string
 	Surname      *string
 	Patronymic   *string
 	PasswordHash string
-	RoleID       int
+	RoleID       uuid.UUID
 }
 
 type UserRepository struct {
@@ -64,7 +65,7 @@ func (r *UserRepository) GetByEmail(ctx context.Context, email string) (*User, e
 	return &user, nil
 }
 
-func (r *UserRepository) GetByID(ctx context.Context, userID int) (*User, error) {
+func (r *UserRepository) GetByID(ctx context.Context, userID uuid.UUID) (*User, error) {
 	query := `
 		SELECT user_id, email, name, surname, patronymic, password_hash, role_id
 		FROM users
@@ -136,7 +137,7 @@ func (r *UserRepository) List(ctx context.Context, limit, offset int) ([]User, e
 	return users, nil
 }
 
-func (r *UserRepository) Create(ctx context.Context, email, passwordHash string, roleID int, name, surname, patronymic *string) (*User, error) {
+func (r *UserRepository) Create(ctx context.Context, email, passwordHash string, roleID uuid.UUID, name, surname, patronymic *string) (*User, error) {
 	query := `
 		INSERT INTO users (email, password_hash, role_id, name, surname, patronymic)
 		VALUES ($1, $2, $3, $4, $5, $6)
@@ -171,7 +172,7 @@ func (r *UserRepository) Create(ctx context.Context, email, passwordHash string,
 	return &user, nil
 }
 
-func (r *UserRepository) Update(ctx context.Context, userID int, email string, roleID int, name, surname, patronymic *string) (*User, error) {
+func (r *UserRepository) Update(ctx context.Context, userID uuid.UUID, email string, roleID uuid.UUID, name, surname, patronymic *string) (*User, error) {
 	query := `
 		UPDATE users
 		SET email = $1, role_id = $2, name = $3, surname = $4, patronymic = $5
@@ -209,7 +210,7 @@ func (r *UserRepository) Update(ctx context.Context, userID int, email string, r
 	return &user, nil
 }
 
-func (r *UserRepository) Delete(ctx context.Context, userID int) error {
+func (r *UserRepository) Delete(ctx context.Context, userID uuid.UUID) error {
 	query := `
 		DELETE FROM users
 		WHERE user_id = $1

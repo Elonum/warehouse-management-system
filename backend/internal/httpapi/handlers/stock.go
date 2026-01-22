@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/google/uuid"
 	"warehouse-backend/internal/dto"
 	"warehouse-backend/internal/service"
 
@@ -20,10 +21,10 @@ func NewStockHandler(service *service.StockService) *StockHandler {
 }
 
 func (h *StockHandler) GetCurrentStock(w http.ResponseWriter, r *http.Request) {
-	var warehouseID *int
+	var warehouseID *uuid.UUID
 
 	if v := r.URL.Query().Get("warehouseId"); v != "" {
-		id, err := strconv.Atoi(v)
+		id, err := uuid.Parse(v)
 		if err != nil {
 			writeError(w, http.StatusBadRequest, "INVALID_WAREHOUSE_ID", "invalid warehouseId")
 			return
@@ -74,6 +75,10 @@ func parseInt(v string, def int) int {
 		return i
 	}
 	return def
+}
+
+func parseUUID(v string) (uuid.UUID, error) {
+	return uuid.Parse(v)
 }
 
 func writeError(w http.ResponseWriter, status int, code, message string) {

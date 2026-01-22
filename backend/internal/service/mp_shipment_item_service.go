@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 
+	"github.com/google/uuid"
 	"warehouse-backend/internal/dto"
 	"warehouse-backend/internal/repository"
 
@@ -25,38 +26,38 @@ func NewMpShipmentItemService(repo *repository.MpShipmentItemRepository, shipmen
 	}
 }
 
-func (s *MpShipmentItemService) GetByID(ctx context.Context, itemID int) (*dto.MpShipmentItemResponse, error) {
+func (s *MpShipmentItemService) GetByID(ctx context.Context, itemID uuid.UUID) (*dto.MpShipmentItemResponse, error) {
 	item, err := s.repo.GetByID(ctx, itemID)
 	if err != nil {
-		log.Error().Err(err).Int("itemId", itemID).Msg("Failed to get mp shipment item by ID")
+		log.Error().Err(err).Str("itemId", itemID.String()).Msg("Failed to get mp shipment item by ID")
 		return nil, err
 	}
 
 	return &dto.MpShipmentItemResponse{
-		ShipmentItemID:   item.ShipmentItemID,
-		ShipmentID:       item.ShipmentID,
-		ProductID:        item.ProductID,
-		WarehouseID:      item.WarehouseID,
+		ShipmentItemID:   item.ShipmentItemID.String(),
+		ShipmentID:       item.ShipmentID.String(),
+		ProductID:        item.ProductID.String(),
+		WarehouseID:      item.WarehouseID.String(),
 		SentQty:          item.SentQty,
 		AcceptedQty:      item.AcceptedQty,
 		LogisticsForItem: item.LogisticsForItem,
 	}, nil
 }
 
-func (s *MpShipmentItemService) GetByShipmentID(ctx context.Context, shipmentID int) ([]dto.MpShipmentItemResponse, error) {
+func (s *MpShipmentItemService) GetByShipmentID(ctx context.Context, shipmentID uuid.UUID) ([]dto.MpShipmentItemResponse, error) {
 	items, err := s.repo.GetByShipmentID(ctx, shipmentID)
 	if err != nil {
-		log.Error().Err(err).Int("shipmentId", shipmentID).Msg("Failed to get mp shipment items by shipment ID")
+		log.Error().Err(err).Str("shipmentId", shipmentID.String()).Msg("Failed to get mp shipment items by shipment ID")
 		return nil, err
 	}
 
 	result := make([]dto.MpShipmentItemResponse, 0, len(items))
 	for _, item := range items {
 		result = append(result, dto.MpShipmentItemResponse{
-			ShipmentItemID:   item.ShipmentItemID,
-			ShipmentID:       item.ShipmentID,
-			ProductID:        item.ProductID,
-			WarehouseID:      item.WarehouseID,
+			ShipmentItemID:   item.ShipmentItemID.String(),
+			ShipmentID:       item.ShipmentID.String(),
+			ProductID:        item.ProductID.String(),
+			WarehouseID:      item.WarehouseID.String(),
 			SentQty:          item.SentQty,
 			AcceptedQty:      item.AcceptedQty,
 			LogisticsForItem: item.LogisticsForItem,
@@ -67,33 +68,48 @@ func (s *MpShipmentItemService) GetByShipmentID(ctx context.Context, shipmentID 
 }
 
 func (s *MpShipmentItemService) Create(ctx context.Context, req dto.MpShipmentItemCreateRequest) (*dto.MpShipmentItemResponse, error) {
-	_, err := s.shipmentRepo.GetByID(ctx, req.ShipmentID)
+	shipmentID, err := uuid.Parse(req.ShipmentID)
+	if err != nil {
+		log.Warn().Str("shipmentId", req.ShipmentID).Msg("Invalid shipment ID format")
+		return nil, repository.ErrMpShipmentNotFound
+	}
+	_, err = s.shipmentRepo.GetByID(ctx, shipmentID)
 	if err != nil {
 		if err == repository.ErrMpShipmentNotFound {
-			log.Warn().Int("shipmentId", req.ShipmentID).Msg("Mp shipment not found")
+			log.Warn().Str("shipmentId", req.ShipmentID).Msg("Mp shipment not found")
 			return nil, repository.ErrMpShipmentNotFound
 		}
-		log.Error().Err(err).Int("shipmentId", req.ShipmentID).Msg("Failed to validate mp shipment")
+		log.Error().Err(err).Str("shipmentId", req.ShipmentID).Msg("Failed to validate mp shipment")
 		return nil, err
 	}
 
-	_, err = s.productRepo.GetByID(ctx, req.ProductID)
+	productID, err := uuid.Parse(req.ProductID)
+	if err != nil {
+		log.Warn().Str("productId", req.ProductID).Msg("Invalid product ID format")
+		return nil, repository.ErrProductNotFound
+	}
+	_, err = s.productRepo.GetByID(ctx, productID)
 	if err != nil {
 		if err == repository.ErrProductNotFound {
-			log.Warn().Int("productId", req.ProductID).Msg("Product not found")
+			log.Warn().Str("productId", req.ProductID).Msg("Product not found")
 			return nil, repository.ErrProductNotFound
 		}
-		log.Error().Err(err).Int("productId", req.ProductID).Msg("Failed to validate product")
+		log.Error().Err(err).Str("productId", req.ProductID).Msg("Failed to validate product")
 		return nil, err
 	}
 
-	_, err = s.warehouseRepo.GetByID(ctx, req.WarehouseID)
+	warehouseID, err := uuid.Parse(req.WarehouseID)
+	if err != nil {
+		log.Warn().Str("warehouseId", req.WarehouseID).Msg("Invalid warehouse ID format")
+		return nil, repository.ErrWarehouseNotFound
+	}
+	_, err = s.warehouseRepo.GetByID(ctx, warehouseID)
 	if err != nil {
 		if err == repository.ErrWarehouseNotFound {
-			log.Warn().Int("warehouseId", req.WarehouseID).Msg("Warehouse not found")
+			log.Warn().Str("warehouseId", req.WarehouseID).Msg("Warehouse not found")
 			return nil, repository.ErrWarehouseNotFound
 		}
-		log.Error().Err(err).Int("warehouseId", req.WarehouseID).Msg("Failed to validate warehouse")
+		log.Error().Err(err).Str("warehouseId", req.WarehouseID).Msg("Failed to validate warehouse")
 		return nil, err
 	}
 
@@ -103,58 +119,73 @@ func (s *MpShipmentItemService) Create(ctx context.Context, req dto.MpShipmentIt
 	}
 
 	item, err := s.repo.Create(ctx,
-		req.ShipmentID,
-		req.ProductID,
-		req.WarehouseID,
+		shipmentID,
+		productID,
+		warehouseID,
 		req.SentQty,
 		req.AcceptedQty,
 		req.LogisticsForItem,
 	)
 	if err != nil {
-		log.Error().Err(err).Int("shipmentId", req.ShipmentID).Int("productId", req.ProductID).Msg("Failed to create mp shipment item")
+		log.Error().Err(err).Str("shipmentId", req.ShipmentID).Str("productId", req.ProductID).Msg("Failed to create mp shipment item")
 		return nil, err
 	}
 
-	log.Info().Int("shipmentItemId", item.ShipmentItemID).Int("shipmentId", req.ShipmentID).Int("productId", req.ProductID).Msg("Mp shipment item created successfully")
+	log.Info().Str("shipmentItemId", item.ShipmentItemID.String()).Str("shipmentId", req.ShipmentID).Str("productId", req.ProductID).Msg("Mp shipment item created successfully")
 	return &dto.MpShipmentItemResponse{
-		ShipmentItemID:   item.ShipmentItemID,
-		ShipmentID:       item.ShipmentID,
-		ProductID:        item.ProductID,
-		WarehouseID:      item.WarehouseID,
+		ShipmentItemID:   item.ShipmentItemID.String(),
+		ShipmentID:       item.ShipmentID.String(),
+		ProductID:        item.ProductID.String(),
+		WarehouseID:      item.WarehouseID.String(),
 		SentQty:          item.SentQty,
 		AcceptedQty:      item.AcceptedQty,
 		LogisticsForItem: item.LogisticsForItem,
 	}, nil
 }
 
-func (s *MpShipmentItemService) Update(ctx context.Context, itemID int, req dto.MpShipmentItemUpdateRequest) (*dto.MpShipmentItemResponse, error) {
-	_, err := s.shipmentRepo.GetByID(ctx, req.ShipmentID)
+func (s *MpShipmentItemService) Update(ctx context.Context, itemID uuid.UUID, req dto.MpShipmentItemUpdateRequest) (*dto.MpShipmentItemResponse, error) {
+	shipmentID, err := uuid.Parse(req.ShipmentID)
+	if err != nil {
+		log.Warn().Str("shipmentId", req.ShipmentID).Msg("Invalid shipment ID format")
+		return nil, repository.ErrMpShipmentNotFound
+	}
+	_, err = s.shipmentRepo.GetByID(ctx, shipmentID)
 	if err != nil {
 		if err == repository.ErrMpShipmentNotFound {
-			log.Warn().Int("shipmentId", req.ShipmentID).Msg("Mp shipment not found")
+			log.Warn().Str("shipmentId", req.ShipmentID).Msg("Mp shipment not found")
 			return nil, repository.ErrMpShipmentNotFound
 		}
-		log.Error().Err(err).Int("shipmentId", req.ShipmentID).Msg("Failed to validate mp shipment")
+		log.Error().Err(err).Str("shipmentId", req.ShipmentID).Msg("Failed to validate mp shipment")
 		return nil, err
 	}
 
-	_, err = s.productRepo.GetByID(ctx, req.ProductID)
+	productID, err := uuid.Parse(req.ProductID)
+	if err != nil {
+		log.Warn().Str("productId", req.ProductID).Msg("Invalid product ID format")
+		return nil, repository.ErrProductNotFound
+	}
+	_, err = s.productRepo.GetByID(ctx, productID)
 	if err != nil {
 		if err == repository.ErrProductNotFound {
-			log.Warn().Int("productId", req.ProductID).Msg("Product not found")
+			log.Warn().Str("productId", req.ProductID).Msg("Product not found")
 			return nil, repository.ErrProductNotFound
 		}
-		log.Error().Err(err).Int("productId", req.ProductID).Msg("Failed to validate product")
+		log.Error().Err(err).Str("productId", req.ProductID).Msg("Failed to validate product")
 		return nil, err
 	}
 
-	_, err = s.warehouseRepo.GetByID(ctx, req.WarehouseID)
+	warehouseID, err := uuid.Parse(req.WarehouseID)
+	if err != nil {
+		log.Warn().Str("warehouseId", req.WarehouseID).Msg("Invalid warehouse ID format")
+		return nil, repository.ErrWarehouseNotFound
+	}
+	_, err = s.warehouseRepo.GetByID(ctx, warehouseID)
 	if err != nil {
 		if err == repository.ErrWarehouseNotFound {
-			log.Warn().Int("warehouseId", req.WarehouseID).Msg("Warehouse not found")
+			log.Warn().Str("warehouseId", req.WarehouseID).Msg("Warehouse not found")
 			return nil, repository.ErrWarehouseNotFound
 		}
-		log.Error().Err(err).Int("warehouseId", req.WarehouseID).Msg("Failed to validate warehouse")
+		log.Error().Err(err).Str("warehouseId", req.WarehouseID).Msg("Failed to validate warehouse")
 		return nil, err
 	}
 
@@ -164,37 +195,37 @@ func (s *MpShipmentItemService) Update(ctx context.Context, itemID int, req dto.
 	}
 
 	item, err := s.repo.Update(ctx, itemID,
-		req.ShipmentID,
-		req.ProductID,
-		req.WarehouseID,
+		shipmentID,
+		productID,
+		warehouseID,
 		req.SentQty,
 		req.AcceptedQty,
 		req.LogisticsForItem,
 	)
 	if err != nil {
-		log.Error().Err(err).Int("itemId", itemID).Msg("Failed to update mp shipment item")
+		log.Error().Err(err).Str("itemId", itemID.String()).Msg("Failed to update mp shipment item")
 		return nil, err
 	}
 
-	log.Info().Int("itemId", itemID).Msg("Mp shipment item updated successfully")
+	log.Info().Str("itemId", itemID.String()).Msg("Mp shipment item updated successfully")
 	return &dto.MpShipmentItemResponse{
-		ShipmentItemID:   item.ShipmentItemID,
-		ShipmentID:       item.ShipmentID,
-		ProductID:        item.ProductID,
-		WarehouseID:      item.WarehouseID,
+		ShipmentItemID:   item.ShipmentItemID.String(),
+		ShipmentID:       item.ShipmentID.String(),
+		ProductID:        item.ProductID.String(),
+		WarehouseID:      item.WarehouseID.String(),
 		SentQty:          item.SentQty,
 		AcceptedQty:      item.AcceptedQty,
 		LogisticsForItem: item.LogisticsForItem,
 	}, nil
 }
 
-func (s *MpShipmentItemService) Delete(ctx context.Context, itemID int) error {
+func (s *MpShipmentItemService) Delete(ctx context.Context, itemID uuid.UUID) error {
 	err := s.repo.Delete(ctx, itemID)
 	if err != nil {
-		log.Error().Err(err).Int("itemId", itemID).Msg("Failed to delete mp shipment item")
+		log.Error().Err(err).Str("itemId", itemID.String()).Msg("Failed to delete mp shipment item")
 		return err
 	}
 
-	log.Info().Int("itemId", itemID).Msg("Mp shipment item deleted successfully")
+	log.Info().Str("itemId", itemID.String()).Msg("Mp shipment item deleted successfully")
 	return nil
 }

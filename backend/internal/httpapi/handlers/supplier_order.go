@@ -3,8 +3,8 @@ package handlers
 import (
 	"encoding/json"
 	"net/http"
-	"strconv"
 
+	"github.com/google/uuid"
 	"warehouse-backend/internal/auth"
 	"warehouse-backend/internal/dto"
 	"warehouse-backend/internal/repository"
@@ -24,7 +24,7 @@ func NewSupplierOrderHandler(service *service.SupplierOrderService) *SupplierOrd
 
 func (h *SupplierOrderHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 	idStr := chi.URLParam(r, "id")
-	orderID, err := strconv.Atoi(idStr)
+	orderID, err := parseUUID(idStr)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "INVALID_ORDER_ID", "invalid order id")
 		return
@@ -33,11 +33,11 @@ func (h *SupplierOrderHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 	order, err := h.service.GetByID(r.Context(), orderID)
 	if err != nil {
 		if err == repository.ErrSupplierOrderNotFound {
-			log.Warn().Int("orderId", orderID).Msg("Supplier order not found")
+			log.Warn().Str("orderId", orderID.String()).Msg("Supplier order not found")
 			writeError(w, http.StatusNotFound, "ORDER_NOT_FOUND", "supplier order not found")
 			return
 		}
-		log.Error().Err(err).Int("orderId", orderID).Msg("Failed to load supplier order")
+		log.Error().Err(err).Str("orderId", orderID.String()).Msg("Failed to load supplier order")
 		writeError(w, http.StatusInternalServerError, "ORDER_LOAD_FAILED", "failed to load supplier order")
 		return
 	}
@@ -64,9 +64,9 @@ func (h *SupplierOrderHandler) List(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var statusID *int
+	var statusID *uuid.UUID
 	if v := r.URL.Query().Get("statusId"); v != "" {
-		id, err := strconv.Atoi(v)
+		id, err := parseUUID(v)
 		if err != nil {
 			writeError(w, http.StatusBadRequest, "INVALID_STATUS_ID", "invalid statusId")
 			return
@@ -96,7 +96,7 @@ func (h *SupplierOrderHandler) List(w http.ResponseWriter, r *http.Request) {
 
 func (h *SupplierOrderHandler) Create(w http.ResponseWriter, r *http.Request) {
 	userID := auth.GetUserID(r.Context())
-	if userID == 0 {
+	if userID == uuid.Nil {
 		writeError(w, http.StatusUnauthorized, "UNAUTHORIZED", "user not found in context")
 		return
 	}
@@ -134,7 +134,7 @@ func (h *SupplierOrderHandler) Create(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusBadRequest, "INVALID_DATE_RANGE", "invalid date range: planned receipt date must be after purchase date, actual receipt date must be after planned receipt date")
 			return
 		}
-		log.Error().Err(err).Str("orderNumber", req.OrderNumber).Int("userId", userID).Msg("Failed to create supplier order")
+		log.Error().Err(err).Str("orderNumber", req.OrderNumber).Str("userId", userID.String()).Msg("Failed to create supplier order")
 		writeError(w, http.StatusInternalServerError, "ORDER_CREATE_FAILED", "failed to create supplier order")
 		return
 	}
@@ -150,13 +150,13 @@ func (h *SupplierOrderHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 func (h *SupplierOrderHandler) Update(w http.ResponseWriter, r *http.Request) {
 	userID := auth.GetUserID(r.Context())
-	if userID == 0 {
+	if userID == uuid.Nil {
 		writeError(w, http.StatusUnauthorized, "UNAUTHORIZED", "user not found in context")
 		return
 	}
 
 	idStr := chi.URLParam(r, "id")
-	orderID, err := strconv.Atoi(idStr)
+	orderID, err := parseUUID(idStr)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "INVALID_ORDER_ID", "invalid order id")
 		return
@@ -176,12 +176,12 @@ func (h *SupplierOrderHandler) Update(w http.ResponseWriter, r *http.Request) {
 	order, err := h.service.Update(r.Context(), orderID, userID, req)
 	if err != nil {
 		if err == repository.ErrSupplierOrderNotFound {
-			log.Warn().Int("orderId", orderID).Msg("Supplier order not found for update")
+			log.Warn().Str("orderId", orderID.String()).Msg("Supplier order not found for update")
 			writeError(w, http.StatusNotFound, "ORDER_NOT_FOUND", "supplier order not found")
 			return
 		}
 		if err == repository.ErrSupplierOrderExists {
-			log.Warn().Int("orderId", orderID).Str("orderNumber", req.OrderNumber).Msg("Supplier order with orderNumber already exists")
+			log.Warn().Str("orderId", orderID.String()).Str("orderNumber", req.OrderNumber).Msg("Supplier order with orderNumber already exists")
 			writeError(w, http.StatusConflict, "ORDER_EXISTS", "supplier order with this orderNumber already exists")
 			return
 		}
@@ -191,7 +191,7 @@ func (h *SupplierOrderHandler) Update(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if err == repository.ErrInvalidParentOrder {
-			log.Warn().Int("orderId", orderID).Interface("parentOrderId", req.ParentOrderID).Msg("Order cannot be parent of itself")
+			log.Warn().Str("orderId", orderID.String()).Interface("parentOrderId", req.ParentOrderID).Msg("Order cannot be parent of itself")
 			writeError(w, http.StatusBadRequest, "INVALID_PARENT_ORDER", "order cannot be parent of itself")
 			return
 		}
@@ -200,7 +200,7 @@ func (h *SupplierOrderHandler) Update(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusBadRequest, "INVALID_DATE_RANGE", "invalid date range: planned receipt date must be after purchase date, actual receipt date must be after planned receipt date")
 			return
 		}
-		log.Error().Err(err).Int("orderId", orderID).Int("userId", userID).Msg("Failed to update supplier order")
+		log.Error().Err(err).Str("orderId", orderID.String()).Str("userId", userID.String()).Msg("Failed to update supplier order")
 		writeError(w, http.StatusInternalServerError, "ORDER_UPDATE_FAILED", "failed to update supplier order")
 		return
 	}
@@ -216,7 +216,7 @@ func (h *SupplierOrderHandler) Update(w http.ResponseWriter, r *http.Request) {
 
 func (h *SupplierOrderHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	idStr := chi.URLParam(r, "id")
-	orderID, err := strconv.Atoi(idStr)
+	orderID, err := parseUUID(idStr)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "INVALID_ORDER_ID", "invalid order id")
 		return
@@ -225,11 +225,11 @@ func (h *SupplierOrderHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	err = h.service.Delete(r.Context(), orderID)
 	if err != nil {
 		if err == repository.ErrSupplierOrderNotFound {
-			log.Warn().Int("orderId", orderID).Msg("Supplier order not found for deletion")
+			log.Warn().Str("orderId", orderID.String()).Msg("Supplier order not found for deletion")
 			writeError(w, http.StatusNotFound, "ORDER_NOT_FOUND", "supplier order not found")
 			return
 		}
-		log.Error().Err(err).Int("orderId", orderID).Msg("Failed to delete supplier order")
+		log.Error().Err(err).Str("orderId", orderID.String()).Msg("Failed to delete supplier order")
 		writeError(w, http.StatusInternalServerError, "ORDER_DELETE_FAILED", "failed to delete supplier order")
 		return
 	}

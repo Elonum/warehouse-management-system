@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -17,12 +18,12 @@ var (
 )
 
 type MpShipment struct {
-	ShipmentID     int
+	ShipmentID     uuid.UUID
 	ShipmentDate   *time.Time
 	ShipmentNumber string
-	StoreID        *int
-	WarehouseID    *int
-	StatusID       *int
+	StoreID        *uuid.UUID
+	WarehouseID    *uuid.UUID
+	StatusID       *uuid.UUID
 	LogisticsCost  *float64
 	UnitLogistics  *float64
 	AcceptanceCost *float64
@@ -30,9 +31,9 @@ type MpShipment struct {
 	PositionsQty   int
 	SentQty        int
 	AcceptedQty    int
-	CreatedBy      *int
+	CreatedBy      *uuid.UUID
 	CreatedAt      time.Time
-	UpdatedBy      *int
+	UpdatedBy      *uuid.UUID
 	UpdatedAt      time.Time
 }
 
@@ -44,7 +45,7 @@ func NewMpShipmentRepository(pool *pgxpool.Pool) *MpShipmentRepository {
 	return &MpShipmentRepository{pool: pool}
 }
 
-func (r *MpShipmentRepository) GetByID(ctx context.Context, shipmentID int) (*MpShipment, error) {
+func (r *MpShipmentRepository) GetByID(ctx context.Context, shipmentID uuid.UUID) (*MpShipment, error) {
 	query := `
 		SELECT shipment_id, shipment_date, shipment_number, store_id, warehouse_id,
 		       status_id, logistics_cost, unit_logistics, acceptance_cost,
@@ -88,7 +89,7 @@ func (r *MpShipmentRepository) GetByID(ctx context.Context, shipmentID int) (*Mp
 	return &shipment, nil
 }
 
-func (r *MpShipmentRepository) List(ctx context.Context, limit, offset int, storeID, warehouseID, statusID *int) ([]MpShipment, error) {
+func (r *MpShipmentRepository) List(ctx context.Context, limit, offset int, storeID, warehouseID, statusID *uuid.UUID) ([]MpShipment, error) {
 	query := `
 		SELECT shipment_id, shipment_date, shipment_number, store_id, warehouse_id,
 		       status_id, logistics_cost, unit_logistics, acceptance_cost,
@@ -166,7 +167,7 @@ func (r *MpShipmentRepository) List(ctx context.Context, limit, offset int, stor
 	return shipments, nil
 }
 
-func (r *MpShipmentRepository) Create(ctx context.Context, shipmentDate *time.Time, shipmentNumber string, storeID, warehouseID, statusID *int, logisticsCost, unitLogistics, acceptanceCost *float64, acceptanceDate *time.Time, positionsQty, sentQty, acceptedQty int, createdBy *int) (*MpShipment, error) {
+func (r *MpShipmentRepository) Create(ctx context.Context, shipmentDate *time.Time, shipmentNumber string, storeID, warehouseID, statusID *uuid.UUID, logisticsCost, unitLogistics, acceptanceCost *float64, acceptanceDate *time.Time, positionsQty, sentQty, acceptedQty int, createdBy *uuid.UUID) (*MpShipment, error) {
 	query := `
 		INSERT INTO mp_shipments (
 			shipment_date, shipment_number, store_id, warehouse_id, status_id,
@@ -221,7 +222,7 @@ func (r *MpShipmentRepository) Create(ctx context.Context, shipmentDate *time.Ti
 	return &shipment, nil
 }
 
-func (r *MpShipmentRepository) Update(ctx context.Context, shipmentID int, shipmentDate *time.Time, shipmentNumber string, storeID, warehouseID, statusID *int, logisticsCost, unitLogistics, acceptanceCost *float64, acceptanceDate *time.Time, positionsQty, sentQty, acceptedQty int, updatedBy *int) (*MpShipment, error) {
+func (r *MpShipmentRepository) Update(ctx context.Context, shipmentID uuid.UUID, shipmentDate *time.Time, shipmentNumber string, storeID, warehouseID, statusID *uuid.UUID, logisticsCost, unitLogistics, acceptanceCost *float64, acceptanceDate *time.Time, positionsQty, sentQty, acceptedQty int, updatedBy *uuid.UUID) (*MpShipment, error) {
 	query := `
 		UPDATE mp_shipments
 		SET shipment_date = $1, shipment_number = $2, store_id = $3, warehouse_id = $4,
@@ -279,7 +280,7 @@ func (r *MpShipmentRepository) Update(ctx context.Context, shipmentID int, shipm
 	return &shipment, nil
 }
 
-func (r *MpShipmentRepository) Delete(ctx context.Context, shipmentID int) error {
+func (r *MpShipmentRepository) Delete(ctx context.Context, shipmentID uuid.UUID) error {
 	query := `
 		DELETE FROM mp_shipments
 		WHERE shipment_id = $1

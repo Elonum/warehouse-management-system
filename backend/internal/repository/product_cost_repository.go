@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -17,15 +18,15 @@ var (
 )
 
 type ProductCost struct {
-	CostID              int
-	ProductID           int
+	CostID              uuid.UUID
+	ProductID           uuid.UUID
 	PeriodStart         time.Time
 	PeriodEnd           time.Time
 	UnitCostToWarehouse float64
 	Notes               *string
-	CreatedBy           *int
+	CreatedBy           *uuid.UUID
 	CreatedAt           time.Time
-	UpdatedBy           *int
+	UpdatedBy           *uuid.UUID
 	UpdatedAt           time.Time
 }
 
@@ -37,7 +38,7 @@ func NewProductCostRepository(pool *pgxpool.Pool) *ProductCostRepository {
 	return &ProductCostRepository{pool: pool}
 }
 
-func (r *ProductCostRepository) GetByID(ctx context.Context, costID int) (*ProductCost, error) {
+func (r *ProductCostRepository) GetByID(ctx context.Context, costID uuid.UUID) (*ProductCost, error) {
 	query := `
 		SELECT cost_id, product_id, period_start, period_end, unit_cost_to_warehouse, notes, created_by, created_at, updated_by, updated_at
 		FROM product_costs
@@ -71,7 +72,7 @@ func (r *ProductCostRepository) GetByID(ctx context.Context, costID int) (*Produ
 	return &cost, nil
 }
 
-func (r *ProductCostRepository) List(ctx context.Context, limit, offset int, productID *int) ([]ProductCost, error) {
+func (r *ProductCostRepository) List(ctx context.Context, limit, offset int, productID *uuid.UUID) ([]ProductCost, error) {
 	query := `
 		SELECT cost_id, product_id, period_start, period_end, unit_cost_to_warehouse, notes, created_by, created_at, updated_by, updated_at
 		FROM product_costs
@@ -124,7 +125,7 @@ func (r *ProductCostRepository) List(ctx context.Context, limit, offset int, pro
 	return costs, nil
 }
 
-func (r *ProductCostRepository) Create(ctx context.Context, productID int, periodStart, periodEnd time.Time, unitCostToWarehouse float64, notes *string, createdBy *int) (*ProductCost, error) {
+func (r *ProductCostRepository) Create(ctx context.Context, productID uuid.UUID, periodStart, periodEnd time.Time, unitCostToWarehouse float64, notes *string, createdBy *uuid.UUID) (*ProductCost, error) {
 	query := `
 		INSERT INTO product_costs (product_id, period_start, period_end, unit_cost_to_warehouse, notes, created_by)
 		VALUES ($1, $2, $3, $4, $5, $6)
@@ -160,7 +161,7 @@ func (r *ProductCostRepository) Create(ctx context.Context, productID int, perio
 	return &productCost, nil
 }
 
-func (r *ProductCostRepository) Update(ctx context.Context, costID int, productID int, periodStart, periodEnd time.Time, unitCostToWarehouse float64, notes *string, updatedBy *int) (*ProductCost, error) {
+func (r *ProductCostRepository) Update(ctx context.Context, costID uuid.UUID, productID uuid.UUID, periodStart, periodEnd time.Time, unitCostToWarehouse float64, notes *string, updatedBy *uuid.UUID) (*ProductCost, error) {
 	query := `
 		UPDATE product_costs
 		SET product_id = $1, period_start = $2, period_end = $3, unit_cost_to_warehouse = $4, notes = $5, updated_by = $6, updated_at = NOW()
@@ -200,7 +201,7 @@ func (r *ProductCostRepository) Update(ctx context.Context, costID int, productI
 	return &productCost, nil
 }
 
-func (r *ProductCostRepository) Delete(ctx context.Context, costID int) error {
+func (r *ProductCostRepository) Delete(ctx context.Context, costID uuid.UUID) error {
 	query := `
 		DELETE FROM product_costs
 		WHERE cost_id = $1

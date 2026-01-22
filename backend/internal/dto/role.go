@@ -1,7 +1,7 @@
 package dto
 
 type RoleResponse struct {
-	RoleID int    `json:"roleId"`
+	RoleID string `json:"roleId"`
 	Name   string `json:"name"`
 }
 

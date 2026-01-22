@@ -1,7 +1,7 @@
 package dto
 
 type OrderStatusResponse struct {
-	OrderStatusID int    `json:"orderStatusId"`
+	OrderStatusID string `json:"orderStatusId"`
 	Name          string `json:"name"`
 }
 

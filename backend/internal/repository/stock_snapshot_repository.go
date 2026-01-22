@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -17,12 +18,12 @@ var (
 )
 
 type StockSnapshot struct {
-	SnapshotID   int
-	ProductID    int
-	WarehouseID  int
+	SnapshotID   uuid.UUID
+	ProductID    uuid.UUID
+	WarehouseID  uuid.UUID
 	SnapshotDate time.Time
 	Quantity     int
-	CreatedBy    *int
+	CreatedBy    *uuid.UUID
 	CreatedAt    time.Time
 }
 
@@ -34,7 +35,7 @@ func NewStockSnapshotRepository(pool *pgxpool.Pool) *StockSnapshotRepository {
 	return &StockSnapshotRepository{pool: pool}
 }
 
-func (r *StockSnapshotRepository) GetByID(ctx context.Context, snapshotID int) (*StockSnapshot, error) {
+func (r *StockSnapshotRepository) GetByID(ctx context.Context, snapshotID uuid.UUID) (*StockSnapshot, error) {
 	query := `
 		SELECT snapshot_id, product_id, warehouse_id, snapshot_date, quantity, created_by, created_at
 		FROM stock_snapshots
@@ -65,7 +66,7 @@ func (r *StockSnapshotRepository) GetByID(ctx context.Context, snapshotID int) (
 	return &snapshot, nil
 }
 
-func (r *StockSnapshotRepository) List(ctx context.Context, limit, offset int, warehouseID, productID *int) ([]StockSnapshot, error) {
+func (r *StockSnapshotRepository) List(ctx context.Context, limit, offset int, warehouseID, productID *uuid.UUID) ([]StockSnapshot, error) {
 	query := `
 		SELECT snapshot_id, product_id, warehouse_id, snapshot_date, quantity, created_by, created_at
 		FROM stock_snapshots
@@ -124,7 +125,7 @@ func (r *StockSnapshotRepository) List(ctx context.Context, limit, offset int, w
 	return snapshots, nil
 }
 
-func (r *StockSnapshotRepository) Create(ctx context.Context, productID, warehouseID int, snapshotDate time.Time, quantity int, createdBy *int) (*StockSnapshot, error) {
+func (r *StockSnapshotRepository) Create(ctx context.Context, productID, warehouseID uuid.UUID, snapshotDate time.Time, quantity int, createdBy *uuid.UUID) (*StockSnapshot, error) {
 	query := `
 		INSERT INTO stock_snapshots (product_id, warehouse_id, snapshot_date, quantity, created_by)
 		VALUES ($1, $2, $3, $4, $5)
@@ -157,7 +158,7 @@ func (r *StockSnapshotRepository) Create(ctx context.Context, productID, warehou
 	return &snapshot, nil
 }
 
-func (r *StockSnapshotRepository) Update(ctx context.Context, snapshotID int, productID, warehouseID int, snapshotDate time.Time, quantity int) (*StockSnapshot, error) {
+func (r *StockSnapshotRepository) Update(ctx context.Context, snapshotID uuid.UUID, productID, warehouseID uuid.UUID, snapshotDate time.Time, quantity int) (*StockSnapshot, error) {
 	query := `
 		UPDATE stock_snapshots
 		SET product_id = $1, warehouse_id = $2, snapshot_date = $3, quantity = $4
@@ -194,7 +195,7 @@ func (r *StockSnapshotRepository) Update(ctx context.Context, snapshotID int, pr
 	return &snapshot, nil
 }
 
-func (r *StockSnapshotRepository) Delete(ctx context.Context, snapshotID int) error {
+func (r *StockSnapshotRepository) Delete(ctx context.Context, snapshotID uuid.UUID) error {
 	query := `
 		DELETE FROM stock_snapshots
 		WHERE snapshot_id = $1

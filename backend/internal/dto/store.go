@@ -1,7 +1,7 @@
 package dto
 
 type StoreResponse struct {
-	StoreID int    `json:"storeId"`
+	StoreID string `json:"storeId"`
 	Name    string `json:"name"`
 }
 

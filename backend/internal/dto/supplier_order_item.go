@@ -1,10 +1,10 @@
 package dto
 
 type SupplierOrderItemResponse struct {
-	OrderItemID     int      `json:"orderItemId"`
-	OrderID         int      `json:"orderId"`
-	ProductID       int      `json:"productId"`
-	WarehouseID     int      `json:"warehouseId"`
+	OrderItemID     string   `json:"orderItemId"`
+	OrderID         string   `json:"orderId"`
+	ProductID       string   `json:"productId"`
+	WarehouseID     string   `json:"warehouseId"`
 	OrderedQty      int      `json:"orderedQty"`
 	ReceivedQty     int      `json:"receivedQty"`
 	PurchasePrice   *float64 `json:"purchasePrice,omitempty"`
@@ -18,9 +18,9 @@ type SupplierOrderItemResponse struct {
 }
 
 type SupplierOrderItemCreateRequest struct {
-	OrderID         int      `json:"orderId"`
-	ProductID       int      `json:"productId"`
-	WarehouseID     int      `json:"warehouseId"`
+	OrderID         string   `json:"orderId"`
+	ProductID       string   `json:"productId"`
+	WarehouseID     string   `json:"warehouseId"`
 	OrderedQty      int      `json:"orderedQty"`
 	ReceivedQty     int      `json:"receivedQty"`
 	PurchasePrice   *float64 `json:"purchasePrice,omitempty"`
@@ -34,9 +34,9 @@ type SupplierOrderItemCreateRequest struct {
 }
 
 type SupplierOrderItemUpdateRequest struct {
-	OrderID         int      `json:"orderId"`
-	ProductID       int      `json:"productId"`
-	WarehouseID     int      `json:"warehouseId"`
+	OrderID         string   `json:"orderId"`
+	ProductID       string   `json:"productId"`
+	WarehouseID     string   `json:"warehouseId"`
 	OrderedQty      int      `json:"orderedQty"`
 	ReceivedQty     int      `json:"receivedQty"`
 	PurchasePrice   *float64 `json:"purchasePrice,omitempty"`

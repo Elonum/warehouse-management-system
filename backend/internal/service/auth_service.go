@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 
+	"github.com/google/uuid"
 	"warehouse-backend/internal/auth"
 	"warehouse-backend/internal/repository"
 
@@ -50,23 +51,27 @@ func (s *AuthService) Login(ctx context.Context, email, password string) (string
 
 	token, err := s.jwtManager.GenerateToken(user.UserID, user.Email, user.RoleID)
 	if err != nil {
-		log.Error().Err(err).Int("userId", user.UserID).Msg("Failed to generate JWT token")
+		log.Error().Err(err).Str("userId", user.UserID.String()).Msg("Failed to generate JWT token")
 		return "", nil, err
 	}
 
-	log.Info().Int("userId", user.UserID).Str("email", email).Msg("User logged in successfully")
+	log.Info().Str("userId", user.UserID.String()).Str("email", email).Msg("User logged in successfully")
 	return token, user, nil
 }
 
-func (s *AuthService) Register(ctx context.Context, email, password string, roleID int, name, surname, patronymic *string) (*repository.User, error) {
-	if roleID > 0 {
-		_, err := s.roleRepo.GetByID(ctx, roleID)
-		if err != nil {
-			if errors.Is(err, repository.ErrRoleNotFound) {
-				return nil, ErrInvalidRole
-			}
-			return nil, err
+func (s *AuthService) Register(ctx context.Context, email, password string, roleIDStr string, name, surname, patronymic *string) (*repository.User, error) {
+	roleID, err := uuid.Parse(roleIDStr)
+	if err != nil {
+		log.Warn().Str("roleId", roleIDStr).Msg("Invalid role ID format")
+		return nil, ErrInvalidRole
+	}
+
+	_, err = s.roleRepo.GetByID(ctx, roleID)
+	if err != nil {
+		if errors.Is(err, repository.ErrRoleNotFound) {
+			return nil, ErrInvalidRole
 		}
+		return nil, err
 	}
 
 	passwordHash, err := auth.HashPassword(password)
@@ -76,18 +81,18 @@ func (s *AuthService) Register(ctx context.Context, email, password string, role
 
 	user, err := s.userRepo.Create(ctx, email, passwordHash, roleID, name, surname, patronymic)
 	if err != nil {
-		log.Error().Err(err).Str("email", email).Int("roleId", roleID).Msg("Failed to create user")
+		log.Error().Err(err).Str("email", email).Str("roleId", roleIDStr).Msg("Failed to create user")
 		return nil, err
 	}
 
-	log.Info().Int("userId", user.UserID).Str("email", email).Msg("User registered successfully")
+	log.Info().Str("userId", user.UserID.String()).Str("email", email).Msg("User registered successfully")
 	return user, nil
 }
 
-func (s *AuthService) GetCurrentUser(ctx context.Context, userID int) (*repository.User, error) {
+func (s *AuthService) GetCurrentUser(ctx context.Context, userID uuid.UUID) (*repository.User, error) {
 	user, err := s.userRepo.GetByID(ctx, userID)
 	if err != nil {
-		log.Error().Err(err).Int("userId", userID).Msg("Failed to get current user")
+		log.Error().Err(err).Str("userId", userID.String()).Msg("Failed to get current user")
 		return nil, err
 	}
 	return user, nil

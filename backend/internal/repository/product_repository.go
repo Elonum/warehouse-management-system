@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -16,7 +17,7 @@ var (
 )
 
 type Product struct {
-	ProductID  int
+	ProductID  uuid.UUID
 	Article    string
 	Barcode    string
 	UnitWeight int
@@ -31,7 +32,7 @@ func NewProductRepository(pool *pgxpool.Pool) *ProductRepository {
 	return &ProductRepository{pool: pool}
 }
 
-func (r *ProductRepository) GetByID(ctx context.Context, productID int) (*Product, error) {
+func (r *ProductRepository) GetByID(ctx context.Context, productID uuid.UUID) (*Product, error) {
 	query := `
 		SELECT product_id, article, barcode, unit_weight, unit_cost
 		FROM products
@@ -190,7 +191,7 @@ func (r *ProductRepository) Create(ctx context.Context, article, barcode string,
 	return &product, nil
 }
 
-func (r *ProductRepository) Update(ctx context.Context, productID int, article, barcode string, unitWeight int, unitCost *float64) (*Product, error) {
+func (r *ProductRepository) Update(ctx context.Context, productID uuid.UUID, article, barcode string, unitWeight int, unitCost *float64) (*Product, error) {
 	query := `
 		UPDATE products
 		SET article = $1, barcode = $2, unit_weight = $3, unit_cost = $4
@@ -225,7 +226,7 @@ func (r *ProductRepository) Update(ctx context.Context, productID int, article, 
 	return &product, nil
 }
 
-func (r *ProductRepository) Delete(ctx context.Context, productID int) error {
+func (r *ProductRepository) Delete(ctx context.Context, productID uuid.UUID) error {
 	query := `
 		DELETE FROM products
 		WHERE product_id = $1

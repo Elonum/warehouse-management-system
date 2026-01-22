@@ -3,7 +3,6 @@ package handlers
 import (
 	"encoding/json"
 	"net/http"
-	"strconv"
 
 	"warehouse-backend/internal/dto"
 	"warehouse-backend/internal/repository"
@@ -23,7 +22,7 @@ func NewShipmentStatusHandler(service *service.ShipmentStatusService) *ShipmentS
 
 func (h *ShipmentStatusHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 	idStr := chi.URLParam(r, "id")
-	statusID, err := strconv.Atoi(idStr)
+	statusID, err := parseUUID(idStr)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "INVALID_STATUS_ID", "invalid status id")
 		return
@@ -32,11 +31,11 @@ func (h *ShipmentStatusHandler) GetByID(w http.ResponseWriter, r *http.Request) 
 	status, err := h.service.GetByID(r.Context(), statusID)
 	if err != nil {
 		if err == repository.ErrShipmentStatusNotFound {
-			log.Warn().Int("statusId", statusID).Msg("Shipment status not found")
+			log.Warn().Str("statusId", statusID.String()).Msg("Shipment status not found")
 			writeError(w, http.StatusNotFound, "STATUS_NOT_FOUND", "shipment status not found")
 			return
 		}
-		log.Error().Err(err).Int("statusId", statusID).Msg("Failed to load shipment status")
+		log.Error().Err(err).Str("statusId", statusID.String()).Msg("Failed to load shipment status")
 		writeError(w, http.StatusInternalServerError, "STATUS_LOAD_FAILED", "failed to load shipment status")
 		return
 	}
@@ -118,7 +117,7 @@ func (h *ShipmentStatusHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 func (h *ShipmentStatusHandler) Update(w http.ResponseWriter, r *http.Request) {
 	idStr := chi.URLParam(r, "id")
-	statusID, err := strconv.Atoi(idStr)
+	statusID, err := parseUUID(idStr)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "INVALID_STATUS_ID", "invalid status id")
 		return
@@ -138,16 +137,16 @@ func (h *ShipmentStatusHandler) Update(w http.ResponseWriter, r *http.Request) {
 	status, err := h.service.Update(r.Context(), statusID, req)
 	if err != nil {
 		if err == repository.ErrShipmentStatusNotFound {
-			log.Warn().Int("statusId", statusID).Msg("Shipment status not found for update")
+			log.Warn().Str("statusId", statusID.String()).Msg("Shipment status not found for update")
 			writeError(w, http.StatusNotFound, "STATUS_NOT_FOUND", "shipment status not found")
 			return
 		}
 		if err == repository.ErrShipmentStatusExists {
-			log.Warn().Int("statusId", statusID).Str("name", req.Name).Msg("Shipment status with name already exists")
+			log.Warn().Str("statusId", statusID.String()).Str("name", req.Name).Msg("Shipment status with name already exists")
 			writeError(w, http.StatusConflict, "STATUS_EXISTS", "shipment status with this name already exists")
 			return
 		}
-		log.Error().Err(err).Int("statusId", statusID).Msg("Failed to update shipment status")
+		log.Error().Err(err).Str("statusId", statusID.String()).Msg("Failed to update shipment status")
 		writeError(w, http.StatusInternalServerError, "STATUS_UPDATE_FAILED", "failed to update shipment status")
 		return
 	}
@@ -163,7 +162,7 @@ func (h *ShipmentStatusHandler) Update(w http.ResponseWriter, r *http.Request) {
 
 func (h *ShipmentStatusHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	idStr := chi.URLParam(r, "id")
-	statusID, err := strconv.Atoi(idStr)
+	statusID, err := parseUUID(idStr)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "INVALID_STATUS_ID", "invalid status id")
 		return
@@ -172,11 +171,11 @@ func (h *ShipmentStatusHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	err = h.service.Delete(r.Context(), statusID)
 	if err != nil {
 		if err == repository.ErrShipmentStatusNotFound {
-			log.Warn().Int("statusId", statusID).Msg("Shipment status not found for deletion")
+			log.Warn().Str("statusId", statusID.String()).Msg("Shipment status not found for deletion")
 			writeError(w, http.StatusNotFound, "STATUS_NOT_FOUND", "shipment status not found")
 			return
 		}
-		log.Error().Err(err).Int("statusId", statusID).Msg("Failed to delete shipment status")
+		log.Error().Err(err).Str("statusId", statusID.String()).Msg("Failed to delete shipment status")
 		writeError(w, http.StatusInternalServerError, "STATUS_DELETE_FAILED", "failed to delete shipment status")
 		return
 	}

@@ -3,10 +3,10 @@ package dto
 import "time"
 
 type SupplierOrderResponse struct {
-	OrderID             int        `json:"orderId"`
+	OrderID             string     `json:"orderId"`
 	OrderNumber         string     `json:"orderNumber"`
 	Buyer               *string    `json:"buyer,omitempty"`
-	StatusID            *int       `json:"statusId,omitempty"`
+	StatusID            *string    `json:"statusId,omitempty"`
 	PurchaseDate        *time.Time `json:"purchaseDate,omitempty"`
 	PlannedReceiptDate  *time.Time `json:"plannedReceiptDate,omitempty"`
 	ActualReceiptDate   *time.Time `json:"actualReceiptDate,omitempty"`
@@ -18,17 +18,17 @@ type SupplierOrderResponse struct {
 	PositionsQty        int        `json:"positionsQty"`
 	TotalQty            int        `json:"totalQty"`
 	OrderItemWeight     *float64   `json:"orderItemWeight,omitempty"`
-	ParentOrderID       *int       `json:"parentOrderId,omitempty"`
-	CreatedBy           *int       `json:"createdBy,omitempty"`
+	ParentOrderID       *string    `json:"parentOrderId,omitempty"`
+	CreatedBy           *string    `json:"createdBy,omitempty"`
 	CreatedAt           time.Time  `json:"createdAt"`
-	UpdatedBy           *int       `json:"updatedBy,omitempty"`
+	UpdatedBy           *string    `json:"updatedBy,omitempty"`
 	UpdatedAt           time.Time  `json:"updatedAt"`
 }
 
 type SupplierOrderCreateRequest struct {
 	OrderNumber         string     `json:"orderNumber"`
 	Buyer               *string    `json:"buyer,omitempty"`
-	StatusID            *int       `json:"statusId,omitempty"`
+	StatusID            *string    `json:"statusId,omitempty"`
 	PurchaseDate        *time.Time `json:"purchaseDate,omitempty"`
 	PlannedReceiptDate  *time.Time `json:"plannedReceiptDate,omitempty"`
 	ActualReceiptDate   *time.Time `json:"actualReceiptDate,omitempty"`
@@ -40,13 +40,13 @@ type SupplierOrderCreateRequest struct {
 	PositionsQty        int        `json:"positionsQty"`
 	TotalQty            int        `json:"totalQty"`
 	OrderItemWeight     *float64   `json:"orderItemWeight,omitempty"`
-	ParentOrderID       *int       `json:"parentOrderId,omitempty"`
+	ParentOrderID       *string    `json:"parentOrderId,omitempty"`
 }
 
 type SupplierOrderUpdateRequest struct {
 	OrderNumber         string     `json:"orderNumber"`
 	Buyer               *string    `json:"buyer,omitempty"`
-	StatusID            *int       `json:"statusId,omitempty"`
+	StatusID            *string    `json:"statusId,omitempty"`
 	PurchaseDate        *time.Time `json:"purchaseDate,omitempty"`
 	PlannedReceiptDate  *time.Time `json:"plannedReceiptDate,omitempty"`
 	ActualReceiptDate   *time.Time `json:"actualReceiptDate,omitempty"`
@@ -58,5 +58,5 @@ type SupplierOrderUpdateRequest struct {
 	PositionsQty        int        `json:"positionsQty"`
 	TotalQty            int        `json:"totalQty"`
 	OrderItemWeight     *float64   `json:"orderItemWeight,omitempty"`
-	ParentOrderID       *int       `json:"parentOrderId,omitempty"`
+	ParentOrderID       *string    `json:"parentOrderId,omitempty"`
 }

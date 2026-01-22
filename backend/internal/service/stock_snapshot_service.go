@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 
+	"github.com/google/uuid"
 	"warehouse-backend/internal/dto"
 	"warehouse-backend/internal/repository"
 
@@ -23,25 +24,31 @@ func NewStockSnapshotService(repo *repository.StockSnapshotRepository, warehouse
 	}
 }
 
-func (s *StockSnapshotService) GetByID(ctx context.Context, snapshotID int) (*dto.StockSnapshotResponse, error) {
+func (s *StockSnapshotService) GetByID(ctx context.Context, snapshotID uuid.UUID) (*dto.StockSnapshotResponse, error) {
 	snapshot, err := s.repo.GetByID(ctx, snapshotID)
 	if err != nil {
-		log.Error().Err(err).Int("snapshotId", snapshotID).Msg("Failed to get stock snapshot by ID")
+		log.Error().Err(err).Str("snapshotId", snapshotID.String()).Msg("Failed to get stock snapshot by ID")
 		return nil, err
 	}
 
+	var createdByStr *string
+	if snapshot.CreatedBy != nil {
+		str := snapshot.CreatedBy.String()
+		createdByStr = &str
+	}
+
 	return &dto.StockSnapshotResponse{
-		SnapshotID:   snapshot.SnapshotID,
-		ProductID:    snapshot.ProductID,
-		WarehouseID:  snapshot.WarehouseID,
+		SnapshotID:   snapshot.SnapshotID.String(),
+		ProductID:    snapshot.ProductID.String(),
+		WarehouseID:  snapshot.WarehouseID.String(),
 		SnapshotDate: snapshot.SnapshotDate,
 		Quantity:     snapshot.Quantity,
-		CreatedBy:    snapshot.CreatedBy,
+		CreatedBy:    createdByStr,
 		CreatedAt:    snapshot.CreatedAt,
 	}, nil
 }
 
-func (s *StockSnapshotService) List(ctx context.Context, limit, offset int, warehouseID, productID *int) ([]dto.StockSnapshotResponse, error) {
+func (s *StockSnapshotService) List(ctx context.Context, limit, offset int, warehouseID, productID *uuid.UUID) ([]dto.StockSnapshotResponse, error) {
 	snapshots, err := s.repo.List(ctx, limit, offset, warehouseID, productID)
 	if err != nil {
 		log.Error().Err(err).Int("limit", limit).Int("offset", offset).
@@ -52,13 +59,19 @@ func (s *StockSnapshotService) List(ctx context.Context, limit, offset int, ware
 
 	result := make([]dto.StockSnapshotResponse, 0, len(snapshots))
 	for _, snapshot := range snapshots {
+		var createdByStr *string
+		if snapshot.CreatedBy != nil {
+			str := snapshot.CreatedBy.String()
+			createdByStr = &str
+		}
+
 		result = append(result, dto.StockSnapshotResponse{
-			SnapshotID:   snapshot.SnapshotID,
-			ProductID:    snapshot.ProductID,
-			WarehouseID:  snapshot.WarehouseID,
+			SnapshotID:   snapshot.SnapshotID.String(),
+			ProductID:    snapshot.ProductID.String(),
+			WarehouseID:  snapshot.WarehouseID.String(),
 			SnapshotDate: snapshot.SnapshotDate,
 			Quantity:     snapshot.Quantity,
-			CreatedBy:    snapshot.CreatedBy,
+			CreatedBy:    createdByStr,
 			CreatedAt:    snapshot.CreatedAt,
 		})
 	}
@@ -66,24 +79,34 @@ func (s *StockSnapshotService) List(ctx context.Context, limit, offset int, ware
 	return result, nil
 }
 
-func (s *StockSnapshotService) Create(ctx context.Context, userID int, req dto.StockSnapshotCreateRequest) (*dto.StockSnapshotResponse, error) {
-	_, err := s.warehouseRepo.GetByID(ctx, req.WarehouseID)
+func (s *StockSnapshotService) Create(ctx context.Context, userID uuid.UUID, req dto.StockSnapshotCreateRequest) (*dto.StockSnapshotResponse, error) {
+	warehouseID, err := uuid.Parse(req.WarehouseID)
+	if err != nil {
+		log.Warn().Str("warehouseId", req.WarehouseID).Msg("Invalid warehouse ID format")
+		return nil, repository.ErrWarehouseNotFound
+	}
+	_, err = s.warehouseRepo.GetByID(ctx, warehouseID)
 	if err != nil {
 		if err == repository.ErrWarehouseNotFound {
-			log.Warn().Int("warehouseId", req.WarehouseID).Msg("Warehouse not found")
+			log.Warn().Str("warehouseId", req.WarehouseID).Msg("Warehouse not found")
 			return nil, repository.ErrWarehouseNotFound
 		}
-		log.Error().Err(err).Int("warehouseId", req.WarehouseID).Msg("Failed to validate warehouse")
+		log.Error().Err(err).Str("warehouseId", req.WarehouseID).Msg("Failed to validate warehouse")
 		return nil, err
 	}
 
-	_, err = s.productRepo.GetByID(ctx, req.ProductID)
+	productID, err := uuid.Parse(req.ProductID)
+	if err != nil {
+		log.Warn().Str("productId", req.ProductID).Msg("Invalid product ID format")
+		return nil, repository.ErrProductNotFound
+	}
+	_, err = s.productRepo.GetByID(ctx, productID)
 	if err != nil {
 		if err == repository.ErrProductNotFound {
-			log.Warn().Int("productId", req.ProductID).Msg("Product not found")
+			log.Warn().Str("productId", req.ProductID).Msg("Product not found")
 			return nil, repository.ErrProductNotFound
 		}
-		log.Error().Err(err).Int("productId", req.ProductID).Msg("Failed to validate product")
+		log.Error().Err(err).Str("productId", req.ProductID).Msg("Failed to validate product")
 		return nil, err
 	}
 
@@ -92,42 +115,58 @@ func (s *StockSnapshotService) Create(ctx context.Context, userID int, req dto.S
 		return nil, repository.ErrInvalidQuantity
 	}
 
-	snapshot, err := s.repo.Create(ctx, req.ProductID, req.WarehouseID, req.SnapshotDate, req.Quantity, &userID)
+	snapshot, err := s.repo.Create(ctx, productID, warehouseID, req.SnapshotDate, req.Quantity, &userID)
 	if err != nil {
-		log.Error().Err(err).Int("warehouseId", req.WarehouseID).Int("productId", req.ProductID).Int("userId", userID).Msg("Failed to create stock snapshot")
+		log.Error().Err(err).Str("warehouseId", req.WarehouseID).Str("productId", req.ProductID).Str("userId", userID.String()).Msg("Failed to create stock snapshot")
 		return nil, err
 	}
 
-	log.Info().Int("snapshotId", snapshot.SnapshotID).Int("warehouseId", req.WarehouseID).Int("productId", req.ProductID).Int("userId", userID).Msg("Stock snapshot created successfully")
+	var createdByStr *string
+	if snapshot.CreatedBy != nil {
+		str := snapshot.CreatedBy.String()
+		createdByStr = &str
+	}
+
+	log.Info().Str("snapshotId", snapshot.SnapshotID.String()).Str("warehouseId", req.WarehouseID).Str("productId", req.ProductID).Str("userId", userID.String()).Msg("Stock snapshot created successfully")
 	return &dto.StockSnapshotResponse{
-		SnapshotID:   snapshot.SnapshotID,
-		ProductID:    snapshot.ProductID,
-		WarehouseID:  snapshot.WarehouseID,
+		SnapshotID:   snapshot.SnapshotID.String(),
+		ProductID:    snapshot.ProductID.String(),
+		WarehouseID:  snapshot.WarehouseID.String(),
 		SnapshotDate: snapshot.SnapshotDate,
 		Quantity:     snapshot.Quantity,
-		CreatedBy:    snapshot.CreatedBy,
+		CreatedBy:    createdByStr,
 		CreatedAt:    snapshot.CreatedAt,
 	}, nil
 }
 
-func (s *StockSnapshotService) Update(ctx context.Context, snapshotID int, req dto.StockSnapshotUpdateRequest) (*dto.StockSnapshotResponse, error) {
-	_, err := s.warehouseRepo.GetByID(ctx, req.WarehouseID)
+func (s *StockSnapshotService) Update(ctx context.Context, snapshotID uuid.UUID, req dto.StockSnapshotUpdateRequest) (*dto.StockSnapshotResponse, error) {
+	warehouseID, err := uuid.Parse(req.WarehouseID)
+	if err != nil {
+		log.Warn().Str("warehouseId", req.WarehouseID).Msg("Invalid warehouse ID format")
+		return nil, repository.ErrWarehouseNotFound
+	}
+	_, err = s.warehouseRepo.GetByID(ctx, warehouseID)
 	if err != nil {
 		if err == repository.ErrWarehouseNotFound {
-			log.Warn().Int("warehouseId", req.WarehouseID).Msg("Warehouse not found")
+			log.Warn().Str("warehouseId", req.WarehouseID).Msg("Warehouse not found")
 			return nil, repository.ErrWarehouseNotFound
 		}
-		log.Error().Err(err).Int("warehouseId", req.WarehouseID).Msg("Failed to validate warehouse")
+		log.Error().Err(err).Str("warehouseId", req.WarehouseID).Msg("Failed to validate warehouse")
 		return nil, err
 	}
 
-	_, err = s.productRepo.GetByID(ctx, req.ProductID)
+	productID, err := uuid.Parse(req.ProductID)
+	if err != nil {
+		log.Warn().Str("productId", req.ProductID).Msg("Invalid product ID format")
+		return nil, repository.ErrProductNotFound
+	}
+	_, err = s.productRepo.GetByID(ctx, productID)
 	if err != nil {
 		if err == repository.ErrProductNotFound {
-			log.Warn().Int("productId", req.ProductID).Msg("Product not found")
+			log.Warn().Str("productId", req.ProductID).Msg("Product not found")
 			return nil, repository.ErrProductNotFound
 		}
-		log.Error().Err(err).Int("productId", req.ProductID).Msg("Failed to validate product")
+		log.Error().Err(err).Str("productId", req.ProductID).Msg("Failed to validate product")
 		return nil, err
 	}
 
@@ -136,31 +175,37 @@ func (s *StockSnapshotService) Update(ctx context.Context, snapshotID int, req d
 		return nil, repository.ErrInvalidQuantity
 	}
 
-	snapshot, err := s.repo.Update(ctx, snapshotID, req.ProductID, req.WarehouseID, req.SnapshotDate, req.Quantity)
+	snapshot, err := s.repo.Update(ctx, snapshotID, productID, warehouseID, req.SnapshotDate, req.Quantity)
 	if err != nil {
-		log.Error().Err(err).Int("snapshotId", snapshotID).Msg("Failed to update stock snapshot")
+		log.Error().Err(err).Str("snapshotId", snapshotID.String()).Msg("Failed to update stock snapshot")
 		return nil, err
 	}
 
-	log.Info().Int("snapshotId", snapshotID).Msg("Stock snapshot updated successfully")
+	var createdByStr *string
+	if snapshot.CreatedBy != nil {
+		str := snapshot.CreatedBy.String()
+		createdByStr = &str
+	}
+
+	log.Info().Str("snapshotId", snapshotID.String()).Msg("Stock snapshot updated successfully")
 	return &dto.StockSnapshotResponse{
-		SnapshotID:   snapshot.SnapshotID,
-		ProductID:    snapshot.ProductID,
-		WarehouseID:  snapshot.WarehouseID,
+		SnapshotID:   snapshot.SnapshotID.String(),
+		ProductID:    snapshot.ProductID.String(),
+		WarehouseID:  snapshot.WarehouseID.String(),
 		SnapshotDate: snapshot.SnapshotDate,
 		Quantity:     snapshot.Quantity,
-		CreatedBy:    snapshot.CreatedBy,
+		CreatedBy:    createdByStr,
 		CreatedAt:    snapshot.CreatedAt,
 	}, nil
 }
 
-func (s *StockSnapshotService) Delete(ctx context.Context, snapshotID int) error {
+func (s *StockSnapshotService) Delete(ctx context.Context, snapshotID uuid.UUID) error {
 	err := s.repo.Delete(ctx, snapshotID)
 	if err != nil {
-		log.Error().Err(err).Int("snapshotId", snapshotID).Msg("Failed to delete stock snapshot")
+		log.Error().Err(err).Str("snapshotId", snapshotID.String()).Msg("Failed to delete stock snapshot")
 		return err
 	}
 
-	log.Info().Int("snapshotId", snapshotID).Msg("Stock snapshot deleted successfully")
+	log.Info().Str("snapshotId", snapshotID.String()).Msg("Stock snapshot deleted successfully")
 	return nil
 }

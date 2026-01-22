@@ -3,7 +3,6 @@ package handlers
 import (
 	"encoding/json"
 	"net/http"
-	"strconv"
 
 	"warehouse-backend/internal/dto"
 	"warehouse-backend/internal/repository"
@@ -23,7 +22,7 @@ func NewStoreHandler(service *service.StoreService) *StoreHandler {
 
 func (h *StoreHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 	idStr := chi.URLParam(r, "id")
-	storeID, err := strconv.Atoi(idStr)
+	storeID, err := parseUUID(idStr)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "INVALID_STORE_ID", "invalid store id")
 		return
@@ -32,11 +31,11 @@ func (h *StoreHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 	store, err := h.service.GetByID(r.Context(), storeID)
 	if err != nil {
 		if err == repository.ErrStoreNotFound {
-			log.Warn().Int("storeId", storeID).Msg("Store not found")
+			log.Warn().Str("storeId", storeID.String()).Msg("Store not found")
 			writeError(w, http.StatusNotFound, "STORE_NOT_FOUND", "store not found")
 			return
 		}
-		log.Error().Err(err).Int("storeId", storeID).Msg("Failed to load store")
+		log.Error().Err(err).Str("storeId", storeID.String()).Msg("Failed to load store")
 		writeError(w, http.StatusInternalServerError, "STORE_LOAD_FAILED", "failed to load store")
 		return
 	}
@@ -118,7 +117,7 @@ func (h *StoreHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 func (h *StoreHandler) Update(w http.ResponseWriter, r *http.Request) {
 	idStr := chi.URLParam(r, "id")
-	storeID, err := strconv.Atoi(idStr)
+	storeID, err := parseUUID(idStr)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "INVALID_STORE_ID", "invalid store id")
 		return
@@ -138,16 +137,16 @@ func (h *StoreHandler) Update(w http.ResponseWriter, r *http.Request) {
 	store, err := h.service.Update(r.Context(), storeID, req)
 	if err != nil {
 		if err == repository.ErrStoreNotFound {
-			log.Warn().Int("storeId", storeID).Msg("Store not found for update")
+			log.Warn().Str("storeId", storeID.String()).Msg("Store not found for update")
 			writeError(w, http.StatusNotFound, "STORE_NOT_FOUND", "store not found")
 			return
 		}
 		if err == repository.ErrStoreExists {
-			log.Warn().Int("storeId", storeID).Str("name", req.Name).Msg("Store with name already exists")
+			log.Warn().Str("storeId", storeID.String()).Str("name", req.Name).Msg("Store with name already exists")
 			writeError(w, http.StatusConflict, "STORE_EXISTS", "store with this name already exists")
 			return
 		}
-		log.Error().Err(err).Int("storeId", storeID).Msg("Failed to update store")
+		log.Error().Err(err).Str("storeId", storeID.String()).Msg("Failed to update store")
 		writeError(w, http.StatusInternalServerError, "STORE_UPDATE_FAILED", "failed to update store")
 		return
 	}
@@ -163,7 +162,7 @@ func (h *StoreHandler) Update(w http.ResponseWriter, r *http.Request) {
 
 func (h *StoreHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	idStr := chi.URLParam(r, "id")
-	storeID, err := strconv.Atoi(idStr)
+	storeID, err := parseUUID(idStr)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "INVALID_STORE_ID", "invalid store id")
 		return
@@ -172,11 +171,11 @@ func (h *StoreHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	err = h.service.Delete(r.Context(), storeID)
 	if err != nil {
 		if err == repository.ErrStoreNotFound {
-			log.Warn().Int("storeId", storeID).Msg("Store not found for deletion")
+			log.Warn().Str("storeId", storeID.String()).Msg("Store not found for deletion")
 			writeError(w, http.StatusNotFound, "STORE_NOT_FOUND", "store not found")
 			return
 		}
-		log.Error().Err(err).Int("storeId", storeID).Msg("Failed to delete store")
+		log.Error().Err(err).Str("storeId", storeID.String()).Msg("Failed to delete store")
 		writeError(w, http.StatusInternalServerError, "STORE_DELETE_FAILED", "failed to delete store")
 		return
 	}

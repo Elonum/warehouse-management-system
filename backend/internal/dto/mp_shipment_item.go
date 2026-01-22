@@ -1,28 +1,28 @@
 package dto
 
 type MpShipmentItemResponse struct {
-	ShipmentItemID   int      `json:"shipmentItemId"`
-	ShipmentID       int      `json:"shipmentId"`
-	ProductID        int      `json:"productId"`
-	WarehouseID      int      `json:"warehouseId"`
+	ShipmentItemID   string   `json:"shipmentItemId"`
+	ShipmentID       string   `json:"shipmentId"`
+	ProductID        string   `json:"productId"`
+	WarehouseID      string   `json:"warehouseId"`
 	SentQty          int      `json:"sentQty"`
 	AcceptedQty      int      `json:"acceptedQty"`
 	LogisticsForItem *float64 `json:"logisticsForItem,omitempty"`
 }
 
 type MpShipmentItemCreateRequest struct {
-	ShipmentID       int      `json:"shipmentId"`
-	ProductID        int      `json:"productId"`
-	WarehouseID      int      `json:"warehouseId"`
+	ShipmentID       string   `json:"shipmentId"`
+	ProductID        string   `json:"productId"`
+	WarehouseID      string   `json:"warehouseId"`
 	SentQty          int      `json:"sentQty"`
 	AcceptedQty      int      `json:"acceptedQty"`
 	LogisticsForItem *float64 `json:"logisticsForItem,omitempty"`
 }
 
 type MpShipmentItemUpdateRequest struct {
-	ShipmentID       int      `json:"shipmentId"`
-	ProductID        int      `json:"productId"`
-	WarehouseID      int      `json:"warehouseId"`
+	ShipmentID       string   `json:"shipmentId"`
+	ProductID        string   `json:"productId"`
+	WarehouseID      string   `json:"warehouseId"`
 	SentQty          int      `json:"sentQty"`
 	AcceptedQty      int      `json:"acceptedQty"`
 	LogisticsForItem *float64 `json:"logisticsForItem,omitempty"`

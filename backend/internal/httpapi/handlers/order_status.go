@@ -3,7 +3,6 @@ package handlers
 import (
 	"encoding/json"
 	"net/http"
-	"strconv"
 
 	"warehouse-backend/internal/dto"
 	"warehouse-backend/internal/repository"
@@ -23,7 +22,7 @@ func NewOrderStatusHandler(service *service.OrderStatusService) *OrderStatusHand
 
 func (h *OrderStatusHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 	idStr := chi.URLParam(r, "id")
-	statusID, err := strconv.Atoi(idStr)
+	statusID, err := parseUUID(idStr)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "INVALID_STATUS_ID", "invalid status id")
 		return
@@ -32,11 +31,11 @@ func (h *OrderStatusHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 	status, err := h.service.GetByID(r.Context(), statusID)
 	if err != nil {
 		if err == repository.ErrOrderStatusNotFound {
-			log.Warn().Int("statusId", statusID).Msg("Order status not found")
+			log.Warn().Str("statusId", statusID.String()).Msg("Order status not found")
 			writeError(w, http.StatusNotFound, "STATUS_NOT_FOUND", "order status not found")
 			return
 		}
-		log.Error().Err(err).Int("statusId", statusID).Msg("Failed to load order status")
+		log.Error().Err(err).Str("statusId", statusID.String()).Msg("Failed to load order status")
 		writeError(w, http.StatusInternalServerError, "STATUS_LOAD_FAILED", "failed to load order status")
 		return
 	}
@@ -118,7 +117,7 @@ func (h *OrderStatusHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 func (h *OrderStatusHandler) Update(w http.ResponseWriter, r *http.Request) {
 	idStr := chi.URLParam(r, "id")
-	statusID, err := strconv.Atoi(idStr)
+	statusID, err := parseUUID(idStr)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "INVALID_STATUS_ID", "invalid status id")
 		return
@@ -138,16 +137,16 @@ func (h *OrderStatusHandler) Update(w http.ResponseWriter, r *http.Request) {
 	status, err := h.service.Update(r.Context(), statusID, req)
 	if err != nil {
 		if err == repository.ErrOrderStatusNotFound {
-			log.Warn().Int("statusId", statusID).Msg("Order status not found for update")
+			log.Warn().Str("statusId", statusID.String()).Msg("Order status not found for update")
 			writeError(w, http.StatusNotFound, "STATUS_NOT_FOUND", "order status not found")
 			return
 		}
 		if err == repository.ErrOrderStatusExists {
-			log.Warn().Int("statusId", statusID).Str("name", req.Name).Msg("Order status with name already exists")
+			log.Warn().Str("statusId", statusID.String()).Str("name", req.Name).Msg("Order status with name already exists")
 			writeError(w, http.StatusConflict, "STATUS_EXISTS", "order status with this name already exists")
 			return
 		}
-		log.Error().Err(err).Int("statusId", statusID).Msg("Failed to update order status")
+		log.Error().Err(err).Str("statusId", statusID.String()).Msg("Failed to update order status")
 		writeError(w, http.StatusInternalServerError, "STATUS_UPDATE_FAILED", "failed to update order status")
 		return
 	}
@@ -163,7 +162,7 @@ func (h *OrderStatusHandler) Update(w http.ResponseWriter, r *http.Request) {
 
 func (h *OrderStatusHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	idStr := chi.URLParam(r, "id")
-	statusID, err := strconv.Atoi(idStr)
+	statusID, err := parseUUID(idStr)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "INVALID_STATUS_ID", "invalid status id")
 		return
@@ -172,11 +171,11 @@ func (h *OrderStatusHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	err = h.service.Delete(r.Context(), statusID)
 	if err != nil {
 		if err == repository.ErrOrderStatusNotFound {
-			log.Warn().Int("statusId", statusID).Msg("Order status not found for deletion")
+			log.Warn().Str("statusId", statusID.String()).Msg("Order status not found for deletion")
 			writeError(w, http.StatusNotFound, "STATUS_NOT_FOUND", "order status not found")
 			return
 		}
-		log.Error().Err(err).Int("statusId", statusID).Msg("Failed to delete order status")
+		log.Error().Err(err).Str("statusId", statusID.String()).Msg("Failed to delete order status")
 		writeError(w, http.StatusInternalServerError, "STATUS_DELETE_FAILED", "failed to delete order status")
 		return
 	}

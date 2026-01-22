@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -17,7 +18,7 @@ var (
 )
 
 type ShipmentStatus struct {
-	ShipmentStatusID int
+	ShipmentStatusID uuid.UUID
 	Name             string
 }
 
@@ -29,7 +30,7 @@ func NewShipmentStatusRepository(pool *pgxpool.Pool) *ShipmentStatusRepository {
 	return &ShipmentStatusRepository{pool: pool}
 }
 
-func (r *ShipmentStatusRepository) GetByID(ctx context.Context, statusID int) (*ShipmentStatus, error) {
+func (r *ShipmentStatusRepository) GetByID(ctx context.Context, statusID uuid.UUID) (*ShipmentStatus, error) {
 	query := `
 		SELECT shipment_status_id, name
 		FROM shipment_statuses
@@ -120,7 +121,7 @@ func (r *ShipmentStatusRepository) Create(ctx context.Context, name string) (*Sh
 	return &status, nil
 }
 
-func (r *ShipmentStatusRepository) Update(ctx context.Context, statusID int, name string) (*ShipmentStatus, error) {
+func (r *ShipmentStatusRepository) Update(ctx context.Context, statusID uuid.UUID, name string) (*ShipmentStatus, error) {
 	query := `
 		UPDATE shipment_statuses
 		SET name = $1
@@ -152,7 +153,7 @@ func (r *ShipmentStatusRepository) Update(ctx context.Context, statusID int, nam
 	return &status, nil
 }
 
-func (r *ShipmentStatusRepository) Delete(ctx context.Context, statusID int) error {
+func (r *ShipmentStatusRepository) Delete(ctx context.Context, statusID uuid.UUID) error {
 	query := `
 		DELETE FROM shipment_statuses
 		WHERE shipment_status_id = $1

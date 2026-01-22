@@ -3,12 +3,12 @@ package dto
 import "time"
 
 type MpShipmentResponse struct {
-	ShipmentID     int        `json:"shipmentId"`
+	ShipmentID     string     `json:"shipmentId"`
 	ShipmentDate   *time.Time `json:"shipmentDate,omitempty"`
 	ShipmentNumber string     `json:"shipmentNumber"`
-	StoreID        *int       `json:"storeId,omitempty"`
-	WarehouseID    *int       `json:"warehouseId,omitempty"`
-	StatusID       *int       `json:"statusId,omitempty"`
+	StoreID        *string    `json:"storeId,omitempty"`
+	WarehouseID    *string    `json:"warehouseId,omitempty"`
+	StatusID       *string    `json:"statusId,omitempty"`
 	LogisticsCost  *float64   `json:"logisticsCost,omitempty"`
 	UnitLogistics  *float64   `json:"unitLogistics,omitempty"`
 	AcceptanceCost *float64   `json:"acceptanceCost,omitempty"`
@@ -16,18 +16,18 @@ type MpShipmentResponse struct {
 	PositionsQty   int        `json:"positionsQty"`
 	SentQty        int        `json:"sentQty"`
 	AcceptedQty    int        `json:"acceptedQty"`
-	CreatedBy      *int       `json:"createdBy,omitempty"`
+	CreatedBy      *string    `json:"createdBy,omitempty"`
 	CreatedAt      time.Time  `json:"createdAt"`
-	UpdatedBy      *int       `json:"updatedBy,omitempty"`
+	UpdatedBy      *string    `json:"updatedBy,omitempty"`
 	UpdatedAt      time.Time  `json:"updatedAt"`
 }
 
 type MpShipmentCreateRequest struct {
 	ShipmentDate   *time.Time `json:"shipmentDate,omitempty"`
 	ShipmentNumber string     `json:"shipmentNumber"`
-	StoreID        *int       `json:"storeId,omitempty"`
-	WarehouseID    *int       `json:"warehouseId,omitempty"`
-	StatusID       *int       `json:"statusId,omitempty"`
+	StoreID        *string    `json:"storeId,omitempty"`
+	WarehouseID    *string    `json:"warehouseId,omitempty"`
+	StatusID       *string    `json:"statusId,omitempty"`
 	LogisticsCost  *float64   `json:"logisticsCost,omitempty"`
 	UnitLogistics  *float64   `json:"unitLogistics,omitempty"`
 	AcceptanceCost *float64   `json:"acceptanceCost,omitempty"`
@@ -40,9 +40,9 @@ type MpShipmentCreateRequest struct {
 type MpShipmentUpdateRequest struct {
 	ShipmentDate   *time.Time `json:"shipmentDate,omitempty"`
 	ShipmentNumber string     `json:"shipmentNumber"`
-	StoreID        *int       `json:"storeId,omitempty"`
-	WarehouseID    *int       `json:"warehouseId,omitempty"`
-	StatusID       *int       `json:"statusId,omitempty"`
+	StoreID        *string    `json:"storeId,omitempty"`
+	WarehouseID    *string    `json:"warehouseId,omitempty"`
+	StatusID       *string    `json:"statusId,omitempty"`
 	LogisticsCost  *float64   `json:"logisticsCost,omitempty"`
 	UnitLogistics  *float64   `json:"unitLogistics,omitempty"`
 	AcceptanceCost *float64   `json:"acceptanceCost,omitempty"`

@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -19,10 +20,10 @@ var (
 )
 
 type SupplierOrder struct {
-	OrderID             int
+	OrderID             uuid.UUID
 	OrderNumber         string
 	Buyer               *string
-	StatusID            *int
+	StatusID            *uuid.UUID
 	PurchaseDate        *time.Time
 	PlannedReceiptDate  *time.Time
 	ActualReceiptDate   *time.Time
@@ -34,10 +35,10 @@ type SupplierOrder struct {
 	PositionsQty        int
 	TotalQty            int
 	OrderItemWeight     *float64
-	ParentOrderID       *int
-	CreatedBy           *int
+	ParentOrderID       *uuid.UUID
+	CreatedBy           *uuid.UUID
 	CreatedAt           time.Time
-	UpdatedBy           *int
+	UpdatedBy           *uuid.UUID
 	UpdatedAt           time.Time
 }
 
@@ -49,7 +50,7 @@ func NewSupplierOrderRepository(pool *pgxpool.Pool) *SupplierOrderRepository {
 	return &SupplierOrderRepository{pool: pool}
 }
 
-func (r *SupplierOrderRepository) GetByID(ctx context.Context, orderID int) (*SupplierOrder, error) {
+func (r *SupplierOrderRepository) GetByID(ctx context.Context, orderID uuid.UUID) (*SupplierOrder, error) {
 	query := `
 		SELECT order_id, order_number, buyer, status_id, purchase_date, 
 		       planned_receipt_date, actual_receipt_date, logistics_china_msk,
@@ -97,7 +98,7 @@ func (r *SupplierOrderRepository) GetByID(ctx context.Context, orderID int) (*Su
 	return &order, nil
 }
 
-func (r *SupplierOrderRepository) List(ctx context.Context, limit, offset int, statusID *int) ([]SupplierOrder, error) {
+func (r *SupplierOrderRepository) List(ctx context.Context, limit, offset int, statusID *uuid.UUID) ([]SupplierOrder, error) {
 	query := `
 		SELECT order_id, order_number, buyer, status_id, purchase_date,
 		       planned_receipt_date, actual_receipt_date, logistics_china_msk,
@@ -164,7 +165,7 @@ func (r *SupplierOrderRepository) List(ctx context.Context, limit, offset int, s
 	return orders, nil
 }
 
-func (r *SupplierOrderRepository) Create(ctx context.Context, orderNumber string, buyer *string, statusID *int, purchaseDate, plannedReceiptDate, actualReceiptDate *time.Time, logisticsChinaMsk, logisticsMskKzn, logisticsAdditional, logisticsTotal, orderItemCost, orderItemWeight *float64, positionsQty, totalQty int, parentOrderID, createdBy *int) (*SupplierOrder, error) {
+func (r *SupplierOrderRepository) Create(ctx context.Context, orderNumber string, buyer *string, statusID *uuid.UUID, purchaseDate, plannedReceiptDate, actualReceiptDate *time.Time, logisticsChinaMsk, logisticsMskKzn, logisticsAdditional, logisticsTotal, orderItemCost, orderItemWeight *float64, positionsQty, totalQty int, parentOrderID, createdBy *uuid.UUID) (*SupplierOrder, error) {
 	query := `
 		INSERT INTO supplier_orders (
 			order_number, buyer, status_id, purchase_date, planned_receipt_date,
@@ -225,7 +226,7 @@ func (r *SupplierOrderRepository) Create(ctx context.Context, orderNumber string
 	return &order, nil
 }
 
-func (r *SupplierOrderRepository) Update(ctx context.Context, orderID int, orderNumber string, buyer *string, statusID *int, purchaseDate, plannedReceiptDate, actualReceiptDate *time.Time, logisticsChinaMsk, logisticsMskKzn, logisticsAdditional, logisticsTotal, orderItemCost, orderItemWeight *float64, positionsQty, totalQty int, parentOrderID, updatedBy *int) (*SupplierOrder, error) {
+func (r *SupplierOrderRepository) Update(ctx context.Context, orderID uuid.UUID, orderNumber string, buyer *string, statusID *uuid.UUID, purchaseDate, plannedReceiptDate, actualReceiptDate *time.Time, logisticsChinaMsk, logisticsMskKzn, logisticsAdditional, logisticsTotal, orderItemCost, orderItemWeight *float64, positionsQty, totalQty int, parentOrderID, updatedBy *uuid.UUID) (*SupplierOrder, error) {
 	query := `
 		UPDATE supplier_orders
 		SET order_number = $1, buyer = $2, status_id = $3, purchase_date = $4,
@@ -290,7 +291,7 @@ func (r *SupplierOrderRepository) Update(ctx context.Context, orderID int, order
 	return &order, nil
 }
 
-func (r *SupplierOrderRepository) Delete(ctx context.Context, orderID int) error {
+func (r *SupplierOrderRepository) Delete(ctx context.Context, orderID uuid.UUID) error {
 	query := `
 		DELETE FROM supplier_orders
 		WHERE order_id = $1
@@ -300,6 +301,35 @@ func (r *SupplierOrderRepository) Delete(ctx context.Context, orderID int) error
 	defer cancel()
 
 	result, err := r.pool.Exec(ctx, query, orderID)
+	if err != nil {
+		return err
+	}
+
+	if result.RowsAffected() == 0 {
+		return ErrSupplierOrderNotFound
+	}
+
+	return nil
+}
+
+// UpdateAggregates updates only aggregate fields of the order to keep data consistent with items.
+func (r *SupplierOrderRepository) UpdateAggregates(ctx context.Context, orderID uuid.UUID, positionsQty, totalQty int, orderItemWeight, orderItemCost, logisticsTotal *float64, updatedBy *uuid.UUID) error {
+	query := `
+		UPDATE supplier_orders
+		SET positions_qty = $1,
+		    total_qty = $2,
+		    order_item_weight = $3,
+		    order_item_cost = $4,
+		    logistics_total = $5,
+		    updated_by = $6,
+		    updated_at = CURRENT_TIMESTAMP
+		WHERE order_id = $7
+	`
+
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	result, err := r.pool.Exec(ctx, query, positionsQty, totalQty, orderItemWeight, orderItemCost, logisticsTotal, updatedBy, orderID)
 	if err != nil {
 		return err
 	}

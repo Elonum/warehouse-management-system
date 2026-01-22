@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -16,10 +17,10 @@ var (
 )
 
 type InventoryItem struct {
-	InventoryItemID int
-	InventoryID     int
-	ProductID       *int
-	WarehouseID     int
+	InventoryItemID uuid.UUID
+	InventoryID     uuid.UUID
+	ProductID       *uuid.UUID
+	WarehouseID     uuid.UUID
 	ReceiptQty      int
 	WriteOffQty     int
 	Reason          *string
@@ -33,7 +34,7 @@ func NewInventoryItemRepository(pool *pgxpool.Pool) *InventoryItemRepository {
 	return &InventoryItemRepository{pool: pool}
 }
 
-func (r *InventoryItemRepository) GetByID(ctx context.Context, itemID int) (*InventoryItem, error) {
+func (r *InventoryItemRepository) GetByID(ctx context.Context, itemID uuid.UUID) (*InventoryItem, error) {
 	query := `
 		SELECT inventory_item_id, inventory_id, product_id, warehouse_id, receipt_qty, write_off_qty, reason
 		FROM inventory_items
@@ -64,7 +65,7 @@ func (r *InventoryItemRepository) GetByID(ctx context.Context, itemID int) (*Inv
 	return &item, nil
 }
 
-func (r *InventoryItemRepository) GetByInventoryID(ctx context.Context, inventoryID int) ([]InventoryItem, error) {
+func (r *InventoryItemRepository) GetByInventoryID(ctx context.Context, inventoryID uuid.UUID) ([]InventoryItem, error) {
 	query := `
 		SELECT inventory_item_id, inventory_id, product_id, warehouse_id, receipt_qty, write_off_qty, reason
 		FROM inventory_items
@@ -105,7 +106,7 @@ func (r *InventoryItemRepository) GetByInventoryID(ctx context.Context, inventor
 	return items, nil
 }
 
-func (r *InventoryItemRepository) Create(ctx context.Context, inventoryID int, productID *int, warehouseID int, receiptQty, writeOffQty int, reason *string) (*InventoryItem, error) {
+func (r *InventoryItemRepository) Create(ctx context.Context, inventoryID uuid.UUID, productID *uuid.UUID, warehouseID uuid.UUID, receiptQty, writeOffQty int, reason *string) (*InventoryItem, error) {
 	query := `
 		INSERT INTO inventory_items (inventory_id, product_id, warehouse_id, receipt_qty, write_off_qty, reason)
 		VALUES ($1, $2, $3, $4, $5, $6)
@@ -138,7 +139,7 @@ func (r *InventoryItemRepository) Create(ctx context.Context, inventoryID int, p
 	return &item, nil
 }
 
-func (r *InventoryItemRepository) Update(ctx context.Context, itemID int, inventoryID int, productID *int, warehouseID int, receiptQty, writeOffQty int, reason *string) (*InventoryItem, error) {
+func (r *InventoryItemRepository) Update(ctx context.Context, itemID uuid.UUID, inventoryID uuid.UUID, productID *uuid.UUID, warehouseID uuid.UUID, receiptQty, writeOffQty int, reason *string) (*InventoryItem, error) {
 	query := `
 		UPDATE inventory_items
 		SET inventory_id = $1, product_id = $2, warehouse_id = $3, receipt_qty = $4, write_off_qty = $5, reason = $6
@@ -175,7 +176,7 @@ func (r *InventoryItemRepository) Update(ctx context.Context, itemID int, invent
 	return &item, nil
 }
 
-func (r *InventoryItemRepository) Delete(ctx context.Context, itemID int) error {
+func (r *InventoryItemRepository) Delete(ctx context.Context, itemID uuid.UUID) error {
 	query := `
 		DELETE FROM inventory_items
 		WHERE inventory_item_id = $1
@@ -196,7 +197,7 @@ func (r *InventoryItemRepository) Delete(ctx context.Context, itemID int) error 
 	return nil
 }
 
-func (r *InventoryItemRepository) DeleteByInventoryID(ctx context.Context, inventoryID int) error {
+func (r *InventoryItemRepository) DeleteByInventoryID(ctx context.Context, inventoryID uuid.UUID) error {
 	query := `
 		DELETE FROM inventory_items
 		WHERE inventory_id = $1

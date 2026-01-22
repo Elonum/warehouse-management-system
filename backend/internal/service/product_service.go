@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 
+	"github.com/google/uuid"
 	"warehouse-backend/internal/dto"
 	"warehouse-backend/internal/repository"
 
@@ -17,15 +18,15 @@ func NewProductService(repo *repository.ProductRepository) *ProductService {
 	return &ProductService{repo: repo}
 }
 
-func (s *ProductService) GetByID(ctx context.Context, productID int) (*dto.ProductResponse, error) {
+func (s *ProductService) GetByID(ctx context.Context, productID uuid.UUID) (*dto.ProductResponse, error) {
 	product, err := s.repo.GetByID(ctx, productID)
 	if err != nil {
-		log.Error().Err(err).Int("productId", productID).Msg("Failed to get product by ID")
+		log.Error().Err(err).Str("productId", productID.String()).Msg("Failed to get product by ID")
 		return nil, err
 	}
 
 	return &dto.ProductResponse{
-		ProductID:  product.ProductID,
+		ProductID:  product.ProductID.String(),
 		Article:    product.Article,
 		Barcode:    product.Barcode,
 		UnitWeight: product.UnitWeight,
@@ -40,7 +41,7 @@ func (s *ProductService) GetByArticle(ctx context.Context, article string) (*dto
 	}
 
 	return &dto.ProductResponse{
-		ProductID:  product.ProductID,
+		ProductID:  product.ProductID.String(),
 		Article:    product.Article,
 		Barcode:    product.Barcode,
 		UnitWeight: product.UnitWeight,
@@ -55,7 +56,7 @@ func (s *ProductService) GetByBarcode(ctx context.Context, barcode string) (*dto
 	}
 
 	return &dto.ProductResponse{
-		ProductID:  product.ProductID,
+		ProductID:  product.ProductID.String(),
 		Article:    product.Article,
 		Barcode:    product.Barcode,
 		UnitWeight: product.UnitWeight,
@@ -73,7 +74,7 @@ func (s *ProductService) List(ctx context.Context, limit, offset int) ([]dto.Pro
 	result := make([]dto.ProductResponse, 0, len(products))
 	for _, product := range products {
 		result = append(result, dto.ProductResponse{
-			ProductID:  product.ProductID,
+			ProductID:  product.ProductID.String(),
 			Article:    product.Article,
 			Barcode:    product.Barcode,
 			UnitWeight: product.UnitWeight,
@@ -90,10 +91,10 @@ func (s *ProductService) Create(ctx context.Context, req dto.ProductCreateReques
 		log.Error().Err(err).Str("article", req.Article).Str("barcode", req.Barcode).Msg("Failed to create product")
 		return nil, err
 	}
-	log.Info().Int("productId", product.ProductID).Str("article", product.Article).Msg("Product created successfully")
+	log.Info().Str("productId", product.ProductID.String()).Str("article", product.Article).Msg("Product created successfully")
 
 	return &dto.ProductResponse{
-		ProductID:  product.ProductID,
+		ProductID:  product.ProductID.String(),
 		Article:    product.Article,
 		Barcode:    product.Barcode,
 		UnitWeight: product.UnitWeight,
@@ -101,16 +102,16 @@ func (s *ProductService) Create(ctx context.Context, req dto.ProductCreateReques
 	}, nil
 }
 
-func (s *ProductService) Update(ctx context.Context, productID int, req dto.ProductUpdateRequest) (*dto.ProductResponse, error) {
+func (s *ProductService) Update(ctx context.Context, productID uuid.UUID, req dto.ProductUpdateRequest) (*dto.ProductResponse, error) {
 	product, err := s.repo.Update(ctx, productID, req.Article, req.Barcode, req.UnitWeight, req.UnitCost)
 	if err != nil {
-		log.Error().Err(err).Int("productId", productID).Msg("Failed to update product")
+		log.Error().Err(err).Str("productId", productID.String()).Msg("Failed to update product")
 		return nil, err
 	}
-	log.Info().Int("productId", productID).Msg("Product updated successfully")
+	log.Info().Str("productId", productID.String()).Msg("Product updated successfully")
 
 	return &dto.ProductResponse{
-		ProductID:  product.ProductID,
+		ProductID:  product.ProductID.String(),
 		Article:    product.Article,
 		Barcode:    product.Barcode,
 		UnitWeight: product.UnitWeight,
@@ -118,12 +119,12 @@ func (s *ProductService) Update(ctx context.Context, productID int, req dto.Prod
 	}, nil
 }
 
-func (s *ProductService) Delete(ctx context.Context, productID int) error {
+func (s *ProductService) Delete(ctx context.Context, productID uuid.UUID) error {
 	err := s.repo.Delete(ctx, productID)
 	if err != nil {
-		log.Error().Err(err).Int("productId", productID).Msg("Failed to delete product")
+		log.Error().Err(err).Str("productId", productID.String()).Msg("Failed to delete product")
 		return err
 	}
-	log.Info().Int("productId", productID).Msg("Product deleted successfully")
+	log.Info().Str("productId", productID.String()).Msg("Product deleted successfully")
 	return nil
 }

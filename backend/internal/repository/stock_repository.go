@@ -5,12 +5,13 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type StockItem struct {
-	ProductID       int
-	WarehouseID     int
+	ProductID       uuid.UUID
+	WarehouseID     uuid.UUID
 	CurrentQuantity int
 }
 
@@ -24,7 +25,7 @@ func NewStockRepository(pool *pgxpool.Pool) *StockRepository {
 
 func (r *StockRepository) GetCurrentStock(
 	ctx context.Context,
-	warehouseID *int,
+	warehouseID *uuid.UUID,
 	limit int,
 	offset int,
 ) ([]StockItem, error) {

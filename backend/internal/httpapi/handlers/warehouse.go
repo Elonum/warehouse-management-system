@@ -3,7 +3,6 @@ package handlers
 import (
 	"encoding/json"
 	"net/http"
-	"strconv"
 
 	"warehouse-backend/internal/dto"
 	"warehouse-backend/internal/repository"
@@ -23,7 +22,7 @@ func NewWarehouseHandler(service *service.WarehouseService) *WarehouseHandler {
 
 func (h *WarehouseHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 	idStr := chi.URLParam(r, "id")
-	warehouseID, err := strconv.Atoi(idStr)
+	warehouseID, err := parseUUID(idStr)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "INVALID_WAREHOUSE_ID", "invalid warehouse id")
 		return
@@ -32,11 +31,11 @@ func (h *WarehouseHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 	warehouse, err := h.service.GetByID(r.Context(), warehouseID)
 	if err != nil {
 		if err == repository.ErrWarehouseNotFound {
-			log.Warn().Int("warehouseId", warehouseID).Msg("Warehouse not found")
+			log.Warn().Str("warehouseId", warehouseID.String()).Msg("Warehouse not found")
 			writeError(w, http.StatusNotFound, "WAREHOUSE_NOT_FOUND", "warehouse not found")
 			return
 		}
-		log.Error().Err(err).Int("warehouseId", warehouseID).Msg("Failed to load warehouse")
+		log.Error().Err(err).Str("warehouseId", warehouseID.String()).Msg("Failed to load warehouse")
 		writeError(w, http.StatusInternalServerError, "WAREHOUSE_LOAD_FAILED", "failed to load warehouse")
 		return
 	}
@@ -123,7 +122,7 @@ func (h *WarehouseHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 func (h *WarehouseHandler) Update(w http.ResponseWriter, r *http.Request) {
 	idStr := chi.URLParam(r, "id")
-	warehouseID, err := strconv.Atoi(idStr)
+	warehouseID, err := parseUUID(idStr)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "INVALID_WAREHOUSE_ID", "invalid warehouse id")
 		return
@@ -143,21 +142,21 @@ func (h *WarehouseHandler) Update(w http.ResponseWriter, r *http.Request) {
 	warehouse, err := h.service.Update(r.Context(), warehouseID, req)
 	if err != nil {
 		if err == repository.ErrWarehouseNotFound {
-			log.Warn().Int("warehouseId", warehouseID).Msg("Warehouse not found for update")
+			log.Warn().Str("warehouseId", warehouseID.String()).Msg("Warehouse not found for update")
 			writeError(w, http.StatusNotFound, "WAREHOUSE_NOT_FOUND", "warehouse not found")
 			return
 		}
 		if err == repository.ErrWarehouseExists {
-			log.Warn().Int("warehouseId", warehouseID).Str("name", req.Name).Msg("Warehouse with name already exists")
+			log.Warn().Str("warehouseId", warehouseID.String()).Str("name", req.Name).Msg("Warehouse with name already exists")
 			writeError(w, http.StatusConflict, "WAREHOUSE_EXISTS", "warehouse with this name already exists")
 			return
 		}
 		if err == repository.ErrWarehouseTypeNotFound {
-			log.Warn().Int("warehouseId", warehouseID).Interface("warehouseTypeId", req.WarehouseTypeID).Msg("Warehouse type not found")
+			log.Warn().Str("warehouseId", warehouseID.String()).Interface("warehouseTypeId", req.WarehouseTypeID).Msg("Warehouse type not found")
 			writeError(w, http.StatusBadRequest, "WAREHOUSE_TYPE_NOT_FOUND", "specified warehouse type does not exist")
 			return
 		}
-		log.Error().Err(err).Int("warehouseId", warehouseID).Msg("Failed to update warehouse")
+		log.Error().Err(err).Str("warehouseId", warehouseID.String()).Msg("Failed to update warehouse")
 		writeError(w, http.StatusInternalServerError, "WAREHOUSE_UPDATE_FAILED", "failed to update warehouse")
 		return
 	}
@@ -173,7 +172,7 @@ func (h *WarehouseHandler) Update(w http.ResponseWriter, r *http.Request) {
 
 func (h *WarehouseHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	idStr := chi.URLParam(r, "id")
-	warehouseID, err := strconv.Atoi(idStr)
+	warehouseID, err := parseUUID(idStr)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "INVALID_WAREHOUSE_ID", "invalid warehouse id")
 		return
@@ -182,11 +181,11 @@ func (h *WarehouseHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	err = h.service.Delete(r.Context(), warehouseID)
 	if err != nil {
 		if err == repository.ErrWarehouseNotFound {
-			log.Warn().Int("warehouseId", warehouseID).Msg("Warehouse not found for deletion")
+			log.Warn().Str("warehouseId", warehouseID.String()).Msg("Warehouse not found for deletion")
 			writeError(w, http.StatusNotFound, "WAREHOUSE_NOT_FOUND", "warehouse not found")
 			return
 		}
-		log.Error().Err(err).Int("warehouseId", warehouseID).Msg("Failed to delete warehouse")
+		log.Error().Err(err).Str("warehouseId", warehouseID.String()).Msg("Failed to delete warehouse")
 		writeError(w, http.StatusInternalServerError, "WAREHOUSE_DELETE_FAILED", "failed to delete warehouse")
 		return
 	}

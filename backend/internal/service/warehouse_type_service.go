@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 
+	"github.com/google/uuid"
 	"warehouse-backend/internal/dto"
 	"warehouse-backend/internal/repository"
 
@@ -17,15 +18,15 @@ func NewWarehouseTypeService(repo *repository.WarehouseTypeRepository) *Warehous
 	return &WarehouseTypeService{repo: repo}
 }
 
-func (s *WarehouseTypeService) GetByID(ctx context.Context, warehouseTypeID int) (*dto.WarehouseTypeResponse, error) {
+func (s *WarehouseTypeService) GetByID(ctx context.Context, warehouseTypeID uuid.UUID) (*dto.WarehouseTypeResponse, error) {
 	warehouseType, err := s.repo.GetByID(ctx, warehouseTypeID)
 	if err != nil {
-		log.Error().Err(err).Int("warehouseTypeId", warehouseTypeID).Msg("Failed to get warehouse type by ID")
+		log.Error().Err(err).Str("warehouseTypeId", warehouseTypeID.String()).Msg("Failed to get warehouse type by ID")
 		return nil, err
 	}
 
 	return &dto.WarehouseTypeResponse{
-		WarehouseTypeID: warehouseType.WarehouseTypeID,
+		WarehouseTypeID: warehouseType.WarehouseTypeID.String(),
 		Name:            warehouseType.Name,
 	}, nil
 }
@@ -40,7 +41,7 @@ func (s *WarehouseTypeService) List(ctx context.Context, limit, offset int) ([]d
 	result := make([]dto.WarehouseTypeResponse, 0, len(warehouseTypes))
 	for _, warehouseType := range warehouseTypes {
 		result = append(result, dto.WarehouseTypeResponse{
-			WarehouseTypeID: warehouseType.WarehouseTypeID,
+			WarehouseTypeID: warehouseType.WarehouseTypeID.String(),
 			Name:            warehouseType.Name,
 		})
 	}
@@ -55,34 +56,34 @@ func (s *WarehouseTypeService) Create(ctx context.Context, req dto.WarehouseType
 		return nil, err
 	}
 
-	log.Info().Int("warehouseTypeId", warehouseType.WarehouseTypeID).Str("name", warehouseType.Name).Msg("Warehouse type created successfully")
+	log.Info().Str("warehouseTypeId", warehouseType.WarehouseTypeID.String()).Str("name", warehouseType.Name).Msg("Warehouse type created successfully")
 	return &dto.WarehouseTypeResponse{
-		WarehouseTypeID: warehouseType.WarehouseTypeID,
+		WarehouseTypeID: warehouseType.WarehouseTypeID.String(),
 		Name:            warehouseType.Name,
 	}, nil
 }
 
-func (s *WarehouseTypeService) Update(ctx context.Context, warehouseTypeID int, req dto.WarehouseTypeUpdateRequest) (*dto.WarehouseTypeResponse, error) {
+func (s *WarehouseTypeService) Update(ctx context.Context, warehouseTypeID uuid.UUID, req dto.WarehouseTypeUpdateRequest) (*dto.WarehouseTypeResponse, error) {
 	warehouseType, err := s.repo.Update(ctx, warehouseTypeID, req.Name)
 	if err != nil {
-		log.Error().Err(err).Int("warehouseTypeId", warehouseTypeID).Msg("Failed to update warehouse type")
+		log.Error().Err(err).Str("warehouseTypeId", warehouseTypeID.String()).Msg("Failed to update warehouse type")
 		return nil, err
 	}
 
-	log.Info().Int("warehouseTypeId", warehouseTypeID).Msg("Warehouse type updated successfully")
+	log.Info().Str("warehouseTypeId", warehouseTypeID.String()).Msg("Warehouse type updated successfully")
 	return &dto.WarehouseTypeResponse{
-		WarehouseTypeID: warehouseType.WarehouseTypeID,
+		WarehouseTypeID: warehouseType.WarehouseTypeID.String(),
 		Name:            warehouseType.Name,
 	}, nil
 }
 
-func (s *WarehouseTypeService) Delete(ctx context.Context, warehouseTypeID int) error {
+func (s *WarehouseTypeService) Delete(ctx context.Context, warehouseTypeID uuid.UUID) error {
 	err := s.repo.Delete(ctx, warehouseTypeID)
 	if err != nil {
-		log.Error().Err(err).Int("warehouseTypeId", warehouseTypeID).Msg("Failed to delete warehouse type")
+		log.Error().Err(err).Str("warehouseTypeId", warehouseTypeID.String()).Msg("Failed to delete warehouse type")
 		return err
 	}
 
-	log.Info().Int("warehouseTypeId", warehouseTypeID).Msg("Warehouse type deleted successfully")
+	log.Info().Str("warehouseTypeId", warehouseTypeID.String()).Msg("Warehouse type deleted successfully")
 	return nil
 }

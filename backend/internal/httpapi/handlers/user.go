@@ -3,7 +3,6 @@ package handlers
 import (
 	"encoding/json"
 	"net/http"
-	"strconv"
 
 	"warehouse-backend/internal/dto"
 	"warehouse-backend/internal/repository"
@@ -23,7 +22,7 @@ func NewUserHandler(service *service.UserService) *UserHandler {
 
 func (h *UserHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 	idStr := chi.URLParam(r, "id")
-	userID, err := strconv.Atoi(idStr)
+	userID, err := parseUUID(idStr)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "INVALID_USER_ID", "invalid user id")
 		return
@@ -32,11 +31,11 @@ func (h *UserHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 	user, err := h.service.GetByID(r.Context(), userID)
 	if err != nil {
 		if err == repository.ErrUserNotFound {
-			log.Warn().Int("userId", userID).Msg("User not found")
+			log.Warn().Str("userId", userID.String()).Msg("User not found")
 			writeError(w, http.StatusNotFound, "USER_NOT_FOUND", "user not found")
 			return
 		}
-		log.Error().Err(err).Int("userId", userID).Msg("Failed to load user")
+		log.Error().Err(err).Str("userId", userID.String()).Msg("Failed to load user")
 		writeError(w, http.StatusInternalServerError, "USER_LOAD_FAILED", "failed to load user")
 		return
 	}
@@ -102,8 +101,8 @@ func (h *UserHandler) Create(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "password must be at least 6 characters")
 		return
 	}
-	if req.RoleID <= 0 {
-		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "roleId is required and must be positive")
+	if req.RoleID == "" {
+		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "roleId is required")
 		return
 	}
 
@@ -115,11 +114,11 @@ func (h *UserHandler) Create(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if err == repository.ErrRoleNotFound {
-			log.Warn().Int("roleId", req.RoleID).Msg("Role not found")
+			log.Warn().Str("roleId", req.RoleID).Msg("Role not found")
 			writeError(w, http.StatusBadRequest, "ROLE_NOT_FOUND", "specified role does not exist")
 			return
 		}
-		log.Error().Err(err).Str("email", req.Email).Int("roleId", req.RoleID).Msg("Failed to create user")
+		log.Error().Err(err).Str("email", req.Email).Str("roleId", req.RoleID).Msg("Failed to create user")
 		writeError(w, http.StatusInternalServerError, "USER_CREATE_FAILED", "failed to create user")
 		return
 	}
@@ -135,7 +134,7 @@ func (h *UserHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 func (h *UserHandler) Update(w http.ResponseWriter, r *http.Request) {
 	idStr := chi.URLParam(r, "id")
-	userID, err := strconv.Atoi(idStr)
+	userID, err := parseUUID(idStr)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "INVALID_USER_ID", "invalid user id")
 		return
@@ -151,29 +150,29 @@ func (h *UserHandler) Update(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "email is required")
 		return
 	}
-	if req.RoleID <= 0 {
-		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "roleId is required and must be positive")
+	if req.RoleID == "" {
+		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "roleId is required")
 		return
 	}
 
 	user, err := h.service.Update(r.Context(), userID, req)
 	if err != nil {
 		if err == repository.ErrUserNotFound {
-			log.Warn().Int("userId", userID).Msg("User not found for update")
+			log.Warn().Str("userId", userID.String()).Msg("User not found for update")
 			writeError(w, http.StatusNotFound, "USER_NOT_FOUND", "user not found")
 			return
 		}
 		if err == repository.ErrUserExists {
-			log.Warn().Int("userId", userID).Str("email", req.Email).Msg("User with email already exists")
+			log.Warn().Str("userId", userID.String()).Str("email", req.Email).Msg("User with email already exists")
 			writeError(w, http.StatusConflict, "USER_EXISTS", "user with this email already exists")
 			return
 		}
 		if err == repository.ErrRoleNotFound {
-			log.Warn().Int("roleId", req.RoleID).Msg("Role not found")
+			log.Warn().Str("roleId", req.RoleID).Msg("Role not found")
 			writeError(w, http.StatusBadRequest, "ROLE_NOT_FOUND", "specified role does not exist")
 			return
 		}
-		log.Error().Err(err).Int("userId", userID).Msg("Failed to update user")
+		log.Error().Err(err).Str("userId", userID.String()).Msg("Failed to update user")
 		writeError(w, http.StatusInternalServerError, "USER_UPDATE_FAILED", "failed to update user")
 		return
 	}
@@ -189,7 +188,7 @@ func (h *UserHandler) Update(w http.ResponseWriter, r *http.Request) {
 
 func (h *UserHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	idStr := chi.URLParam(r, "id")
-	userID, err := strconv.Atoi(idStr)
+	userID, err := parseUUID(idStr)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "INVALID_USER_ID", "invalid user id")
 		return
@@ -198,11 +197,11 @@ func (h *UserHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	err = h.service.Delete(r.Context(), userID)
 	if err != nil {
 		if err == repository.ErrUserNotFound {
-			log.Warn().Int("userId", userID).Msg("User not found for deletion")
+			log.Warn().Str("userId", userID.String()).Msg("User not found for deletion")
 			writeError(w, http.StatusNotFound, "USER_NOT_FOUND", "user not found")
 			return
 		}
-		log.Error().Err(err).Int("userId", userID).Msg("Failed to delete user")
+		log.Error().Err(err).Str("userId", userID.String()).Msg("Failed to delete user")
 		writeError(w, http.StatusInternalServerError, "USER_DELETE_FAILED", "failed to delete user")
 		return
 	}

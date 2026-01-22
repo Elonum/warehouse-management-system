@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 
+	"github.com/google/uuid"
 	"warehouse-backend/internal/dto"
 	"warehouse-backend/internal/repository"
 
@@ -21,28 +22,39 @@ func NewProductCostService(repo *repository.ProductCostRepository, productRepo *
 	}
 }
 
-func (s *ProductCostService) GetByID(ctx context.Context, costID int) (*dto.ProductCostResponse, error) {
+func (s *ProductCostService) GetByID(ctx context.Context, costID uuid.UUID) (*dto.ProductCostResponse, error) {
 	cost, err := s.repo.GetByID(ctx, costID)
 	if err != nil {
-		log.Error().Err(err).Int("costId", costID).Msg("Failed to get product cost by ID")
+		log.Error().Err(err).Str("costId", costID.String()).Msg("Failed to get product cost by ID")
 		return nil, err
 	}
 
+	var createdByStr *string
+	if cost.CreatedBy != nil {
+		str := cost.CreatedBy.String()
+		createdByStr = &str
+	}
+	var updatedByStr *string
+	if cost.UpdatedBy != nil {
+		str := cost.UpdatedBy.String()
+		updatedByStr = &str
+	}
+
 	return &dto.ProductCostResponse{
-		CostID:              cost.CostID,
-		ProductID:           cost.ProductID,
+		CostID:              cost.CostID.String(),
+		ProductID:           cost.ProductID.String(),
 		PeriodStart:         cost.PeriodStart,
 		PeriodEnd:           cost.PeriodEnd,
 		UnitCostToWarehouse: cost.UnitCostToWarehouse,
 		Notes:               cost.Notes,
-		CreatedBy:           cost.CreatedBy,
+		CreatedBy:           createdByStr,
 		CreatedAt:           cost.CreatedAt,
-		UpdatedBy:           cost.UpdatedBy,
+		UpdatedBy:           updatedByStr,
 		UpdatedAt:           cost.UpdatedAt,
 	}, nil
 }
 
-func (s *ProductCostService) List(ctx context.Context, limit, offset int, productID *int) ([]dto.ProductCostResponse, error) {
+func (s *ProductCostService) List(ctx context.Context, limit, offset int, productID *uuid.UUID) ([]dto.ProductCostResponse, error) {
 	costs, err := s.repo.List(ctx, limit, offset, productID)
 	if err != nil {
 		log.Error().Err(err).Int("limit", limit).Int("offset", offset).
@@ -52,16 +64,27 @@ func (s *ProductCostService) List(ctx context.Context, limit, offset int, produc
 
 	result := make([]dto.ProductCostResponse, 0, len(costs))
 	for _, cost := range costs {
+		var createdByStr *string
+		if cost.CreatedBy != nil {
+			str := cost.CreatedBy.String()
+			createdByStr = &str
+		}
+		var updatedByStr *string
+		if cost.UpdatedBy != nil {
+			str := cost.UpdatedBy.String()
+			updatedByStr = &str
+		}
+
 		result = append(result, dto.ProductCostResponse{
-			CostID:              cost.CostID,
-			ProductID:           cost.ProductID,
+			CostID:              cost.CostID.String(),
+			ProductID:           cost.ProductID.String(),
 			PeriodStart:         cost.PeriodStart,
 			PeriodEnd:           cost.PeriodEnd,
 			UnitCostToWarehouse: cost.UnitCostToWarehouse,
 			Notes:               cost.Notes,
-			CreatedBy:           cost.CreatedBy,
+			CreatedBy:           createdByStr,
 			CreatedAt:           cost.CreatedAt,
-			UpdatedBy:           cost.UpdatedBy,
+			UpdatedBy:           updatedByStr,
 			UpdatedAt:           cost.UpdatedAt,
 		})
 	}
@@ -69,14 +92,19 @@ func (s *ProductCostService) List(ctx context.Context, limit, offset int, produc
 	return result, nil
 }
 
-func (s *ProductCostService) Create(ctx context.Context, userID int, req dto.ProductCostCreateRequest) (*dto.ProductCostResponse, error) {
-	_, err := s.productRepo.GetByID(ctx, req.ProductID)
+func (s *ProductCostService) Create(ctx context.Context, userID uuid.UUID, req dto.ProductCostCreateRequest) (*dto.ProductCostResponse, error) {
+	productID, err := uuid.Parse(req.ProductID)
+	if err != nil {
+		log.Warn().Str("productId", req.ProductID).Msg("Invalid product ID format")
+		return nil, repository.ErrProductNotFound
+	}
+	_, err = s.productRepo.GetByID(ctx, productID)
 	if err != nil {
 		if err == repository.ErrProductNotFound {
-			log.Warn().Int("productId", req.ProductID).Msg("Product not found")
+			log.Warn().Str("productId", req.ProductID).Msg("Product not found")
 			return nil, repository.ErrProductNotFound
 		}
-		log.Error().Err(err).Int("productId", req.ProductID).Msg("Failed to validate product")
+		log.Error().Err(err).Str("productId", req.ProductID).Msg("Failed to validate product")
 		return nil, err
 	}
 
@@ -90,35 +118,51 @@ func (s *ProductCostService) Create(ctx context.Context, userID int, req dto.Pro
 		return nil, repository.ErrInvalidQuantity
 	}
 
-	cost, err := s.repo.Create(ctx, req.ProductID, req.PeriodStart, req.PeriodEnd, req.UnitCostToWarehouse, req.Notes, &userID)
+	cost, err := s.repo.Create(ctx, productID, req.PeriodStart, req.PeriodEnd, req.UnitCostToWarehouse, req.Notes, &userID)
 	if err != nil {
-		log.Error().Err(err).Int("productId", req.ProductID).Int("userId", userID).Msg("Failed to create product cost")
+		log.Error().Err(err).Str("productId", req.ProductID).Str("userId", userID.String()).Msg("Failed to create product cost")
 		return nil, err
 	}
 
-	log.Info().Int("costId", cost.CostID).Int("productId", req.ProductID).Int("userId", userID).Msg("Product cost created successfully")
+	var createdByStr *string
+	if cost.CreatedBy != nil {
+		str := cost.CreatedBy.String()
+		createdByStr = &str
+	}
+	var updatedByStr *string
+	if cost.UpdatedBy != nil {
+		str := cost.UpdatedBy.String()
+		updatedByStr = &str
+	}
+
+	log.Info().Str("costId", cost.CostID.String()).Str("productId", req.ProductID).Str("userId", userID.String()).Msg("Product cost created successfully")
 	return &dto.ProductCostResponse{
-		CostID:              cost.CostID,
-		ProductID:           cost.ProductID,
+		CostID:              cost.CostID.String(),
+		ProductID:           cost.ProductID.String(),
 		PeriodStart:         cost.PeriodStart,
 		PeriodEnd:           cost.PeriodEnd,
 		UnitCostToWarehouse: cost.UnitCostToWarehouse,
 		Notes:               cost.Notes,
-		CreatedBy:           cost.CreatedBy,
+		CreatedBy:           createdByStr,
 		CreatedAt:           cost.CreatedAt,
-		UpdatedBy:           cost.UpdatedBy,
+		UpdatedBy:           updatedByStr,
 		UpdatedAt:           cost.UpdatedAt,
 	}, nil
 }
 
-func (s *ProductCostService) Update(ctx context.Context, costID, userID int, req dto.ProductCostUpdateRequest) (*dto.ProductCostResponse, error) {
-	_, err := s.productRepo.GetByID(ctx, req.ProductID)
+func (s *ProductCostService) Update(ctx context.Context, costID, userID uuid.UUID, req dto.ProductCostUpdateRequest) (*dto.ProductCostResponse, error) {
+	productID, err := uuid.Parse(req.ProductID)
+	if err != nil {
+		log.Warn().Str("productId", req.ProductID).Msg("Invalid product ID format")
+		return nil, repository.ErrProductNotFound
+	}
+	_, err = s.productRepo.GetByID(ctx, productID)
 	if err != nil {
 		if err == repository.ErrProductNotFound {
-			log.Warn().Int("productId", req.ProductID).Msg("Product not found")
+			log.Warn().Str("productId", req.ProductID).Msg("Product not found")
 			return nil, repository.ErrProductNotFound
 		}
-		log.Error().Err(err).Int("productId", req.ProductID).Msg("Failed to validate product")
+		log.Error().Err(err).Str("productId", req.ProductID).Msg("Failed to validate product")
 		return nil, err
 	}
 
@@ -132,34 +176,45 @@ func (s *ProductCostService) Update(ctx context.Context, costID, userID int, req
 		return nil, repository.ErrInvalidQuantity
 	}
 
-	cost, err := s.repo.Update(ctx, costID, req.ProductID, req.PeriodStart, req.PeriodEnd, req.UnitCostToWarehouse, req.Notes, &userID)
+	cost, err := s.repo.Update(ctx, costID, productID, req.PeriodStart, req.PeriodEnd, req.UnitCostToWarehouse, req.Notes, &userID)
 	if err != nil {
-		log.Error().Err(err).Int("costId", costID).Int("userId", userID).Msg("Failed to update product cost")
+		log.Error().Err(err).Str("costId", costID.String()).Str("userId", userID.String()).Msg("Failed to update product cost")
 		return nil, err
 	}
 
-	log.Info().Int("costId", costID).Int("userId", userID).Msg("Product cost updated successfully")
+	var createdByStr *string
+	if cost.CreatedBy != nil {
+		str := cost.CreatedBy.String()
+		createdByStr = &str
+	}
+	var updatedByStr *string
+	if cost.UpdatedBy != nil {
+		str := cost.UpdatedBy.String()
+		updatedByStr = &str
+	}
+
+	log.Info().Str("costId", costID.String()).Str("userId", userID.String()).Msg("Product cost updated successfully")
 	return &dto.ProductCostResponse{
-		CostID:              cost.CostID,
-		ProductID:           cost.ProductID,
+		CostID:              cost.CostID.String(),
+		ProductID:           cost.ProductID.String(),
 		PeriodStart:         cost.PeriodStart,
 		PeriodEnd:           cost.PeriodEnd,
 		UnitCostToWarehouse: cost.UnitCostToWarehouse,
 		Notes:               cost.Notes,
-		CreatedBy:           cost.CreatedBy,
+		CreatedBy:           createdByStr,
 		CreatedAt:           cost.CreatedAt,
-		UpdatedBy:           cost.UpdatedBy,
+		UpdatedBy:           updatedByStr,
 		UpdatedAt:           cost.UpdatedAt,
 	}, nil
 }
 
-func (s *ProductCostService) Delete(ctx context.Context, costID int) error {
+func (s *ProductCostService) Delete(ctx context.Context, costID uuid.UUID) error {
 	err := s.repo.Delete(ctx, costID)
 	if err != nil {
-		log.Error().Err(err).Int("costId", costID).Msg("Failed to delete product cost")
+		log.Error().Err(err).Str("costId", costID.String()).Msg("Failed to delete product cost")
 		return err
 	}
 
-	log.Info().Int("costId", costID).Msg("Product cost deleted successfully")
+	log.Info().Str("costId", costID.String()).Msg("Product cost deleted successfully")
 	return nil
 }

@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 
+	"github.com/google/uuid"
 	"warehouse-backend/internal/dto"
 	"warehouse-backend/internal/repository"
 
@@ -25,38 +26,50 @@ func NewInventoryItemService(repo *repository.InventoryItemRepository, inventory
 	}
 }
 
-func (s *InventoryItemService) GetByID(ctx context.Context, itemID int) (*dto.InventoryItemResponse, error) {
+func (s *InventoryItemService) GetByID(ctx context.Context, itemID uuid.UUID) (*dto.InventoryItemResponse, error) {
 	item, err := s.repo.GetByID(ctx, itemID)
 	if err != nil {
-		log.Error().Err(err).Int("itemId", itemID).Msg("Failed to get inventory item by ID")
+		log.Error().Err(err).Str("itemId", itemID.String()).Msg("Failed to get inventory item by ID")
 		return nil, err
 	}
 
+	var productIDStr *string
+	if item.ProductID != nil {
+		str := item.ProductID.String()
+		productIDStr = &str
+	}
+
 	return &dto.InventoryItemResponse{
-		InventoryItemID: item.InventoryItemID,
-		InventoryID:     item.InventoryID,
-		ProductID:       item.ProductID,
-		WarehouseID:     item.WarehouseID,
+		InventoryItemID: item.InventoryItemID.String(),
+		InventoryID:     item.InventoryID.String(),
+		ProductID:       productIDStr,
+		WarehouseID:     item.WarehouseID.String(),
 		ReceiptQty:      item.ReceiptQty,
 		WriteOffQty:     item.WriteOffQty,
 		Reason:          item.Reason,
 	}, nil
 }
 
-func (s *InventoryItemService) GetByInventoryID(ctx context.Context, inventoryID int) ([]dto.InventoryItemResponse, error) {
+func (s *InventoryItemService) GetByInventoryID(ctx context.Context, inventoryID uuid.UUID) ([]dto.InventoryItemResponse, error) {
 	items, err := s.repo.GetByInventoryID(ctx, inventoryID)
 	if err != nil {
-		log.Error().Err(err).Int("inventoryId", inventoryID).Msg("Failed to get inventory items by inventory ID")
+		log.Error().Err(err).Str("inventoryId", inventoryID.String()).Msg("Failed to get inventory items by inventory ID")
 		return nil, err
 	}
 
 	result := make([]dto.InventoryItemResponse, 0, len(items))
 	for _, item := range items {
+		var productIDStr *string
+		if item.ProductID != nil {
+			str := item.ProductID.String()
+			productIDStr = &str
+		}
+
 		result = append(result, dto.InventoryItemResponse{
-			InventoryItemID: item.InventoryItemID,
-			InventoryID:     item.InventoryID,
-			ProductID:       item.ProductID,
-			WarehouseID:     item.WarehouseID,
+			InventoryItemID: item.InventoryItemID.String(),
+			InventoryID:     item.InventoryID.String(),
+			ProductID:       productIDStr,
+			WarehouseID:     item.WarehouseID.String(),
 			ReceiptQty:      item.ReceiptQty,
 			WriteOffQty:     item.WriteOffQty,
 			Reason:          item.Reason,
@@ -67,35 +80,53 @@ func (s *InventoryItemService) GetByInventoryID(ctx context.Context, inventoryID
 }
 
 func (s *InventoryItemService) Create(ctx context.Context, req dto.InventoryItemCreateRequest) (*dto.InventoryItemResponse, error) {
-	_, err := s.inventoryRepo.GetByID(ctx, req.InventoryID)
+	inventoryID, err := uuid.Parse(req.InventoryID)
+	if err != nil {
+		log.Warn().Str("inventoryId", req.InventoryID).Msg("Invalid inventory ID format")
+		return nil, repository.ErrInventoryNotFound
+	}
+	_, err = s.inventoryRepo.GetByID(ctx, inventoryID)
 	if err != nil {
 		if err == repository.ErrInventoryNotFound {
-			log.Warn().Int("inventoryId", req.InventoryID).Msg("Inventory not found")
+			log.Warn().Str("inventoryId", req.InventoryID).Msg("Inventory not found")
 			return nil, repository.ErrInventoryNotFound
 		}
-		log.Error().Err(err).Int("inventoryId", req.InventoryID).Msg("Failed to validate inventory")
+		log.Error().Err(err).Str("inventoryId", req.InventoryID).Msg("Failed to validate inventory")
 		return nil, err
 	}
 
-	if req.ProductID != nil {
-		_, err = s.productRepo.GetByID(ctx, *req.ProductID)
+	var productID *uuid.UUID
+	if req.ProductID != nil && *req.ProductID != "" {
+		id, err := uuid.Parse(*req.ProductID)
+		if err != nil {
+			log.Warn().Str("productId", *req.ProductID).Msg("Invalid product ID format")
+			return nil, repository.ErrProductNotFound
+		}
+		productID = &id
+
+		_, err = s.productRepo.GetByID(ctx, id)
 		if err != nil {
 			if err == repository.ErrProductNotFound {
-				log.Warn().Int("productId", *req.ProductID).Msg("Product not found")
+				log.Warn().Str("productId", *req.ProductID).Msg("Product not found")
 				return nil, repository.ErrProductNotFound
 			}
-			log.Error().Err(err).Int("productId", *req.ProductID).Msg("Failed to validate product")
+			log.Error().Err(err).Str("productId", *req.ProductID).Msg("Failed to validate product")
 			return nil, err
 		}
 	}
 
-	_, err = s.warehouseRepo.GetByID(ctx, req.WarehouseID)
+	warehouseID, err := uuid.Parse(req.WarehouseID)
+	if err != nil {
+		log.Warn().Str("warehouseId", req.WarehouseID).Msg("Invalid warehouse ID format")
+		return nil, repository.ErrWarehouseNotFound
+	}
+	_, err = s.warehouseRepo.GetByID(ctx, warehouseID)
 	if err != nil {
 		if err == repository.ErrWarehouseNotFound {
-			log.Warn().Int("warehouseId", req.WarehouseID).Msg("Warehouse not found")
+			log.Warn().Str("warehouseId", req.WarehouseID).Msg("Warehouse not found")
 			return nil, repository.ErrWarehouseNotFound
 		}
-		log.Error().Err(err).Int("warehouseId", req.WarehouseID).Msg("Failed to validate warehouse")
+		log.Error().Err(err).Str("warehouseId", req.WarehouseID).Msg("Failed to validate warehouse")
 		return nil, err
 	}
 
@@ -109,54 +140,78 @@ func (s *InventoryItemService) Create(ctx context.Context, req dto.InventoryItem
 		return nil, repository.ErrInvalidQuantity
 	}
 
-	item, err := s.repo.Create(ctx, req.InventoryID, req.ProductID, req.WarehouseID, req.ReceiptQty, req.WriteOffQty, req.Reason)
+	item, err := s.repo.Create(ctx, inventoryID, productID, warehouseID, req.ReceiptQty, req.WriteOffQty, req.Reason)
 	if err != nil {
-		log.Error().Err(err).Int("inventoryId", req.InventoryID).Int("warehouseId", req.WarehouseID).Msg("Failed to create inventory item")
+		log.Error().Err(err).Str("inventoryId", req.InventoryID).Str("warehouseId", req.WarehouseID).Msg("Failed to create inventory item")
 		return nil, err
 	}
 
-	log.Info().Int("inventoryItemId", item.InventoryItemID).Int("inventoryId", req.InventoryID).Int("warehouseId", req.WarehouseID).Msg("Inventory item created successfully")
+	var productIDStr *string
+	if item.ProductID != nil {
+		str := item.ProductID.String()
+		productIDStr = &str
+	}
+
+	log.Info().Str("inventoryItemId", item.InventoryItemID.String()).Str("inventoryId", req.InventoryID).Str("warehouseId", req.WarehouseID).Msg("Inventory item created successfully")
 	return &dto.InventoryItemResponse{
-		InventoryItemID: item.InventoryItemID,
-		InventoryID:     item.InventoryID,
-		ProductID:       item.ProductID,
-		WarehouseID:     item.WarehouseID,
+		InventoryItemID: item.InventoryItemID.String(),
+		InventoryID:     item.InventoryID.String(),
+		ProductID:       productIDStr,
+		WarehouseID:     item.WarehouseID.String(),
 		ReceiptQty:      item.ReceiptQty,
 		WriteOffQty:     item.WriteOffQty,
 		Reason:          item.Reason,
 	}, nil
 }
 
-func (s *InventoryItemService) Update(ctx context.Context, itemID int, req dto.InventoryItemUpdateRequest) (*dto.InventoryItemResponse, error) {
-	_, err := s.inventoryRepo.GetByID(ctx, req.InventoryID)
+func (s *InventoryItemService) Update(ctx context.Context, itemID uuid.UUID, req dto.InventoryItemUpdateRequest) (*dto.InventoryItemResponse, error) {
+	inventoryID, err := uuid.Parse(req.InventoryID)
+	if err != nil {
+		log.Warn().Str("inventoryId", req.InventoryID).Msg("Invalid inventory ID format")
+		return nil, repository.ErrInventoryNotFound
+	}
+	_, err = s.inventoryRepo.GetByID(ctx, inventoryID)
 	if err != nil {
 		if err == repository.ErrInventoryNotFound {
-			log.Warn().Int("inventoryId", req.InventoryID).Msg("Inventory not found")
+			log.Warn().Str("inventoryId", req.InventoryID).Msg("Inventory not found")
 			return nil, repository.ErrInventoryNotFound
 		}
-		log.Error().Err(err).Int("inventoryId", req.InventoryID).Msg("Failed to validate inventory")
+		log.Error().Err(err).Str("inventoryId", req.InventoryID).Msg("Failed to validate inventory")
 		return nil, err
 	}
 
-	if req.ProductID != nil {
-		_, err = s.productRepo.GetByID(ctx, *req.ProductID)
+	var productID *uuid.UUID
+	if req.ProductID != nil && *req.ProductID != "" {
+		id, err := uuid.Parse(*req.ProductID)
+		if err != nil {
+			log.Warn().Str("productId", *req.ProductID).Msg("Invalid product ID format")
+			return nil, repository.ErrProductNotFound
+		}
+		productID = &id
+
+		_, err = s.productRepo.GetByID(ctx, id)
 		if err != nil {
 			if err == repository.ErrProductNotFound {
-				log.Warn().Int("productId", *req.ProductID).Msg("Product not found")
+				log.Warn().Str("productId", *req.ProductID).Msg("Product not found")
 				return nil, repository.ErrProductNotFound
 			}
-			log.Error().Err(err).Int("productId", *req.ProductID).Msg("Failed to validate product")
+			log.Error().Err(err).Str("productId", *req.ProductID).Msg("Failed to validate product")
 			return nil, err
 		}
 	}
 
-	_, err = s.warehouseRepo.GetByID(ctx, req.WarehouseID)
+	warehouseID, err := uuid.Parse(req.WarehouseID)
+	if err != nil {
+		log.Warn().Str("warehouseId", req.WarehouseID).Msg("Invalid warehouse ID format")
+		return nil, repository.ErrWarehouseNotFound
+	}
+	_, err = s.warehouseRepo.GetByID(ctx, warehouseID)
 	if err != nil {
 		if err == repository.ErrWarehouseNotFound {
-			log.Warn().Int("warehouseId", req.WarehouseID).Msg("Warehouse not found")
+			log.Warn().Str("warehouseId", req.WarehouseID).Msg("Warehouse not found")
 			return nil, repository.ErrWarehouseNotFound
 		}
-		log.Error().Err(err).Int("warehouseId", req.WarehouseID).Msg("Failed to validate warehouse")
+		log.Error().Err(err).Str("warehouseId", req.WarehouseID).Msg("Failed to validate warehouse")
 		return nil, err
 	}
 
@@ -170,31 +225,37 @@ func (s *InventoryItemService) Update(ctx context.Context, itemID int, req dto.I
 		return nil, repository.ErrInvalidQuantity
 	}
 
-	item, err := s.repo.Update(ctx, itemID, req.InventoryID, req.ProductID, req.WarehouseID, req.ReceiptQty, req.WriteOffQty, req.Reason)
+	item, err := s.repo.Update(ctx, itemID, inventoryID, productID, warehouseID, req.ReceiptQty, req.WriteOffQty, req.Reason)
 	if err != nil {
-		log.Error().Err(err).Int("itemId", itemID).Msg("Failed to update inventory item")
+		log.Error().Err(err).Str("itemId", itemID.String()).Msg("Failed to update inventory item")
 		return nil, err
 	}
 
-	log.Info().Int("itemId", itemID).Msg("Inventory item updated successfully")
+	var productIDStr *string
+	if item.ProductID != nil {
+		str := item.ProductID.String()
+		productIDStr = &str
+	}
+
+	log.Info().Str("itemId", itemID.String()).Msg("Inventory item updated successfully")
 	return &dto.InventoryItemResponse{
-		InventoryItemID: item.InventoryItemID,
-		InventoryID:     item.InventoryID,
-		ProductID:       item.ProductID,
-		WarehouseID:     item.WarehouseID,
+		InventoryItemID: item.InventoryItemID.String(),
+		InventoryID:     item.InventoryID.String(),
+		ProductID:       productIDStr,
+		WarehouseID:     item.WarehouseID.String(),
 		ReceiptQty:      item.ReceiptQty,
 		WriteOffQty:     item.WriteOffQty,
 		Reason:          item.Reason,
 	}, nil
 }
 
-func (s *InventoryItemService) Delete(ctx context.Context, itemID int) error {
+func (s *InventoryItemService) Delete(ctx context.Context, itemID uuid.UUID) error {
 	err := s.repo.Delete(ctx, itemID)
 	if err != nil {
-		log.Error().Err(err).Int("itemId", itemID).Msg("Failed to delete inventory item")
+		log.Error().Err(err).Str("itemId", itemID.String()).Msg("Failed to delete inventory item")
 		return err
 	}
 
-	log.Info().Int("itemId", itemID).Msg("Inventory item deleted successfully")
+	log.Info().Str("itemId", itemID.String()).Msg("Inventory item deleted successfully")
 	return nil
 }

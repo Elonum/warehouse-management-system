@@ -3,8 +3,8 @@ package handlers
 import (
 	"encoding/json"
 	"net/http"
-	"strconv"
 
+	"github.com/google/uuid"
 	"warehouse-backend/internal/auth"
 	"warehouse-backend/internal/dto"
 	"warehouse-backend/internal/repository"
@@ -24,7 +24,7 @@ func NewProductCostHandler(service *service.ProductCostService) *ProductCostHand
 
 func (h *ProductCostHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 	idStr := chi.URLParam(r, "id")
-	costID, err := strconv.Atoi(idStr)
+	costID, err := parseUUID(idStr)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "INVALID_COST_ID", "invalid cost id")
 		return
@@ -33,11 +33,11 @@ func (h *ProductCostHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 	cost, err := h.service.GetByID(r.Context(), costID)
 	if err != nil {
 		if err == repository.ErrProductCostNotFound {
-			log.Warn().Int("costId", costID).Msg("Product cost not found")
+			log.Warn().Str("costId", costID.String()).Msg("Product cost not found")
 			writeError(w, http.StatusNotFound, "COST_NOT_FOUND", "product cost not found")
 			return
 		}
-		log.Error().Err(err).Int("costId", costID).Msg("Failed to load product cost")
+		log.Error().Err(err).Str("costId", costID.String()).Msg("Failed to load product cost")
 		writeError(w, http.StatusInternalServerError, "COST_LOAD_FAILED", "failed to load product cost")
 		return
 	}
@@ -55,9 +55,9 @@ func (h *ProductCostHandler) List(w http.ResponseWriter, r *http.Request) {
 	limit := parseInt(r.URL.Query().Get("limit"), 50)
 	offset := parseInt(r.URL.Query().Get("offset"), 0)
 
-	var productID *int
+	var productID *uuid.UUID
 	if v := r.URL.Query().Get("productId"); v != "" {
-		id, err := strconv.Atoi(v)
+		id, err := parseUUID(v)
 		if err != nil {
 			writeError(w, http.StatusBadRequest, "INVALID_PRODUCT_ID", "invalid productId")
 			return
@@ -97,7 +97,7 @@ func (h *ProductCostHandler) List(w http.ResponseWriter, r *http.Request) {
 
 func (h *ProductCostHandler) Create(w http.ResponseWriter, r *http.Request) {
 	userID := auth.GetUserID(r.Context())
-	if userID == 0 {
+	if userID == uuid.Nil {
 		writeError(w, http.StatusUnauthorized, "UNAUTHORIZED", "user not found in context")
 		return
 	}
@@ -108,8 +108,8 @@ func (h *ProductCostHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if req.ProductID <= 0 {
-		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "productId is required and must be positive")
+	if req.ProductID == "" {
+		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "productId is required")
 		return
 	}
 	if req.UnitCostToWarehouse < 0 {
@@ -120,12 +120,12 @@ func (h *ProductCostHandler) Create(w http.ResponseWriter, r *http.Request) {
 	cost, err := h.service.Create(r.Context(), userID, req)
 	if err != nil {
 		if err == repository.ErrProductCostExists {
-			log.Warn().Int("productId", req.ProductID).Msg("Product cost already exists")
+			log.Warn().Str("productId", req.ProductID).Msg("Product cost already exists")
 			writeError(w, http.StatusConflict, "COST_EXISTS", "product cost already exists")
 			return
 		}
 		if err == repository.ErrProductNotFound {
-			log.Warn().Int("productId", req.ProductID).Msg("Product not found")
+			log.Warn().Str("productId", req.ProductID).Msg("Product not found")
 			writeError(w, http.StatusBadRequest, "PRODUCT_NOT_FOUND", "specified product does not exist")
 			return
 		}
@@ -139,7 +139,7 @@ func (h *ProductCostHandler) Create(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusBadRequest, "INVALID_COST", "unitCostToWarehouse must be non-negative")
 			return
 		}
-		log.Error().Err(err).Int("productId", req.ProductID).Int("userId", userID).Msg("Failed to create product cost")
+		log.Error().Err(err).Str("productId", req.ProductID).Str("userId", userID.String()).Msg("Failed to create product cost")
 		writeError(w, http.StatusInternalServerError, "COST_CREATE_FAILED", "failed to create product cost")
 		return
 	}
@@ -155,13 +155,13 @@ func (h *ProductCostHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 func (h *ProductCostHandler) Update(w http.ResponseWriter, r *http.Request) {
 	userID := auth.GetUserID(r.Context())
-	if userID == 0 {
+	if userID == uuid.Nil {
 		writeError(w, http.StatusUnauthorized, "UNAUTHORIZED", "user not found in context")
 		return
 	}
 
 	idStr := chi.URLParam(r, "id")
-	costID, err := strconv.Atoi(idStr)
+	costID, err := parseUUID(idStr)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "INVALID_COST_ID", "invalid cost id")
 		return
@@ -173,8 +173,8 @@ func (h *ProductCostHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if req.ProductID <= 0 {
-		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "productId is required and must be positive")
+	if req.ProductID == "" {
+		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "productId is required")
 		return
 	}
 	if req.UnitCostToWarehouse < 0 {
@@ -185,17 +185,17 @@ func (h *ProductCostHandler) Update(w http.ResponseWriter, r *http.Request) {
 	cost, err := h.service.Update(r.Context(), costID, userID, req)
 	if err != nil {
 		if err == repository.ErrProductCostNotFound {
-			log.Warn().Int("costId", costID).Msg("Product cost not found for update")
+			log.Warn().Str("costId", costID.String()).Msg("Product cost not found for update")
 			writeError(w, http.StatusNotFound, "COST_NOT_FOUND", "product cost not found")
 			return
 		}
 		if err == repository.ErrProductCostExists {
-			log.Warn().Int("costId", costID).Int("productId", req.ProductID).Msg("Product cost already exists")
+			log.Warn().Str("costId", costID.String()).Str("productId", req.ProductID).Msg("Product cost already exists")
 			writeError(w, http.StatusConflict, "COST_EXISTS", "product cost already exists")
 			return
 		}
 		if err == repository.ErrProductNotFound {
-			log.Warn().Int("productId", req.ProductID).Msg("Product not found")
+			log.Warn().Str("productId", req.ProductID).Msg("Product not found")
 			writeError(w, http.StatusBadRequest, "PRODUCT_NOT_FOUND", "specified product does not exist")
 			return
 		}
@@ -209,7 +209,7 @@ func (h *ProductCostHandler) Update(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusBadRequest, "INVALID_COST", "unitCostToWarehouse must be non-negative")
 			return
 		}
-		log.Error().Err(err).Int("costId", costID).Int("userId", userID).Msg("Failed to update product cost")
+		log.Error().Err(err).Str("costId", costID.String()).Str("userId", userID.String()).Msg("Failed to update product cost")
 		writeError(w, http.StatusInternalServerError, "COST_UPDATE_FAILED", "failed to update product cost")
 		return
 	}
@@ -225,7 +225,7 @@ func (h *ProductCostHandler) Update(w http.ResponseWriter, r *http.Request) {
 
 func (h *ProductCostHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	idStr := chi.URLParam(r, "id")
-	costID, err := strconv.Atoi(idStr)
+	costID, err := parseUUID(idStr)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "INVALID_COST_ID", "invalid cost id")
 		return
@@ -234,11 +234,11 @@ func (h *ProductCostHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	err = h.service.Delete(r.Context(), costID)
 	if err != nil {
 		if err == repository.ErrProductCostNotFound {
-			log.Warn().Int("costId", costID).Msg("Product cost not found for deletion")
+			log.Warn().Str("costId", costID.String()).Msg("Product cost not found for deletion")
 			writeError(w, http.StatusNotFound, "COST_NOT_FOUND", "product cost not found")
 			return
 		}
-		log.Error().Err(err).Int("costId", costID).Msg("Failed to delete product cost")
+		log.Error().Err(err).Str("costId", costID.String()).Msg("Failed to delete product cost")
 		writeError(w, http.StatusInternalServerError, "COST_DELETE_FAILED", "failed to delete product cost")
 		return
 	}

@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -17,7 +18,7 @@ var (
 )
 
 type OrderStatus struct {
-	OrderStatusID int
+	OrderStatusID uuid.UUID
 	Name          string
 }
 
@@ -29,7 +30,7 @@ func NewOrderStatusRepository(pool *pgxpool.Pool) *OrderStatusRepository {
 	return &OrderStatusRepository{pool: pool}
 }
 
-func (r *OrderStatusRepository) GetByID(ctx context.Context, statusID int) (*OrderStatus, error) {
+func (r *OrderStatusRepository) GetByID(ctx context.Context, statusID uuid.UUID) (*OrderStatus, error) {
 	query := `
 		SELECT order_status_id, name
 		FROM order_statuses
@@ -120,7 +121,7 @@ func (r *OrderStatusRepository) Create(ctx context.Context, name string) (*Order
 	return &status, nil
 }
 
-func (r *OrderStatusRepository) Update(ctx context.Context, statusID int, name string) (*OrderStatus, error) {
+func (r *OrderStatusRepository) Update(ctx context.Context, statusID uuid.UUID, name string) (*OrderStatus, error) {
 	query := `
 		UPDATE order_statuses
 		SET name = $1
@@ -152,7 +153,7 @@ func (r *OrderStatusRepository) Update(ctx context.Context, statusID int, name s
 	return &status, nil
 }
 
-func (r *OrderStatusRepository) Delete(ctx context.Context, statusID int) error {
+func (r *OrderStatusRepository) Delete(ctx context.Context, statusID uuid.UUID) error {
 	query := `
 		DELETE FROM order_statuses
 		WHERE order_status_id = $1

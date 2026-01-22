@@ -13,7 +13,7 @@ type LoginResponse struct {
 type RegisterRequest struct {
 	Email      string  `json:"email"`
 	Password   string  `json:"password"`
-	RoleID     int     `json:"roleId"`
+	RoleID     string  `json:"roleId"`
 	Name       *string `json:"name,omitempty"`
 	Surname    *string `json:"surname,omitempty"`
 	Patronymic *string `json:"patronymic,omitempty"`

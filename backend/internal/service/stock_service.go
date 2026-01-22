@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 
+	"github.com/google/uuid"
 	"warehouse-backend/internal/dto"
 	"warehouse-backend/internal/repository"
 
@@ -19,7 +20,7 @@ func NewStockService(repo *repository.StockRepository) *StockService {
 
 func (s *StockService) GetCurrentStock(
 	ctx context.Context,
-	warehouseID *int,
+	warehouseID *uuid.UUID,
 	limit int,
 	offset int,
 ) ([]dto.StockItemResponse, error) {
@@ -37,8 +38,8 @@ func (s *StockService) GetCurrentStock(
 	result := make([]dto.StockItemResponse, 0, len(items))
 	for _, item := range items {
 		result = append(result, dto.StockItemResponse{
-			ProductID:       item.ProductID,
-			WarehouseID:     item.WarehouseID,
+			ProductID:       item.ProductID.String(),
+			WarehouseID:     item.WarehouseID.String(),
 			CurrentQuantity: item.CurrentQuantity,
 		})
 	}

@@ -2,6 +2,8 @@ package auth
 
 import (
 	"context"
+
+	"github.com/google/uuid"
 )
 
 type contextKey string
@@ -12,15 +14,15 @@ const (
 	roleIDKey contextKey = "roleID"
 )
 
-func WithUserID(ctx context.Context, userID int) context.Context {
+func WithUserID(ctx context.Context, userID uuid.UUID) context.Context {
 	return context.WithValue(ctx, userIDKey, userID)
 }
 
-func GetUserID(ctx context.Context) int {
-	if userID, ok := ctx.Value(userIDKey).(int); ok {
+func GetUserID(ctx context.Context) uuid.UUID {
+	if userID, ok := ctx.Value(userIDKey).(uuid.UUID); ok {
 		return userID
 	}
-	return 0
+	return uuid.Nil
 }
 
 func WithEmail(ctx context.Context, email string) context.Context {
@@ -34,13 +36,13 @@ func GetEmail(ctx context.Context) string {
 	return ""
 }
 
-func WithRoleID(ctx context.Context, roleID int) context.Context {
+func WithRoleID(ctx context.Context, roleID uuid.UUID) context.Context {
 	return context.WithValue(ctx, roleIDKey, roleID)
 }
 
-func GetRoleID(ctx context.Context) int {
-	if roleID, ok := ctx.Value(roleIDKey).(int); ok {
+func GetRoleID(ctx context.Context) uuid.UUID {
+	if roleID, ok := ctx.Value(roleIDKey).(uuid.UUID); ok {
 		return roleID
 	}
-	return 0
+	return uuid.Nil
 }

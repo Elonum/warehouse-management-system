@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -17,7 +18,7 @@ var (
 )
 
 type WarehouseType struct {
-	WarehouseTypeID int
+	WarehouseTypeID uuid.UUID
 	Name            string
 }
 
@@ -29,7 +30,7 @@ func NewWarehouseTypeRepository(pool *pgxpool.Pool) *WarehouseTypeRepository {
 	return &WarehouseTypeRepository{pool: pool}
 }
 
-func (r *WarehouseTypeRepository) GetByID(ctx context.Context, warehouseTypeID int) (*WarehouseType, error) {
+func (r *WarehouseTypeRepository) GetByID(ctx context.Context, warehouseTypeID uuid.UUID) (*WarehouseType, error) {
 	query := `
 		SELECT warehouse_type_id, name
 		FROM warehouse_types
@@ -120,7 +121,7 @@ func (r *WarehouseTypeRepository) Create(ctx context.Context, name string) (*War
 	return &warehouseType, nil
 }
 
-func (r *WarehouseTypeRepository) Update(ctx context.Context, warehouseTypeID int, name string) (*WarehouseType, error) {
+func (r *WarehouseTypeRepository) Update(ctx context.Context, warehouseTypeID uuid.UUID, name string) (*WarehouseType, error) {
 	query := `
 		UPDATE warehouse_types
 		SET name = $1
@@ -152,7 +153,7 @@ func (r *WarehouseTypeRepository) Update(ctx context.Context, warehouseTypeID in
 	return &warehouseType, nil
 }
 
-func (r *WarehouseTypeRepository) Delete(ctx context.Context, warehouseTypeID int) error {
+func (r *WarehouseTypeRepository) Delete(ctx context.Context, warehouseTypeID uuid.UUID) error {
 	query := `
 		DELETE FROM warehouse_types
 		WHERE warehouse_type_id = $1

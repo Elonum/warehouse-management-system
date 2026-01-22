@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -16,7 +17,7 @@ var (
 )
 
 type Store struct {
-	StoreID int
+	StoreID uuid.UUID
 	Name    string
 }
 
@@ -28,7 +29,7 @@ func NewStoreRepository(pool *pgxpool.Pool) *StoreRepository {
 	return &StoreRepository{pool: pool}
 }
 
-func (r *StoreRepository) GetByID(ctx context.Context, storeID int) (*Store, error) {
+func (r *StoreRepository) GetByID(ctx context.Context, storeID uuid.UUID) (*Store, error) {
 	query := `
 		SELECT store_id, name
 		FROM stores
@@ -119,7 +120,7 @@ func (r *StoreRepository) Create(ctx context.Context, name string) (*Store, erro
 	return &store, nil
 }
 
-func (r *StoreRepository) Update(ctx context.Context, storeID int, name string) (*Store, error) {
+func (r *StoreRepository) Update(ctx context.Context, storeID uuid.UUID, name string) (*Store, error) {
 	query := `
 		UPDATE stores
 		SET name = $1
@@ -151,7 +152,7 @@ func (r *StoreRepository) Update(ctx context.Context, storeID int, name string) 
 	return &store, nil
 }
 
-func (r *StoreRepository) Delete(ctx context.Context, storeID int) error {
+func (r *StoreRepository) Delete(ctx context.Context, storeID uuid.UUID) error {
 	query := `
 		DELETE FROM stores
 		WHERE store_id = $1

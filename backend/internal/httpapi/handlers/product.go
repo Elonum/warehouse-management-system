@@ -3,7 +3,6 @@ package handlers
 import (
 	"encoding/json"
 	"net/http"
-	"strconv"
 
 	"warehouse-backend/internal/dto"
 	"warehouse-backend/internal/repository"
@@ -23,7 +22,7 @@ func NewProductHandler(service *service.ProductService) *ProductHandler {
 
 func (h *ProductHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 	idStr := chi.URLParam(r, "id")
-	productID, err := strconv.Atoi(idStr)
+	productID, err := parseUUID(idStr)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "INVALID_PRODUCT_ID", "invalid product id")
 		return
@@ -32,11 +31,11 @@ func (h *ProductHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 	product, err := h.service.GetByID(r.Context(), productID)
 	if err != nil {
 		if err == repository.ErrProductNotFound {
-			log.Warn().Int("productId", productID).Msg("Product not found")
+			log.Warn().Str("productId", productID.String()).Msg("Product not found")
 			writeError(w, http.StatusNotFound, "PRODUCT_NOT_FOUND", "product not found")
 			return
 		}
-		log.Error().Err(err).Int("productId", productID).Msg("Failed to load product")
+		log.Error().Err(err).Str("productId", productID.String()).Msg("Failed to load product")
 		writeError(w, http.StatusInternalServerError, "PRODUCT_LOAD_FAILED", "failed to load product")
 		return
 	}
@@ -118,7 +117,7 @@ func (h *ProductHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 func (h *ProductHandler) Update(w http.ResponseWriter, r *http.Request) {
 	idStr := chi.URLParam(r, "id")
-	productID, err := strconv.Atoi(idStr)
+	productID, err := parseUUID(idStr)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "INVALID_PRODUCT_ID", "invalid product id")
 		return
@@ -138,16 +137,16 @@ func (h *ProductHandler) Update(w http.ResponseWriter, r *http.Request) {
 	product, err := h.service.Update(r.Context(), productID, req)
 	if err != nil {
 		if err == repository.ErrProductNotFound {
-			log.Warn().Int("productId", productID).Msg("Product not found for update")
+			log.Warn().Str("productId", productID.String()).Msg("Product not found for update")
 			writeError(w, http.StatusNotFound, "PRODUCT_NOT_FOUND", "product not found")
 			return
 		}
 		if err == repository.ErrProductExists {
-			log.Warn().Int("productId", productID).Str("article", req.Article).Str("barcode", req.Barcode).Msg("Product with article/barcode already exists")
+			log.Warn().Str("productId", productID.String()).Str("article", req.Article).Str("barcode", req.Barcode).Msg("Product with article/barcode already exists")
 			writeError(w, http.StatusConflict, "PRODUCT_EXISTS", "product with this article or barcode already exists")
 			return
 		}
-		log.Error().Err(err).Int("productId", productID).Msg("Failed to update product")
+		log.Error().Err(err).Str("productId", productID.String()).Msg("Failed to update product")
 		writeError(w, http.StatusInternalServerError, "PRODUCT_UPDATE_FAILED", "failed to update product")
 		return
 	}
@@ -163,7 +162,7 @@ func (h *ProductHandler) Update(w http.ResponseWriter, r *http.Request) {
 
 func (h *ProductHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	idStr := chi.URLParam(r, "id")
-	productID, err := strconv.Atoi(idStr)
+	productID, err := parseUUID(idStr)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "INVALID_PRODUCT_ID", "invalid product id")
 		return
@@ -172,11 +171,11 @@ func (h *ProductHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	err = h.service.Delete(r.Context(), productID)
 	if err != nil {
 		if err == repository.ErrProductNotFound {
-			log.Warn().Int("productId", productID).Msg("Product not found for deletion")
+			log.Warn().Str("productId", productID.String()).Msg("Product not found for deletion")
 			writeError(w, http.StatusNotFound, "PRODUCT_NOT_FOUND", "product not found")
 			return
 		}
-		log.Error().Err(err).Int("productId", productID).Msg("Failed to delete product")
+		log.Error().Err(err).Str("productId", productID.String()).Msg("Failed to delete product")
 		writeError(w, http.StatusInternalServerError, "PRODUCT_DELETE_FAILED", "failed to delete product")
 		return
 	}

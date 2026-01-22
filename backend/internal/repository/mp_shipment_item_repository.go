@@ -5,6 +5,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -15,10 +16,10 @@ var (
 )
 
 type MpShipmentItem struct {
-	ShipmentItemID   int
-	ShipmentID       int
-	ProductID        int
-	WarehouseID      int
+	ShipmentItemID   uuid.UUID
+	ShipmentID       uuid.UUID
+	ProductID        uuid.UUID
+	WarehouseID      uuid.UUID
 	SentQty          int
 	AcceptedQty      int
 	LogisticsForItem *float64
@@ -32,7 +33,7 @@ func NewMpShipmentItemRepository(pool *pgxpool.Pool) *MpShipmentItemRepository {
 	return &MpShipmentItemRepository{pool: pool}
 }
 
-func (r *MpShipmentItemRepository) GetByID(ctx context.Context, itemID int) (*MpShipmentItem, error) {
+func (r *MpShipmentItemRepository) GetByID(ctx context.Context, itemID uuid.UUID) (*MpShipmentItem, error) {
 	query := `
 		SELECT shipment_item_id, shipment_id, product_id, warehouse_id,
 		       sent_qty, accepted_qty, logistics_for_item
@@ -64,7 +65,7 @@ func (r *MpShipmentItemRepository) GetByID(ctx context.Context, itemID int) (*Mp
 	return &item, nil
 }
 
-func (r *MpShipmentItemRepository) GetByShipmentID(ctx context.Context, shipmentID int) ([]MpShipmentItem, error) {
+func (r *MpShipmentItemRepository) GetByShipmentID(ctx context.Context, shipmentID uuid.UUID) ([]MpShipmentItem, error) {
 	query := `
 		SELECT shipment_item_id, shipment_id, product_id, warehouse_id,
 		       sent_qty, accepted_qty, logistics_for_item
@@ -106,7 +107,7 @@ func (r *MpShipmentItemRepository) GetByShipmentID(ctx context.Context, shipment
 	return items, nil
 }
 
-func (r *MpShipmentItemRepository) Create(ctx context.Context, shipmentID, productID, warehouseID, sentQty, acceptedQty int, logisticsForItem *float64) (*MpShipmentItem, error) {
+func (r *MpShipmentItemRepository) Create(ctx context.Context, shipmentID, productID, warehouseID uuid.UUID, sentQty, acceptedQty int, logisticsForItem *float64) (*MpShipmentItem, error) {
 	query := `
 		INSERT INTO mp_shipment_items (
 			shipment_id, product_id, warehouse_id, sent_qty, accepted_qty, logistics_for_item
@@ -139,7 +140,7 @@ func (r *MpShipmentItemRepository) Create(ctx context.Context, shipmentID, produ
 	return &item, nil
 }
 
-func (r *MpShipmentItemRepository) Update(ctx context.Context, itemID, shipmentID, productID, warehouseID, sentQty, acceptedQty int, logisticsForItem *float64) (*MpShipmentItem, error) {
+func (r *MpShipmentItemRepository) Update(ctx context.Context, itemID, shipmentID, productID, warehouseID uuid.UUID, sentQty, acceptedQty int, logisticsForItem *float64) (*MpShipmentItem, error) {
 	query := `
 		UPDATE mp_shipment_items
 		SET shipment_id = $1, product_id = $2, warehouse_id = $3,
@@ -175,7 +176,7 @@ func (r *MpShipmentItemRepository) Update(ctx context.Context, itemID, shipmentI
 	return &item, nil
 }
 
-func (r *MpShipmentItemRepository) Delete(ctx context.Context, itemID int) error {
+func (r *MpShipmentItemRepository) Delete(ctx context.Context, itemID uuid.UUID) error {
 	query := `
 		DELETE FROM mp_shipment_items
 		WHERE shipment_item_id = $1

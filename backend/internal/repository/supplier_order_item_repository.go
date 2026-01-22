@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -17,10 +18,10 @@ var (
 )
 
 type SupplierOrderItem struct {
-	OrderItemID     int
-	OrderID         int
-	ProductID       int
-	WarehouseID     int
+	OrderItemID     uuid.UUID
+	OrderID         uuid.UUID
+	ProductID       uuid.UUID
+	WarehouseID     uuid.UUID
 	OrderedQty      int
 	ReceivedQty     int
 	PurchasePrice   *float64
@@ -41,7 +42,7 @@ func NewSupplierOrderItemRepository(pool *pgxpool.Pool) *SupplierOrderItemReposi
 	return &SupplierOrderItemRepository{pool: pool}
 }
 
-func (r *SupplierOrderItemRepository) GetByID(ctx context.Context, itemID int) (*SupplierOrderItem, error) {
+func (r *SupplierOrderItemRepository) GetByID(ctx context.Context, itemID uuid.UUID) (*SupplierOrderItem, error) {
 	query := `
 		SELECT order_item_id, order_id, product_id, warehouse_id, ordered_qty,
 		       received_qty, purchase_price, total_price, total_weight,
@@ -82,7 +83,7 @@ func (r *SupplierOrderItemRepository) GetByID(ctx context.Context, itemID int) (
 	return &item, nil
 }
 
-func (r *SupplierOrderItemRepository) GetByOrderID(ctx context.Context, orderID int) ([]SupplierOrderItem, error) {
+func (r *SupplierOrderItemRepository) GetByOrderID(ctx context.Context, orderID uuid.UUID) ([]SupplierOrderItem, error) {
 	query := `
 		SELECT order_item_id, order_id, product_id, warehouse_id, ordered_qty,
 		       received_qty, purchase_price, total_price, total_weight,
@@ -133,7 +134,7 @@ func (r *SupplierOrderItemRepository) GetByOrderID(ctx context.Context, orderID 
 	return items, nil
 }
 
-func (r *SupplierOrderItemRepository) Create(ctx context.Context, orderID, productID, warehouseID, orderedQty, receivedQty, totalWeight int, purchasePrice, totalPrice, totalLogistics, unitLogistics, unitSelfCost, totalSelfCost, fulfillmentCost *float64) (*SupplierOrderItem, error) {
+func (r *SupplierOrderItemRepository) Create(ctx context.Context, orderID, productID, warehouseID uuid.UUID, orderedQty, receivedQty, totalWeight int, purchasePrice, totalPrice, totalLogistics, unitLogistics, unitSelfCost, totalSelfCost, fulfillmentCost *float64) (*SupplierOrderItem, error) {
 	query := `
 		INSERT INTO supplier_order_items (
 			order_id, product_id, warehouse_id, ordered_qty, received_qty,
@@ -184,7 +185,7 @@ func (r *SupplierOrderItemRepository) Create(ctx context.Context, orderID, produ
 	return &item, nil
 }
 
-func (r *SupplierOrderItemRepository) Update(ctx context.Context, itemID, orderID, productID, warehouseID, orderedQty, receivedQty, totalWeight int, purchasePrice, totalPrice, totalLogistics, unitLogistics, unitSelfCost, totalSelfCost, fulfillmentCost *float64) (*SupplierOrderItem, error) {
+func (r *SupplierOrderItemRepository) Update(ctx context.Context, itemID, orderID, productID, warehouseID uuid.UUID, orderedQty, receivedQty, totalWeight int, purchasePrice, totalPrice, totalLogistics, unitLogistics, unitSelfCost, totalSelfCost, fulfillmentCost *float64) (*SupplierOrderItem, error) {
 	query := `
 		UPDATE supplier_order_items
 		SET order_id = $1, product_id = $2, warehouse_id = $3, ordered_qty = $4,
@@ -238,7 +239,7 @@ func (r *SupplierOrderItemRepository) Update(ctx context.Context, itemID, orderI
 	return &item, nil
 }
 
-func (r *SupplierOrderItemRepository) Delete(ctx context.Context, itemID int) error {
+func (r *SupplierOrderItemRepository) Delete(ctx context.Context, itemID uuid.UUID) error {
 	query := `
 		DELETE FROM supplier_order_items
 		WHERE order_item_id = $1
@@ -259,7 +260,7 @@ func (r *SupplierOrderItemRepository) Delete(ctx context.Context, itemID int) er
 	return nil
 }
 
-func (r *SupplierOrderItemRepository) DeleteByOrderID(ctx context.Context, orderID int) error {
+func (r *SupplierOrderItemRepository) DeleteByOrderID(ctx context.Context, orderID uuid.UUID) error {
 	query := `
 		DELETE FROM supplier_order_items
 		WHERE order_id = $1

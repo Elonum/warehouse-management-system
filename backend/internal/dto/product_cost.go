@@ -3,20 +3,20 @@ package dto
 import "time"
 
 type ProductCostResponse struct {
-	CostID              int       `json:"costId"`
-	ProductID           int       `json:"productId"`
+	CostID              string    `json:"costId"`
+	ProductID           string    `json:"productId"`
 	PeriodStart         time.Time `json:"periodStart"`
 	PeriodEnd           time.Time `json:"periodEnd"`
 	UnitCostToWarehouse float64   `json:"unitCostToWarehouse"`
 	Notes               *string   `json:"notes,omitempty"`
-	CreatedBy           *int      `json:"createdBy,omitempty"`
+	CreatedBy           *string  `json:"createdBy,omitempty"`
 	CreatedAt           time.Time `json:"createdAt"`
-	UpdatedBy           *int      `json:"updatedBy,omitempty"`
+	UpdatedBy           *string  `json:"updatedBy,omitempty"`
 	UpdatedAt           time.Time `json:"updatedAt"`
 }
 
 type ProductCostCreateRequest struct {
-	ProductID           int       `json:"productId"`
+	ProductID           string    `json:"productId"`
 	PeriodStart         time.Time `json:"periodStart"`
 	PeriodEnd           time.Time `json:"periodEnd"`
 	UnitCostToWarehouse float64   `json:"unitCostToWarehouse"`
@@ -24,7 +24,7 @@ type ProductCostCreateRequest struct {
 }
 
 type ProductCostUpdateRequest struct {
-	ProductID           int       `json:"productId"`
+	ProductID           string    `json:"productId"`
 	PeriodStart         time.Time `json:"periodStart"`
 	PeriodEnd           time.Time `json:"periodEnd"`
 	UnitCostToWarehouse float64   `json:"unitCostToWarehouse"`

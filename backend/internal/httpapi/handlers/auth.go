@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/google/uuid"
 	"warehouse-backend/internal/auth"
 	"warehouse-backend/internal/dto"
 	"warehouse-backend/internal/repository"
@@ -54,12 +55,12 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		Data: dto.LoginResponse{
 			Token: token,
 			User: dto.UserResponse{
-				UserID:     user.UserID,
+				UserID:     user.UserID.String(),
 				Email:      user.Email,
 				Name:       user.Name,
 				Surname:    user.Surname,
 				Patronymic: user.Patronymic,
-				RoleID:     user.RoleID,
+				RoleID:     user.RoleID.String(),
 			},
 		},
 	}
@@ -93,7 +94,7 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 
 	user, err := h.service.Register(r.Context(), req.Email, req.Password, req.RoleID, req.Name, req.Surname, req.Patronymic)
 	if err != nil {
-		log.Error().Err(err).Str("email", req.Email).Int("roleId", req.RoleID).Msg("Failed to register user")
+		log.Error().Err(err).Str("email", req.Email).Str("roleId", req.RoleID).Msg("Failed to register user")
 
 		if err == repository.ErrUserExists {
 			writeError(w, http.StatusConflict, "USER_EXISTS", "user with this email already exists")
@@ -120,12 +121,12 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 
 	response := dto.APIResponse[dto.UserResponse]{
 		Data: dto.UserResponse{
-			UserID:     user.UserID,
+			UserID:     user.UserID.String(),
 			Email:      user.Email,
 			Name:       user.Name,
 			Surname:    user.Surname,
 			Patronymic: user.Patronymic,
-			RoleID:     user.RoleID,
+			RoleID:     user.RoleID.String(),
 		},
 	}
 
@@ -136,7 +137,7 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 
 func (h *AuthHandler) GetMe(w http.ResponseWriter, r *http.Request) {
 	userID := auth.GetUserID(r.Context())
-	if userID == 0 {
+	if userID == uuid.Nil {
 		writeError(w, http.StatusUnauthorized, "UNAUTHORIZED", "user not found in context")
 		return
 	}
@@ -144,23 +145,23 @@ func (h *AuthHandler) GetMe(w http.ResponseWriter, r *http.Request) {
 	user, err := h.service.GetCurrentUser(r.Context(), userID)
 	if err != nil {
 		if err == repository.ErrUserNotFound {
-			log.Warn().Int("userId", userID).Msg("User not found")
+			log.Warn().Str("userId", userID.String()).Msg("User not found")
 			writeError(w, http.StatusNotFound, "USER_NOT_FOUND", "user not found")
 			return
 		}
-		log.Error().Err(err).Int("userId", userID).Msg("Failed to load user")
+		log.Error().Err(err).Str("userId", userID.String()).Msg("Failed to load user")
 		writeError(w, http.StatusInternalServerError, "USER_LOAD_FAILED", "failed to load user")
 		return
 	}
 
 	response := dto.APIResponse[dto.UserResponse]{
 		Data: dto.UserResponse{
-			UserID:     user.UserID,
+			UserID:     user.UserID.String(),
 			Email:      user.Email,
 			Name:       user.Name,
 			Surname:    user.Surname,
 			Patronymic: user.Patronymic,
-			RoleID:     user.RoleID,
+			RoleID:     user.RoleID.String(),
 		},
 	}
 

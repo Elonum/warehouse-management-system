@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -17,13 +18,13 @@ var (
 )
 
 type Inventory struct {
-	InventoryID    int
+	InventoryID    uuid.UUID
 	AdjustmentDate *time.Time
-	StatusID       int
+	StatusID       uuid.UUID
 	Notes          *string
-	CreatedBy      int
+	CreatedBy      uuid.UUID
 	CreatedAt      time.Time
-	UpdatedBy      *int
+	UpdatedBy      *uuid.UUID
 	UpdatedAt      time.Time
 }
 
@@ -35,7 +36,7 @@ func NewInventoryRepository(pool *pgxpool.Pool) *InventoryRepository {
 	return &InventoryRepository{pool: pool}
 }
 
-func (r *InventoryRepository) GetByID(ctx context.Context, inventoryID int) (*Inventory, error) {
+func (r *InventoryRepository) GetByID(ctx context.Context, inventoryID uuid.UUID) (*Inventory, error) {
 	query := `
 		SELECT inventory_id, adjustment_date, status_id, notes, created_by, created_at, updated_by, updated_at
 		FROM inventories
@@ -67,7 +68,7 @@ func (r *InventoryRepository) GetByID(ctx context.Context, inventoryID int) (*In
 	return &inventory, nil
 }
 
-func (r *InventoryRepository) List(ctx context.Context, limit, offset int, statusID *int) ([]Inventory, error) {
+func (r *InventoryRepository) List(ctx context.Context, limit, offset int, statusID *uuid.UUID) ([]Inventory, error) {
 	query := `
 		SELECT inventory_id, adjustment_date, status_id, notes, created_by, created_at, updated_by, updated_at
 		FROM inventories
@@ -118,7 +119,7 @@ func (r *InventoryRepository) List(ctx context.Context, limit, offset int, statu
 	return inventories, nil
 }
 
-func (r *InventoryRepository) Create(ctx context.Context, adjustmentDate *time.Time, statusID int, notes *string, createdBy *int) (*Inventory, error) {
+func (r *InventoryRepository) Create(ctx context.Context, adjustmentDate *time.Time, statusID uuid.UUID, notes *string, createdBy *uuid.UUID) (*Inventory, error) {
 	query := `
 		INSERT INTO inventories (adjustment_date, status_id, notes, created_by)
 		VALUES ($1, $2, $3, $4)
@@ -152,7 +153,7 @@ func (r *InventoryRepository) Create(ctx context.Context, adjustmentDate *time.T
 	return &inventory, nil
 }
 
-func (r *InventoryRepository) Update(ctx context.Context, inventoryID int, adjustmentDate *time.Time, statusID int, notes *string, updatedBy *int) (*Inventory, error) {
+func (r *InventoryRepository) Update(ctx context.Context, inventoryID uuid.UUID, adjustmentDate *time.Time, statusID uuid.UUID, notes *string, updatedBy *uuid.UUID) (*Inventory, error) {
 	query := `
 		UPDATE inventories
 		SET adjustment_date = $1, status_id = $2, notes = $3, updated_by = $4, updated_at = NOW()
@@ -190,7 +191,7 @@ func (r *InventoryRepository) Update(ctx context.Context, inventoryID int, adjus
 	return &inventory, nil
 }
 
-func (r *InventoryRepository) Delete(ctx context.Context, inventoryID int) error {
+func (r *InventoryRepository) Delete(ctx context.Context, inventoryID uuid.UUID) error {
 	query := `
 		DELETE FROM inventories
 		WHERE inventory_id = $1

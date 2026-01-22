@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { api } from '@/api';
+import { api, ApiError } from '@/api';
 import { Plus, Edit2, Trash2, DollarSign, MoreHorizontal, Package } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -14,6 +14,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
@@ -39,13 +40,14 @@ import {
 import PageHeader from '@/components/ui/PageHeader';
 import DataTable from '@/components/ui/DataTable';
 import { format } from 'date-fns';
+import { ru } from 'date-fns/locale';
 
 const emptyCost = {
-  product_id: '',
-  period_start: '',
-  period_end: '',
-  unit_cost: '',
-  notes: ''
+  productId: null,
+  periodStart: null,
+  periodEnd: null,
+  unitCostToWarehouse: null,
+  notes: null,
 };
 
 export default function ProductCosts() {
@@ -54,126 +56,211 @@ export default function ProductCosts() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [currentCost, setCurrentCost] = useState(null);
   const [formData, setFormData] = useState(emptyCost);
+  const [error, setError] = useState('');
 
-  const { data: productCosts = [], isLoading } = useQuery({
-    queryKey: ['product-costs'],
-    queryFn: () => api.entities.ProductCost.list('-period_start'),
+  const { data: productCostsData, isLoading, refetch } = useQuery({
+    queryKey: ['productCosts'],
+    queryFn: async () => {
+      const response = await api.productCosts.list({ limit: 1000, offset: 0 });
+      return Array.isArray(response) ? response : [];
+    },
   });
 
-  const { data: products = [] } = useQuery({
+  const { data: productsData } = useQuery({
     queryKey: ['products'],
-    queryFn: () => api.entities.Product.list(),
+    queryFn: async () => {
+      const response = await api.products.list({ limit: 1000, offset: 0 });
+      return Array.isArray(response) ? response : [];
+    },
   });
+
+  const productCosts = Array.isArray(productCostsData) ? productCostsData : [];
+  const products = Array.isArray(productsData) ? productsData : [];
+
+  // Enrich product costs with product names
+  const getProductDisplay = (product) => {
+    if (!product) return 'Неизвестный товар';
+    const primary = product.article || product.name || `ID: ${product.productId}`;
+    const barcode = product.barcode ? `, баркод: ${product.barcode}` : '';
+    return `${primary}${barcode}`;
+  };
+
+  const enrichedProductCosts = useMemo(() => {
+    const productMap = new Map(products.map(p => [p.productId, p]));
+
+    return productCosts.map(cost => {
+      const product = cost.productId ? productMap.get(cost.productId) : null;
+      return {
+        ...cost,
+        productName: product ? getProductDisplay(product) : 'Неизвестный товар',
+        productArticle: product?.article || product?.name || '',
+        productBarcode: product?.barcode || '',
+      };
+    });
+  }, [productCosts, products]);
 
   const createMutation = useMutation({
-    mutationFn: (data) => api.entities.ProductCost.create(data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['product-costs'] });
+    mutationFn: (data) => api.productCosts.create(data),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['productCosts'] });
       setDialogOpen(false);
       resetForm();
+      setError('');
+    },
+    onError: (err) => {
+      if (err instanceof ApiError) {
+        setError(err.message || 'Ошибка создания стоимости товара');
+      } else {
+        setError('Ошибка создания стоимости товара');
+      }
     },
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }) => api.entities.ProductCost.update(id, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['product-costs'] });
+    mutationFn: ({ id, data }) => api.productCosts.update(id, data),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['productCosts'] });
       setDialogOpen(false);
       resetForm();
+      setError('');
+    },
+    onError: (err) => {
+      if (err instanceof ApiError) {
+        setError(err.message || 'Ошибка обновления стоимости товара');
+      } else {
+        setError('Ошибка обновления стоимости товара');
+      }
     },
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id) => api.entities.ProductCost.delete(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['product-costs'] });
+    mutationFn: (id) => api.productCosts.delete(id),
+    onMutate: async (deletedId) => {
+      await queryClient.cancelQueries({ queryKey: ['productCosts'] });
+      const previousData = queryClient.getQueryData(['productCosts']);
+
+      queryClient.setQueryData(['productCosts'], (oldData) => {
+        if (!oldData || !Array.isArray(oldData)) return oldData;
+        return oldData.filter((cost) => cost.costId !== deletedId);
+      });
+
+      return { previousData };
+    },
+    onSuccess: async () => {
       setDeleteDialogOpen(false);
       setCurrentCost(null);
+      setError('');
+      await refetch();
+    },
+    onError: (err, deletedId, context) => {
+      if (context?.previousData) {
+        queryClient.setQueryData(['productCosts'], context.previousData);
+      }
+      if (err instanceof ApiError) {
+        setError(err.message || 'Ошибка удаления стоимости товара');
+      } else {
+        setError('Ошибка удаления стоимости товара');
+      }
+      setDeleteDialogOpen(false);
     },
   });
 
   const resetForm = () => {
     setFormData(emptyCost);
     setCurrentCost(null);
+    setError('');
   };
 
   const handleEdit = (cost) => {
     setCurrentCost(cost);
     setFormData({
-      product_id: cost.product_id || '',
-      period_start: cost.period_start || '',
-      period_end: cost.period_end || '',
-      unit_cost: cost.unit_cost || '',
-      notes: cost.notes || ''
+      productId: cost.productId || null,
+      periodStart: cost.periodStart ? format(new Date(cost.periodStart), 'yyyy-MM-dd') : null,
+      periodEnd: cost.periodEnd ? format(new Date(cost.periodEnd), 'yyyy-MM-dd') : null,
+      unitCostToWarehouse: cost.unitCostToWarehouse?.toString() || null,
+      notes: cost.notes || null,
     });
+    setError('');
     setDialogOpen(true);
   };
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    const product = products.find(p => p.id === formData.product_id);
-    
+    setError('');
+
     const data = {
-      ...formData,
-      product_name: product?.name || '',
-      unit_cost: parseFloat(formData.unit_cost) || 0,
+      productId: formData.productId || null,
+      periodStart: formData.periodStart ? new Date(formData.periodStart).toISOString() : new Date().toISOString(),
+      periodEnd: formData.periodEnd ? new Date(formData.periodEnd).toISOString() : null,
+      unitCostToWarehouse: formData.unitCostToWarehouse ? parseFloat(formData.unitCostToWarehouse) : 0,
+      notes: formData.notes || null,
     };
 
     if (currentCost) {
-      updateMutation.mutate({ id: currentCost.id, data });
+      updateMutation.mutate({ id: currentCost.costId, data });
     } else {
       createMutation.mutate(data);
     }
   };
 
+  const getSelectedProductName = () => {
+    if (!formData.productId) return '';
+    const product = products.find(p => p.productId === formData.productId);
+    return product ? getProductDisplay(product) : '';
+  };
+
   const columns = [
     {
-      accessorKey: 'product_name',
-      header: 'Product',
+      accessorKey: 'productName',
+      header: 'Товар',
       cell: ({ row }) => (
         <div className="flex items-center gap-3">
           <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-emerald-100 dark:bg-emerald-500/20">
             <Package className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
           </div>
-          <span className="font-medium text-slate-900 dark:text-slate-100">
-            {row.original.product_name || 'Unknown Product'}
-          </span>
+          <div className="flex flex-col">
+            <span className="font-medium text-slate-900 dark:text-slate-100">
+              {row.original.productName || 'Неизвестный товар'}
+            </span>
+            {row.original.productBarcode && (
+              <span className="text-xs text-slate-500 dark:text-slate-400">
+                Баркод: {row.original.productBarcode}
+              </span>
+            )}
+          </div>
         </div>
       ),
     },
     {
-      accessorKey: 'period_start',
-      header: 'Period Start',
+      accessorKey: 'periodStart',
+      header: 'Начало периода',
       cell: ({ row }) => (
         <span className="text-slate-600 dark:text-slate-400">
-          {row.original.period_start ? format(new Date(row.original.period_start), 'MMM d, yyyy') : '—'}
+          {row.original.periodStart ? format(new Date(row.original.periodStart), 'dd.MM.yyyy', { locale: ru }) : '—'}
         </span>
       ),
     },
     {
-      accessorKey: 'period_end',
-      header: 'Period End',
+      accessorKey: 'periodEnd',
+      header: 'Конец периода',
       cell: ({ row }) => (
         <span className="text-slate-600 dark:text-slate-400">
-          {row.original.period_end ? format(new Date(row.original.period_end), 'MMM d, yyyy') : 'Current'}
+          {row.original.periodEnd ? format(new Date(row.original.periodEnd), 'dd.MM.yyyy', { locale: ru }) : 'Текущий'}
         </span>
       ),
     },
     {
-      accessorKey: 'unit_cost',
-      header: 'Unit Cost',
+      accessorKey: 'unitCostToWarehouse',
+      header: 'Стоимость за единицу',
       cell: ({ row }) => (
-        <div className="flex items-center gap-2">
-          <DollarSign className="w-4 h-4 text-emerald-500" />
-          <span className="font-semibold text-slate-900 dark:text-slate-100">
-            ${row.original.unit_cost?.toFixed(2) || '0.00'}
-          </span>
-        </div>
+        <span className="font-semibold text-slate-900 dark:text-slate-100">
+          {row.original.unitCostToWarehouse?.toFixed(2) || '0.00'} ₽
+        </span>
       ),
     },
     {
       accessorKey: 'notes',
-      header: 'Notes',
+      header: 'Примечания',
       cell: ({ row }) => (
         <span className="block max-w-xs text-sm truncate text-slate-500 dark:text-slate-400">
           {row.original.notes || '—'}
@@ -194,14 +281,15 @@ export default function ProductCosts() {
           <DropdownMenuContent align="end">
             <DropdownMenuItem onClick={() => handleEdit(row.original)}>
               <Edit2 className="w-4 h-4 mr-2" />
-              Edit
+              Редактировать
             </DropdownMenuItem>
+            <DropdownMenuSeparator />
             <DropdownMenuItem 
               onClick={() => { setCurrentCost(row.original); setDeleteDialogOpen(true); }}
               className="text-red-600"
             >
               <Trash2 className="w-4 h-4 mr-2" />
-              Delete
+              Удалить
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -212,44 +300,58 @@ export default function ProductCosts() {
   return (
     <div className="space-y-6">
       <PageHeader 
-        title="Product Costs" 
-        description="Manage product cost periods"
+        title="Стоимость товаров" 
+        description="Управление периодами стоимости товаров"
       >
         <Button onClick={() => { resetForm(); setDialogOpen(true); }}>
           <Plus className="w-4 h-4 mr-2" />
-          Add Cost Period
+          Добавить период стоимости
         </Button>
       </PageHeader>
 
       <DataTable
         columns={columns}
-        data={productCosts}
-        searchPlaceholder="Search product costs..."
-        emptyMessage="No product costs found"
+        data={enrichedProductCosts}
+        isLoading={isLoading}
+        searchPlaceholder="Поиск по стоимости товаров..."
+        emptyMessage="Периоды стоимости не найдены"
       />
 
       {/* Create/Edit Dialog */}
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+      <Dialog 
+        open={dialogOpen} 
+        onOpenChange={(open) => {
+          setDialogOpen(open);
+          if (!open) {
+            resetForm();
+          }
+        }}
+      >
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>
-              {currentCost ? 'Edit Cost Period' : 'Add Cost Period'}
+              {currentCost ? 'Редактировать период стоимости' : 'Добавить период стоимости'}
             </DialogTitle>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
+            {error && (
+              <div className="p-3 text-sm text-red-600 bg-red-50 dark:bg-red-900/20 dark:text-red-400 rounded-lg">
+                {error}
+              </div>
+            )}
             <div className="space-y-2">
-              <Label htmlFor="product">Product *</Label>
+              <Label htmlFor="productId">Товар *</Label>
               <Select
-                value={formData.product_id}
-                onValueChange={(value) => setFormData({ ...formData, product_id: value })}
+                value={formData.productId?.toString() || ''}
+                onValueChange={(value) => setFormData({ ...formData, productId: value || null })}
               >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select product" />
+                  <SelectTrigger>
+                    <SelectValue placeholder="Выберите товар">{getSelectedProductName()}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {products.map(product => (
-                    <SelectItem key={product.id} value={product.id}>
-                      {product.name} ({product.article})
+                    <SelectItem key={product.productId} value={product.productId.toString()}>
+                      {getProductDisplay(product)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -257,51 +359,56 @@ export default function ProductCosts() {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="period_start">Period Start *</Label>
+                <Label htmlFor="periodStart">Начало периода *</Label>
                 <Input
-                  id="period_start"
+                  id="periodStart"
                   type="date"
-                  value={formData.period_start}
-                  onChange={(e) => setFormData({ ...formData, period_start: e.target.value })}
+                  value={formData.periodStart || ''}
+                  onChange={(e) => setFormData({ ...formData, periodStart: e.target.value || null })}
                   required
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="period_end">Period End</Label>
+                <Label htmlFor="periodEnd">Конец периода</Label>
                 <Input
-                  id="period_end"
+                  id="periodEnd"
                   type="date"
-                  value={formData.period_end}
-                  onChange={(e) => setFormData({ ...formData, period_end: e.target.value })}
+                  value={formData.periodEnd || ''}
+                  onChange={(e) => setFormData({ ...formData, periodEnd: e.target.value || null })}
                 />
               </div>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="unit_cost">Unit Cost ($) *</Label>
+              <Label htmlFor="unitCostToWarehouse">Стоимость за единицу (₽) *</Label>
               <Input
-                id="unit_cost"
+                id="unitCostToWarehouse"
                 type="number"
                 step="0.01"
-                value={formData.unit_cost}
-                onChange={(e) => setFormData({ ...formData, unit_cost: e.target.value })}
+                min="0"
+                value={formData.unitCostToWarehouse || ''}
+                onChange={(e) => setFormData({ ...formData, unitCostToWarehouse: e.target.value || null })}
                 required
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="notes">Notes</Label>
+              <Label htmlFor="notes">Примечания</Label>
               <Textarea
                 id="notes"
-                value={formData.notes}
-                onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                value={formData.notes || ''}
+                onChange={(e) => setFormData({ ...formData, notes: e.target.value || null })}
                 rows={3}
+                placeholder="Введите примечания к периоду стоимости"
               />
             </div>
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
-                Cancel
+              <Button type="button" variant="outline" onClick={() => {
+                setDialogOpen(false);
+                resetForm();
+              }}>
+                Отмена
               </Button>
               <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending}>
-                {currentCost ? 'Update' : 'Create'}
+                {currentCost ? (updateMutation.isPending ? 'Сохранение...' : 'Сохранить') : (createMutation.isPending ? 'Создание...' : 'Создать')}
               </Button>
             </DialogFooter>
           </form>
@@ -312,18 +419,30 @@ export default function ProductCosts() {
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Cost Period</AlertDialogTitle>
+            <AlertDialogTitle>Удалить период стоимости</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete this cost period? This action cannot be undone.
+              Вы уверены, что хотите удалить этот период стоимости? Это действие нельзя отменить.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel onClick={() => {
+              setDeleteDialogOpen(false);
+              setCurrentCost(null);
+            }}>
+              Отмена
+            </AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => deleteMutation.mutate(currentCost.id)}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (currentCost) {
+                  deleteMutation.mutate(currentCost.costId);
+                }
+              }}
               className="bg-red-600 hover:bg-red-700"
+              disabled={deleteMutation.isPending}
             >
-              Delete
+              {deleteMutation.isPending ? 'Удаление...' : 'Удалить'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

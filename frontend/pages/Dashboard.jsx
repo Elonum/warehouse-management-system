@@ -9,7 +9,6 @@ import {
   ArrowUpRight,
   ArrowDownRight,
   Boxes,
-  DollarSign,
   TrendingUp,
   Clock
 } from 'lucide-react';
@@ -43,53 +42,89 @@ export default function Dashboard() {
   
   const { data: products = [], isLoading: loadingProducts } = useQuery({
     queryKey: ['products'],
-    queryFn: () => api.entities.Product.list(),
+    queryFn: async () => {
+      const response = await api.products.list({ limit: 1000, offset: 0 });
+      return Array.isArray(response) ? response : [];
+    },
   });
 
   const { data: warehouses = [], isLoading: loadingWarehouses } = useQuery({
     queryKey: ['warehouses'],
-    queryFn: () => api.entities.Warehouse.list(),
+    queryFn: async () => {
+      const response = await api.warehouses.list({ limit: 1000, offset: 0 });
+      return Array.isArray(response) ? response : [];
+    },
   });
 
   const { data: stock = [], isLoading: loadingStock } = useQuery({
-    queryKey: ['stock'],
-    queryFn: () => api.entities.Stock.list(),
+    queryKey: ['stock-current'],
+    queryFn: async () => {
+      const response = await api.stock.getCurrent({});
+      return Array.isArray(response) ? response : [];
+    },
   });
 
   const { data: supplierOrders = [], isLoading: loadingOrders } = useQuery({
-    queryKey: ['supplier-orders'],
-    queryFn: () => api.entities.SupplierOrder.list('-created_date', 50),
+    queryKey: ['supplierOrders'],
+    queryFn: async () => {
+      const response = await api.supplierOrders.list({ limit: 50, offset: 0 });
+      return Array.isArray(response) ? response : [];
+    },
   });
 
   const { data: shipments = [], isLoading: loadingShipments } = useQuery({
-    queryKey: ['shipments'],
-    queryFn: () => api.entities.Shipment.list('-created_date', 50),
+    queryKey: ['mpShipments'],
+    queryFn: async () => {
+      const response = await api.mpShipments.list({ limit: 50, offset: 0 });
+      return Array.isArray(response) ? response : [];
+    },
   });
 
-  const { data: movements = [], isLoading: loadingMovements } = useQuery({
-    queryKey: ['movements'],
-    queryFn: () => api.entities.StockMovement.list('-movement_date', 10),
+  const { data: orderStatuses = [] } = useQuery({
+    queryKey: ['orderStatuses'],
+    queryFn: async () => {
+      const response = await api.orderStatuses.list({ limit: 100, offset: 0 });
+      return Array.isArray(response) ? response : [];
+    },
+  });
+
+  const { data: shipmentStatuses = [] } = useQuery({
+    queryKey: ['shipmentStatuses'],
+    queryFn: async () => {
+      const response = await api.shipmentStatuses.list({ limit: 100, offset: 0 });
+      return Array.isArray(response) ? response : [];
+    },
+  });
+
+  // В проекте пока нет полноценного "журнала движений" (incoming/outgoing/transfer).
+  // Для дашборда используем последние "снимки остатков" как историю изменений остатков.
+  const { data: stockSnapshots = [], isLoading: loadingMovements } = useQuery({
+    queryKey: ['stockSnapshots'],
+    queryFn: async () => {
+      const response = await api.stockSnapshots.list({ limit: 10, offset: 0 });
+      return Array.isArray(response) ? response : [];
+    },
   });
 
   const isLoading = loadingProducts || loadingWarehouses || loadingStock || loadingOrders || loadingShipments || loadingMovements;
 
   // Calculate stats
-  const totalStockValue = stock.reduce((sum, s) => sum + (s.total_value || 0), 0);
+  const totalStockQty = stock.reduce((sum, s) => sum + (s.currentQuantity || 0), 0);
   const totalProducts = products.length;
-  const activeOrders = supplierOrders.filter(o => !['received', 'cancelled'].includes(o.status)).length;
-  const activeShipments = shipments.filter(s => !['accepted', 'cancelled'].includes(s.status)).length;
+
+  const activeOrders = supplierOrders.filter(o => o.statusId != null).length;
+  const activeShipments = shipments.filter(s => s.statusId != null).length;
 
   // Stock by warehouse data
   const stockByWarehouse = warehouses.map(wh => ({
     name: wh.name,
-    value: stock.filter(s => s.warehouse_id === wh.id).reduce((sum, s) => sum + (s.total_value || 0), 0),
-    quantity: stock.filter(s => s.warehouse_id === wh.id).reduce((sum, s) => sum + (s.quantity || 0), 0)
-  })).filter(item => item.value > 0);
+    quantity: stock.filter(s => s.warehouseId === wh.warehouseId).reduce((sum, s) => sum + (s.currentQuantity || 0), 0),
+  })).filter(item => item.quantity > 0);
 
-  // Orders by status
-  const ordersByStatus = ['draft', 'pending', 'confirmed', 'in_transit', 'received'].map(status => ({
-    status: status.replace('_', ' '),
-    count: supplierOrders.filter(o => o.status === status).length
+  const orderStatusNameById = new Map(orderStatuses.map(s => [s.orderStatusId, s.name]));
+  const ordersByStatus = orderStatuses.map(s => ({
+    status: s.name,
+    count: supplierOrders.filter(o => o.statusId === s.orderStatusId).length,
   }));
 
   return (
@@ -110,29 +145,24 @@ export default function Dashboard() {
         ) : (
           <>
             <StatCard
-              title="Стоимость запасов"
-              value={`$${totalStockValue.toLocaleString('en-US', { minimumFractionDigits: 2 })}`}
-              icon={DollarSign}
+              title="Остатки (всего)"
+              value={`${totalStockQty.toLocaleString('ru-RU')} шт.`}
+              icon={Boxes}
               variant="indigo"
-              trend="up"
-              trendValue="+12.5% за месяц"
             />
             <StatCard
               title="Всего товаров"
               value={totalProducts}
-              subtitle={`${products.filter(p => p.status === 'active').length} активных`}
               icon={Package}
             />
             <StatCard
               title="Активных заказов"
               value={activeOrders}
-              subtitle={`${supplierOrders.filter(o => o.status === 'in_transit').length} в пути`}
               icon={Truck}
             />
             <StatCard
               title="Активных отгрузок"
               value={activeShipments}
-              subtitle={`${shipments.filter(s => s.status === 'shipped').length} отправлено`}
               icon={ShoppingCart}
             />
           </>
@@ -146,7 +176,7 @@ export default function Dashboard() {
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-lg font-semibold">
               <Warehouse className="w-5 h-5 text-indigo-500" />
-              Стоимость запасов по складам
+              Остатки по складам (шт.)
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -163,18 +193,18 @@ export default function Dashboard() {
                   />
                   <YAxis 
                     tick={{ fontSize: 12 }}
-                    tickFormatter={(value) => `$${(value / 1000).toFixed(0)}k`}
+                    tickFormatter={(value) => `${value}`}
                     className="text-slate-600 dark:text-slate-400"
                   />
                   <Tooltip 
-                    formatter={(value) => [`$${value.toLocaleString()}`, 'Value']}
+                    formatter={(value) => [`${Number(value).toLocaleString('ru-RU')} шт.`, 'Остаток']}
                     contentStyle={{ 
                       backgroundColor: 'var(--tooltip-bg, #fff)',
                       border: '1px solid var(--tooltip-border, #e2e8f0)',
                       borderRadius: '8px'
                     }}
                   />
-                  <Bar dataKey="value" fill="#6366f1" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="quantity" fill="#6366f1" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             ) : (
@@ -248,7 +278,7 @@ export default function Dashboard() {
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="flex items-center gap-2 text-lg font-semibold">
               <TrendingUp className="w-5 h-5 text-emerald-500" />
-              Последние движения
+              Последние изменения остатков
             </CardTitle>
             <Link 
               to={createPageUrl('StockMovements')}
@@ -263,52 +293,43 @@ export default function Dashboard() {
               <div className="space-y-3">
                 {[1,2,3,4,5].map(i => <Skeleton key={i} className="h-12" />)}
               </div>
-            ) : movements.length > 0 ? (
+            ) : stockSnapshots.length > 0 ? (
               <div className="space-y-3">
-                {movements.slice(0, 5).map(movement => (
+                {stockSnapshots.slice(0, 5).map(snapshot => {
+                  const product = products.find(p => p.productId === snapshot.productId);
+                  const warehouse = warehouses.find(w => w.warehouseId === snapshot.warehouseId);
+                  return (
                   <div 
-                    key={movement.id}
+                    key={snapshot.snapshotId}
                     className="flex items-center justify-between p-3 rounded-lg bg-slate-50 dark:bg-slate-800/50"
                   >
                     <div className="flex items-center gap-3">
                       <div className={`p-2 rounded-lg ${
-                        movement.movement_type === 'incoming' 
-                          ? 'bg-emerald-100 dark:bg-emerald-500/20' 
-                          : movement.movement_type === 'outgoing'
-                            ? 'bg-rose-100 dark:bg-rose-500/20'
-                            : 'bg-amber-100 dark:bg-amber-500/20'
+                        'bg-amber-100 dark:bg-amber-500/20'
                       }`}>
-                        {movement.movement_type === 'incoming' ? (
-                          <ArrowDownRight className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                        ) : movement.movement_type === 'outgoing' ? (
-                          <ArrowUpRight className="w-4 h-4 text-rose-600 dark:text-rose-400" />
-                        ) : (
-                          <Boxes className="w-4 h-4 text-amber-600 dark:text-amber-400" />
-                        )}
+                        <Boxes className="w-4 h-4 text-amber-600 dark:text-amber-400" />
                       </div>
                       <div>
                         <p className="text-sm font-medium text-slate-900 dark:text-slate-100">
-                          {movement.product_name || 'Product'}
+                          {product?.article || `Товар #${snapshot.productId}`}
                         </p>
                         <p className="text-xs text-slate-500 dark:text-slate-400">
-                          {movement.warehouse_name || 'Warehouse'} • {movement.source_number || movement.source_type}
+                          {warehouse?.name || `Склад #${snapshot.warehouseId}`}
                         </p>
                       </div>
                     </div>
                     <div className="text-right">
                       <p className={`text-sm font-semibold ${
-                        movement.quantity > 0 
-                          ? 'text-emerald-600 dark:text-emerald-400' 
-                          : 'text-rose-600 dark:text-rose-400'
+                        'text-slate-900 dark:text-slate-100'
                       }`}>
-                        {movement.quantity > 0 ? '+' : ''}{movement.quantity}
+                        {snapshot.quantity?.toLocaleString('ru-RU') || 0} шт.
                       </p>
                       <p className="text-xs text-slate-500 dark:text-slate-400">
-                        {movement.movement_date ? format(new Date(movement.movement_date), 'MMM d') : ''}
+                        {snapshot.snapshotDate ? format(new Date(snapshot.snapshotDate), 'dd.MM') : ''}
                       </p>
                     </div>
                   </div>
-                ))}
+                )})}
               </div>
             ) : (
               <div className="flex items-center justify-center h-32 text-slate-500">
@@ -342,21 +363,21 @@ export default function Dashboard() {
               <div className="space-y-3">
                 {supplierOrders.slice(0, 5).map(order => (
                   <div 
-                    key={order.id}
+                    key={order.orderId}
                     className="flex items-center justify-between p-3 rounded-lg bg-slate-50 dark:bg-slate-800/50"
                   >
                     <div>
                       <p className="text-sm font-medium text-slate-900 dark:text-slate-100">
-                        {order.order_number}
+                        {order.orderNumber}
                       </p>
                       <p className="text-xs text-slate-500 dark:text-slate-400">
-                        {order.supplier_name}
+                        {order.buyer || '—'}
                       </p>
                     </div>
                     <div className="flex items-center gap-3">
-                      <StatusBadge status={order.status} />
+                      <StatusBadge status={orderStatusNameById.get(order.statusId) || '—'} />
                       <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                        ${order.total?.toLocaleString() || '0'}
+                        {order.orderItemCost ? `₽${order.orderItemCost.toLocaleString('ru-RU', { minimumFractionDigits: 2 })}` : '—'}
                       </span>
                     </div>
                   </div>

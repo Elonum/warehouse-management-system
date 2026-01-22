@@ -70,10 +70,34 @@ const emptyItem = {
   fulfillmentCost: null,
 };
 
+const computeOrderAggregatesFromItems = (items) => {
+  const safeItems = Array.isArray(items) ? items : [];
+  const positionsQty = safeItems.length;
+  const totalQty = safeItems.reduce((sum, it) => sum + (Number(it?.orderedQty) || 0), 0);
+
+  // totalWeight in items is stored as number (in UI we show "г"), in order we store weight in kg (float)
+  const totalWeightGrams = safeItems.reduce((sum, it) => sum + (Number(it?.totalWeight) || 0), 0);
+  const orderItemWeightKg = positionsQty > 0 ? totalWeightGrams / 1000 : null;
+
+  const orderItemCost = safeItems.reduce((sum, it) => sum + (Number(it?.totalPrice) || 0), 0);
+  const orderItemCostValue = positionsQty > 0 ? orderItemCost : null;
+
+  const logisticsTotal = safeItems.reduce((sum, it) => sum + (Number(it?.totalLogistics) || 0), 0);
+  const logisticsTotalValue = positionsQty > 0 ? logisticsTotal : null;
+
+  return {
+    positionsQty,
+    totalQty,
+    orderItemWeight: orderItemWeightKg,
+    orderItemCost: orderItemCostValue,
+    logisticsTotal: logisticsTotalValue,
+  };
+};
+
 export default function SupplierOrderDetails() {
   const urlParams = new URLSearchParams(window.location.search);
   const orderIdParam = urlParams.get('id');
-  const orderId = orderIdParam && !isNaN(parseInt(orderIdParam)) ? parseInt(orderIdParam) : null;
+  const orderId = orderIdParam || null;
   const queryClient = useQueryClient();
 
   const [itemDialogOpen, setItemDialogOpen] = useState(false);
@@ -88,7 +112,7 @@ export default function SupplierOrderDetails() {
       const response = await api.supplierOrders.get(orderId);
       return response;
     },
-    enabled: !!orderId && !isNaN(orderId),
+    enabled: !!orderId,
   });
 
   const { data: orderItemsData, isLoading: loadingItems, refetch: refetchItems } = useQuery({
@@ -97,7 +121,7 @@ export default function SupplierOrderDetails() {
       const response = await api.supplierOrders.getItems(orderId);
       return Array.isArray(response) ? response : [];
     },
-    enabled: !!orderId && !isNaN(orderId),
+    enabled: !!orderId,
   });
 
   const { data: orderDocumentsData, isLoading: loadingDocs, refetch: refetchDocuments } = useQuery({
@@ -106,7 +130,7 @@ export default function SupplierOrderDetails() {
       const response = await api.supplierOrders.getDocuments(orderId);
       return Array.isArray(response) ? response : [];
     },
-    enabled: !!orderId && !isNaN(orderId),
+    enabled: !!orderId,
   });
 
   const { data: productsData } = useQuery({
@@ -163,17 +187,78 @@ export default function SupplierOrderDetails() {
     return orderStatusesMap.get(statusId) || '—';
   };
 
+  const applyOptimisticOrderAggregates = (nextItems) => {
+    const agg = computeOrderAggregatesFromItems(nextItems);
+
+    queryClient.setQueryData(['supplierOrder', orderId], (old) => {
+      if (!old) return old;
+      return {
+        ...old,
+        positionsQty: agg.positionsQty,
+        totalQty: agg.totalQty,
+        orderItemWeight: agg.orderItemWeight,
+        orderItemCost: agg.orderItemCost,
+        // Important: logistics_total in DB is also stored; we update it optimistically to avoid lag in UI
+        logisticsTotal: agg.logisticsTotal,
+      };
+    });
+
+    // Keep list page in sync if it's already cached
+    queryClient.setQueryData(['supplierOrders'], (old) => {
+      if (!Array.isArray(old)) return old;
+      return old.map((o) => {
+        if (o?.orderId !== orderId) return o;
+        return {
+          ...o,
+          positionsQty: agg.positionsQty,
+          totalQty: agg.totalQty,
+          orderItemWeight: agg.orderItemWeight,
+          orderItemCost: agg.orderItemCost,
+          logisticsTotal: agg.logisticsTotal,
+        };
+      });
+    });
+  };
+
   // Item mutations
   const createItemMutation = useMutation({
     mutationFn: (data) => api.supplierOrderItems.create(data),
+    onMutate: async (newItem) => {
+      await queryClient.cancelQueries({ queryKey: ['supplierOrderItems', orderId] });
+      const previousItems = queryClient.getQueryData(['supplierOrderItems', orderId]);
+      const previousOrder = queryClient.getQueryData(['supplierOrder', orderId]);
+      const previousOrdersList = queryClient.getQueryData(['supplierOrders']);
+
+      const optimisticItem = {
+        ...newItem,
+        orderItemId: -Date.now(),
+      };
+
+      const nextItems = Array.isArray(previousItems) ? [...previousItems, optimisticItem] : [optimisticItem];
+      queryClient.setQueryData(['supplierOrderItems', orderId], nextItems);
+      applyOptimisticOrderAggregates(nextItems);
+
+      return { previousItems, previousOrder, previousOrdersList };
+    },
     onSuccess: async () => {
       setItemDialogOpen(false);
       resetItemForm();
       setError('');
       await refetchItems();
       await queryClient.invalidateQueries({ queryKey: ['supplierOrder', orderId] });
+      await queryClient.invalidateQueries({ queryKey: ['supplierOrders'] });
     },
-    onError: (err) => {
+    onError: (err, _newItem, context) => {
+      if (context?.previousItems !== undefined) {
+        queryClient.setQueryData(['supplierOrderItems', orderId], context.previousItems);
+      }
+      if (context?.previousOrder !== undefined) {
+        queryClient.setQueryData(['supplierOrder', orderId], context.previousOrder);
+      }
+      if (context?.previousOrdersList !== undefined) {
+        queryClient.setQueryData(['supplierOrders'], context.previousOrdersList);
+      }
+
       if (err instanceof ApiError) {
         setError(err.message || 'Ошибка создания позиции');
       } else {
@@ -184,14 +269,40 @@ export default function SupplierOrderDetails() {
 
   const updateItemMutation = useMutation({
     mutationFn: ({ id, data }) => api.supplierOrderItems.update(id, data),
+    onMutate: async ({ id, data }) => {
+      await queryClient.cancelQueries({ queryKey: ['supplierOrderItems', orderId] });
+      const previousItems = queryClient.getQueryData(['supplierOrderItems', orderId]);
+      const previousOrder = queryClient.getQueryData(['supplierOrder', orderId]);
+      const previousOrdersList = queryClient.getQueryData(['supplierOrders']);
+
+      const nextItems = Array.isArray(previousItems)
+        ? previousItems.map((it) => (it?.orderItemId === id ? { ...it, ...data } : it))
+        : previousItems;
+
+      queryClient.setQueryData(['supplierOrderItems', orderId], nextItems);
+      applyOptimisticOrderAggregates(nextItems);
+
+      return { previousItems, previousOrder, previousOrdersList };
+    },
     onSuccess: async () => {
       setItemDialogOpen(false);
       resetItemForm();
       setError('');
       await refetchItems();
       await queryClient.invalidateQueries({ queryKey: ['supplierOrder', orderId] });
+      await queryClient.invalidateQueries({ queryKey: ['supplierOrders'] });
     },
-    onError: (err) => {
+    onError: (err, _vars, context) => {
+      if (context?.previousItems !== undefined) {
+        queryClient.setQueryData(['supplierOrderItems', orderId], context.previousItems);
+      }
+      if (context?.previousOrder !== undefined) {
+        queryClient.setQueryData(['supplierOrder', orderId], context.previousOrder);
+      }
+      if (context?.previousOrdersList !== undefined) {
+        queryClient.setQueryData(['supplierOrders'], context.previousOrdersList);
+      }
+
       if (err instanceof ApiError) {
         setError(err.message || 'Ошибка обновления позиции');
       } else {
@@ -205,13 +316,17 @@ export default function SupplierOrderDetails() {
     onMutate: async (deletedId) => {
       await queryClient.cancelQueries({ queryKey: ['supplierOrderItems', orderId] });
       const previousData = queryClient.getQueryData(['supplierOrderItems', orderId]);
+      const previousOrder = queryClient.getQueryData(['supplierOrder', orderId]);
+      const previousOrdersList = queryClient.getQueryData(['supplierOrders']);
       
-      queryClient.setQueryData(['supplierOrderItems', orderId], (oldData) => {
-        if (!oldData || !Array.isArray(oldData)) return oldData;
-        return oldData.filter((item) => item.orderItemId !== deletedId);
-      });
+      const nextItems = Array.isArray(previousData)
+        ? previousData.filter((item) => item.orderItemId !== deletedId)
+        : previousData;
+
+      queryClient.setQueryData(['supplierOrderItems', orderId], nextItems);
+      applyOptimisticOrderAggregates(nextItems);
       
-      return { previousData };
+      return { previousData, previousOrder, previousOrdersList };
     },
     onSuccess: async () => {
       setDeleteItemDialogOpen(false);
@@ -219,11 +334,18 @@ export default function SupplierOrderDetails() {
       setError('');
       await queryClient.invalidateQueries({ queryKey: ['supplierOrderItems', orderId] });
       await queryClient.invalidateQueries({ queryKey: ['supplierOrder', orderId] });
+      await queryClient.invalidateQueries({ queryKey: ['supplierOrders'] });
       await refetchItems();
     },
     onError: (err, deletedId, context) => {
       if (context?.previousData) {
         queryClient.setQueryData(['supplierOrderItems', orderId], context.previousData);
+      }
+      if (context?.previousOrder !== undefined) {
+        queryClient.setQueryData(['supplierOrder', orderId], context.previousOrder);
+      }
+      if (context?.previousOrdersList !== undefined) {
+        queryClient.setQueryData(['supplierOrders'], context.previousOrdersList);
       }
       if (err instanceof ApiError) {
         setError(err.message || 'Ошибка удаления позиции');
@@ -544,7 +666,7 @@ export default function SupplierOrderDetails() {
     }), { totalQty: 0, receivedQty: 0, totalPrice: 0, totalWeight: 0 });
   }, [orderItems]);
 
-  if (!orderId || isNaN(orderId)) {
+  if (!orderId) {
     return (
       <div className="p-8 text-center">
         <p className="text-slate-500">ID заказа не указан</p>
@@ -755,10 +877,10 @@ export default function SupplierOrderDetails() {
                 <Select
                   value={itemForm.productId ? itemForm.productId.toString() : ''}
                   onValueChange={(value) => {
-                    const product = productsMap.get(parseInt(value));
+                    const product = productsMap.get(value);
                     setItemForm({ 
                       ...itemForm, 
-                      productId: value ? parseInt(value) : null,
+                      productId: value || null,
                       totalWeight: product ? (product.unitWeight || 0) * (parseInt(itemForm.orderedQty) || 0) : 0,
                     });
                   }}
@@ -782,7 +904,7 @@ export default function SupplierOrderDetails() {
                   onValueChange={(value) => {
                     setItemForm({ 
                       ...itemForm, 
-                      warehouseId: value ? parseInt(value) : null 
+                      warehouseId: value || null 
                     });
                   }}
                 >

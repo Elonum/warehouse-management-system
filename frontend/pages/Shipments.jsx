@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { api } from '@/api';
+import { api, ApiError } from '@/api';
 import { 
   Plus, 
   Edit2, 
@@ -49,17 +49,23 @@ import PageHeader from '@/components/ui/PageHeader';
 import DataTable from '@/components/ui/DataTable';
 import StatusBadge from '@/components/ui/StatusBadge';
 import { format } from 'date-fns';
+import { ru } from 'date-fns/locale';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 
 const emptyShipment = {
-  shipment_number: '',
-  store_id: '',
-  warehouse_id: '',
-  status: 'draft',
-  shipment_date: '',
-  expected_date: '',
-  logistics_cost: ''
+  shipmentNumber: '',
+  storeId: null,
+  warehouseId: null,
+  statusId: null,
+  shipmentDate: null,
+  acceptanceDate: null,
+  logisticsCost: null,
+  unitLogistics: null,
+  acceptanceCost: null,
+  positionsQty: 0,
+  sentQty: 0,
+  acceptedQty: 0,
 };
 
 export default function Shipments() {
@@ -68,165 +74,261 @@ export default function Shipments() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [currentShipment, setCurrentShipment] = useState(null);
   const [formData, setFormData] = useState(emptyShipment);
+  const [error, setError] = useState('');
 
-  const { data: shipments = [], isLoading } = useQuery({
-    queryKey: ['shipments'],
-    queryFn: () => api.entities.Shipment.list('-created_date'),
+  const { data: shipmentsData, isLoading, refetch } = useQuery({
+    queryKey: ['mpShipments'],
+    queryFn: async () => {
+      const response = await api.mpShipments.list({ limit: 1000, offset: 0 });
+      return Array.isArray(response) ? response : [];
+    },
   });
 
-  const { data: stores = [] } = useQuery({
+  const { data: storesData } = useQuery({
     queryKey: ['stores'],
-    queryFn: () => api.entities.Store.list(),
+    queryFn: async () => {
+      const response = await api.stores.list({ limit: 1000, offset: 0 });
+      return Array.isArray(response) ? response : [];
+    },
   });
 
-  const { data: warehouses = [] } = useQuery({
+  const { data: warehousesData } = useQuery({
     queryKey: ['warehouses'],
-    queryFn: () => api.entities.Warehouse.list(),
+    queryFn: async () => {
+      const response = await api.warehouses.list({ limit: 1000, offset: 0 });
+      return Array.isArray(response) ? response : [];
+    },
   });
+
+  const { data: shipmentStatusesData } = useQuery({
+    queryKey: ['shipmentStatuses'],
+    queryFn: async () => {
+      const response = await api.shipmentStatuses.list({ limit: 100, offset: 0 });
+      return Array.isArray(response) ? response : [];
+    },
+  });
+
+  const shipments = Array.isArray(shipmentsData) ? shipmentsData : [];
+  const stores = Array.isArray(storesData) ? storesData : [];
+  const warehouses = Array.isArray(warehousesData) ? warehousesData : [];
+  const shipmentStatuses = Array.isArray(shipmentStatusesData) ? shipmentStatusesData : [];
+
+  // Enrich shipments with names
+  const enrichedShipments = useMemo(() => {
+    const storeMap = new Map(stores.map(s => [s.storeId, s.name]));
+    const warehouseMap = new Map(warehouses.map(w => [w.warehouseId, w.name]));
+    const statusMap = new Map(shipmentStatuses.map(s => [s.shipmentStatusId, s.name]));
+
+    return shipments.map(shipment => ({
+      ...shipment,
+      storeName: shipment.storeId ? storeMap.get(shipment.storeId) || 'Не указан' : null,
+      warehouseName: shipment.warehouseId ? warehouseMap.get(shipment.warehouseId) || 'Не указан' : null,
+      statusName: shipment.statusId ? statusMap.get(shipment.statusId) || 'Не указан' : null,
+    }));
+  }, [shipments, stores, warehouses, shipmentStatuses]);
 
   const createMutation = useMutation({
-    mutationFn: (data) => api.entities.Shipment.create(data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['shipments'] });
+    mutationFn: (data) => api.mpShipments.create(data),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['mpShipments'] });
       setDialogOpen(false);
       resetForm();
+      setError('');
+    },
+    onError: (err) => {
+      if (err instanceof ApiError) {
+        setError(err.message || 'Ошибка создания отгрузки');
+      } else {
+        setError('Ошибка создания отгрузки');
+      }
     },
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }) => api.entities.Shipment.update(id, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['shipments'] });
+    mutationFn: ({ id, data }) => api.mpShipments.update(id, data),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['mpShipments'] });
       setDialogOpen(false);
       resetForm();
+      setError('');
+    },
+    onError: (err) => {
+      if (err instanceof ApiError) {
+        setError(err.message || 'Ошибка обновления отгрузки');
+      } else {
+        setError('Ошибка обновления отгрузки');
+      }
     },
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id) => api.entities.Shipment.delete(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['shipments'] });
+    mutationFn: (id) => api.mpShipments.delete(id),
+    onMutate: async (deletedId) => {
+      await queryClient.cancelQueries({ queryKey: ['mpShipments'] });
+      const previousData = queryClient.getQueryData(['mpShipments']);
+
+      queryClient.setQueryData(['mpShipments'], (oldData) => {
+        if (!oldData || !Array.isArray(oldData)) return oldData;
+        return oldData.filter((shipment) => shipment.shipmentId !== deletedId);
+      });
+
+      return { previousData };
+    },
+    onSuccess: async () => {
       setDeleteDialogOpen(false);
       setCurrentShipment(null);
+      setError('');
+      await refetch();
+    },
+    onError: (err, deletedId, context) => {
+      if (context?.previousData) {
+        queryClient.setQueryData(['mpShipments'], context.previousData);
+      }
+      if (err instanceof ApiError) {
+        setError(err.message || 'Ошибка удаления отгрузки');
+      } else {
+        setError('Ошибка удаления отгрузки');
+      }
+      setDeleteDialogOpen(false);
     },
   });
 
   const resetForm = () => {
     setFormData(emptyShipment);
     setCurrentShipment(null);
+    setError('');
   };
 
   const handleEdit = (shipment) => {
     setCurrentShipment(shipment);
     setFormData({
-      shipment_number: shipment.shipment_number || '',
-      store_id: shipment.store_id || '',
-      warehouse_id: shipment.warehouse_id || '',
-      status: shipment.status || 'draft',
-      shipment_date: shipment.shipment_date || '',
-      expected_date: shipment.expected_date || '',
-      logistics_cost: shipment.logistics_cost || ''
+      shipmentNumber: shipment.shipmentNumber || '',
+      storeId: shipment.storeId || null,
+      warehouseId: shipment.warehouseId || null,
+      statusId: shipment.statusId || null,
+      shipmentDate: shipment.shipmentDate ? format(new Date(shipment.shipmentDate), 'yyyy-MM-dd') : null,
+      acceptanceDate: shipment.acceptanceDate ? format(new Date(shipment.acceptanceDate), 'yyyy-MM-dd') : null,
+      logisticsCost: shipment.logisticsCost?.toString() || null,
+      unitLogistics: shipment.unitLogistics?.toString() || null,
+      acceptanceCost: shipment.acceptanceCost?.toString() || null,
+      positionsQty: shipment.positionsQty || 0,
+      sentQty: shipment.sentQty || 0,
+      acceptedQty: shipment.acceptedQty || 0,
     });
+    setError('');
     setDialogOpen(true);
   };
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    const store = stores.find(s => s.id === formData.store_id);
-    const warehouse = warehouses.find(w => w.id === formData.warehouse_id);
-    
+    setError('');
+
     const data = {
-      ...formData,
-      store_name: store?.name || '',
-      warehouse_name: warehouse?.name || '',
-      logistics_cost: formData.logistics_cost ? parseFloat(formData.logistics_cost) : null,
+      shipmentNumber: formData.shipmentNumber,
+      storeId: formData.storeId || null,
+      warehouseId: formData.warehouseId || null,
+      statusId: formData.statusId || null,
+      shipmentDate: formData.shipmentDate ? new Date(formData.shipmentDate).toISOString() : null,
+      acceptanceDate: formData.acceptanceDate ? new Date(formData.acceptanceDate).toISOString() : null,
+      logisticsCost: formData.logisticsCost ? parseFloat(formData.logisticsCost) : null,
+      unitLogistics: formData.unitLogistics ? parseFloat(formData.unitLogistics) : null,
+      acceptanceCost: formData.acceptanceCost ? parseFloat(formData.acceptanceCost) : null,
+      positionsQty: formData.positionsQty || 0,
+      sentQty: formData.sentQty || 0,
+      acceptedQty: formData.acceptedQty || 0,
     };
 
     if (currentShipment) {
-      updateMutation.mutate({ id: currentShipment.id, data });
+      updateMutation.mutate({ id: currentShipment.shipmentId, data });
     } else {
       createMutation.mutate(data);
     }
   };
 
+  const getSelectedStatusName = () => {
+    if (!formData.statusId) return '';
+    const status = shipmentStatuses.find(s => s.shipmentStatusId === formData.statusId);
+    return status?.name || '';
+  };
+
   const columns = [
     {
-      accessorKey: 'shipment_number',
-      header: 'Shipment #',
+      accessorKey: 'shipmentNumber',
+      header: 'Номер отгрузки',
       cell: ({ row }) => (
         <div className="flex items-center gap-3">
           <div className="flex items-center justify-center w-10 h-10 bg-purple-100 rounded-lg dark:bg-purple-500/20">
             <ShoppingCart className="w-5 h-5 text-purple-600 dark:text-purple-400" />
           </div>
           <span className="font-medium text-slate-900 dark:text-slate-100">
-            {row.original.shipment_number}
+            {row.original.shipmentNumber}
           </span>
         </div>
       ),
     },
     {
-      accessorKey: 'store_name',
-      header: 'Store',
+      accessorKey: 'storeName',
+      header: 'Магазин',
       cell: ({ row }) => (
         <div className="flex items-center gap-2">
           <Store className="w-4 h-4 text-slate-400" />
           <span className="text-slate-700 dark:text-slate-300">
-            {row.original.store_name || 'Unknown Store'}
+            {row.original.storeName || 'Не указан'}
           </span>
         </div>
       ),
     },
     {
-      accessorKey: 'warehouse_name',
-      header: 'Warehouse',
+      accessorKey: 'warehouseName',
+      header: 'Склад',
       cell: ({ row }) => (
         <div className="flex items-center gap-2">
           <Warehouse className="w-4 h-4 text-slate-400" />
           <span className="text-slate-700 dark:text-slate-300">
-            {row.original.warehouse_name || 'Unknown'}
+            {row.original.warehouseName || 'Не указан'}
           </span>
         </div>
       ),
     },
     {
-      accessorKey: 'status',
-      header: 'Status',
-      cell: ({ row }) => <StatusBadge status={row.original.status} />,
+      accessorKey: 'statusName',
+      header: 'Статус',
+      cell: ({ row }) => <StatusBadge status={row.original.statusName || 'Не указан'} />,
     },
     {
-      accessorKey: 'shipment_date',
-      header: 'Ship Date',
+      accessorKey: 'shipmentDate',
+      header: 'Дата отгрузки',
       cell: ({ row }) => (
         <span className="text-slate-600 dark:text-slate-400">
-          {row.original.shipment_date ? format(new Date(row.original.shipment_date), 'MMM d, yyyy') : '—'}
+          {row.original.shipmentDate ? format(new Date(row.original.shipmentDate), 'dd.MM.yyyy', { locale: ru }) : '—'}
         </span>
       ),
     },
     {
-      accessorKey: 'sent_quantity',
-      header: 'Sent / Accepted',
+      accessorKey: 'sentQty',
+      header: 'Отправлено / Принято',
       cell: ({ row }) => (
         <div>
           <span className="font-medium text-slate-900 dark:text-slate-100">
-            {row.original.sent_quantity || 0}
+            {row.original.sentQty || 0}
           </span>
           <span className="text-slate-400"> / </span>
           <span className={`font-medium ${
-            row.original.accepted_quantity >= row.original.sent_quantity
+            row.original.acceptedQty >= row.original.sentQty
               ? 'text-emerald-600 dark:text-emerald-400'
               : 'text-amber-600 dark:text-amber-400'
           }`}>
-            {row.original.accepted_quantity || 0}
+            {row.original.acceptedQty || 0}
           </span>
         </div>
       ),
     },
     {
-      accessorKey: 'logistics_cost',
-      header: 'Logistics',
+      accessorKey: 'logisticsCost',
+      header: 'Логистика',
       cell: ({ row }) => (
         <span className="text-slate-600 dark:text-slate-400">
-          ${row.original.logistics_cost?.toFixed(2) || '0.00'}
+          {row.original.logisticsCost ? `${row.original.logisticsCost.toFixed(2)} ₽` : '0.00 ₽'}
         </span>
       ),
     },
@@ -243,14 +345,14 @@ export default function Shipments() {
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuItem asChild>
-              <Link to={`${createPageUrl('ShipmentDetails')}?id=${row.original.id}`}>
+              <Link to={`${createPageUrl('ShipmentDetails')}?id=${row.original.shipmentId}`}>
                 <Eye className="w-4 h-4 mr-2" />
-                View Details
+                Детали
               </Link>
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => handleEdit(row.original)}>
               <Edit2 className="w-4 h-4 mr-2" />
-              Edit
+              Редактировать
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem 
@@ -258,7 +360,7 @@ export default function Shipments() {
               className="text-red-600"
             >
               <Trash2 className="w-4 h-4 mr-2" />
-              Delete
+              Удалить
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -269,76 +371,87 @@ export default function Shipments() {
   return (
     <div className="space-y-6">
       <PageHeader 
-        title="Marketplace Shipments" 
-        description="Manage shipments to marketplace stores"
+        title="Отгрузки на маркетплейсы" 
+        description="Управление отгрузками в магазины маркетплейсов"
       >
         <Button onClick={() => { resetForm(); setDialogOpen(true); }}>
           <Plus className="w-4 h-4 mr-2" />
-          New Shipment
+          Новая отгрузка
         </Button>
       </PageHeader>
 
       <DataTable
         columns={columns}
-        data={shipments}
-        searchPlaceholder="Search shipments..."
-        emptyMessage="No shipments found"
+        data={enrichedShipments}
+        isLoading={isLoading}
+        searchPlaceholder="Поиск отгрузок..."
+        emptyMessage="Отгрузки не найдены"
       />
 
       {/* Create/Edit Dialog */}
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+      <Dialog 
+        open={dialogOpen} 
+        onOpenChange={(open) => {
+          setDialogOpen(open);
+          if (!open) {
+            resetForm();
+          }
+        }}
+      >
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>
-              {currentShipment ? 'Edit Shipment' : 'New Shipment'}
+              {currentShipment ? 'Редактировать отгрузку' : 'Новая отгрузка'}
             </DialogTitle>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
+            {error && (
+              <div className="p-3 text-sm text-red-600 bg-red-50 dark:bg-red-900/20 dark:text-red-400 rounded-lg">
+                {error}
+              </div>
+            )}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="shipment_number">Shipment Number *</Label>
+                <Label htmlFor="shipmentNumber">Номер отгрузки *</Label>
                 <Input
-                  id="shipment_number"
-                  value={formData.shipment_number}
-                  onChange={(e) => setFormData({ ...formData, shipment_number: e.target.value })}
+                  id="shipmentNumber"
+                  value={formData.shipmentNumber}
+                  onChange={(e) => setFormData({ ...formData, shipmentNumber: e.target.value })}
                   required
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="status">Status</Label>
+                <Label htmlFor="statusId">Статус</Label>
                 <Select
-                  value={formData.status}
-                  onValueChange={(value) => setFormData({ ...formData, status: value })}
+                  value={formData.statusId?.toString() || ''}
+                  onValueChange={(value) => setFormData({ ...formData, statusId: value || null })}
                 >
                   <SelectTrigger>
-                    <SelectValue />
+                    <SelectValue placeholder="Выберите статус">{getSelectedStatusName()}</SelectValue>
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="draft">Draft</SelectItem>
-                    <SelectItem value="pending">Pending</SelectItem>
-                    <SelectItem value="shipped">Shipped</SelectItem>
-                    <SelectItem value="in_transit">In Transit</SelectItem>
-                    <SelectItem value="delivered">Delivered</SelectItem>
-                    <SelectItem value="partially_accepted">Partially Accepted</SelectItem>
-                    <SelectItem value="accepted">Accepted</SelectItem>
-                    <SelectItem value="cancelled">Cancelled</SelectItem>
+                    {shipmentStatuses.map(status => (
+                      <SelectItem key={status.shipmentStatusId} value={status.shipmentStatusId.toString()}>
+                        {status.name}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="store">Store *</Label>
+                <Label htmlFor="storeId">Магазин</Label>
                 <Select
-                  value={formData.store_id}
-                  onValueChange={(value) => setFormData({ ...formData, store_id: value })}
+                  value={formData.storeId?.toString() || ''}
+                  onValueChange={(value) => setFormData({ ...formData, storeId: value || null })}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Select store" />
+                    <SelectValue placeholder="Выберите магазин" />
                   </SelectTrigger>
                   <SelectContent>
                     {stores.map(store => (
-                      <SelectItem key={store.id} value={store.id}>
+                      <SelectItem key={store.storeId} value={store.storeId.toString()}>
                         {store.name}
                       </SelectItem>
                     ))}
@@ -346,17 +459,17 @@ export default function Shipments() {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="warehouse">Warehouse *</Label>
+                <Label htmlFor="warehouseId">Склад</Label>
                 <Select
-                  value={formData.warehouse_id}
-                  onValueChange={(value) => setFormData({ ...formData, warehouse_id: value })}
+                  value={formData.warehouseId?.toString() || ''}
+                  onValueChange={(value) => setFormData({ ...formData, warehouseId: value || null })}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Select warehouse" />
+                    <SelectValue placeholder="Выберите склад" />
                   </SelectTrigger>
                   <SelectContent>
                     {warehouses.map(warehouse => (
-                      <SelectItem key={warehouse.id} value={warehouse.id}>
+                      <SelectItem key={warehouse.warehouseId} value={warehouse.warehouseId.toString()}>
                         {warehouse.name}
                       </SelectItem>
                     ))}
@@ -366,40 +479,94 @@ export default function Shipments() {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="shipment_date">Shipment Date</Label>
+                <Label htmlFor="shipmentDate">Дата отгрузки</Label>
                 <Input
-                  id="shipment_date"
+                  id="shipmentDate"
                   type="date"
-                  value={formData.shipment_date}
-                  onChange={(e) => setFormData({ ...formData, shipment_date: e.target.value })}
+                  value={formData.shipmentDate || ''}
+                  onChange={(e) => setFormData({ ...formData, shipmentDate: e.target.value || null })}
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="expected_date">Expected Delivery</Label>
+                <Label htmlFor="acceptanceDate">Дата приёмки</Label>
                 <Input
-                  id="expected_date"
+                  id="acceptanceDate"
                   type="date"
-                  value={formData.expected_date}
-                  onChange={(e) => setFormData({ ...formData, expected_date: e.target.value })}
+                  value={formData.acceptanceDate || ''}
+                  onChange={(e) => setFormData({ ...formData, acceptanceDate: e.target.value || null })}
                 />
               </div>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="logistics_cost">Logistics Cost ($)</Label>
-              <Input
-                id="logistics_cost"
-                type="number"
-                step="0.01"
-                value={formData.logistics_cost}
-                onChange={(e) => setFormData({ ...formData, logistics_cost: e.target.value })}
-              />
+            <div className="grid grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="logisticsCost">Стоимость логистики (₽)</Label>
+                <Input
+                  id="logisticsCost"
+                  type="number"
+                  step="0.01"
+                  value={formData.logisticsCost || ''}
+                  onChange={(e) => setFormData({ ...formData, logisticsCost: e.target.value || null })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="unitLogistics">Единичная логистика (₽)</Label>
+                <Input
+                  id="unitLogistics"
+                  type="number"
+                  step="0.01"
+                  value={formData.unitLogistics || ''}
+                  onChange={(e) => setFormData({ ...formData, unitLogistics: e.target.value || null })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="acceptanceCost">Стоимость приёмки (₽)</Label>
+                <Input
+                  id="acceptanceCost"
+                  type="number"
+                  step="0.01"
+                  value={formData.acceptanceCost || ''}
+                  onChange={(e) => setFormData({ ...formData, acceptanceCost: e.target.value || null })}
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="positionsQty">Количество позиций</Label>
+                <Input
+                  id="positionsQty"
+                  type="number"
+                  value={formData.positionsQty || 0}
+                  onChange={(e) => setFormData({ ...formData, positionsQty: parseInt(e.target.value) || 0 })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="sentQty">Отправлено</Label>
+                <Input
+                  id="sentQty"
+                  type="number"
+                  value={formData.sentQty || 0}
+                  onChange={(e) => setFormData({ ...formData, sentQty: parseInt(e.target.value) || 0 })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="acceptedQty">Принято</Label>
+                <Input
+                  id="acceptedQty"
+                  type="number"
+                  value={formData.acceptedQty || 0}
+                  onChange={(e) => setFormData({ ...formData, acceptedQty: parseInt(e.target.value) || 0 })}
+                />
+              </div>
             </div>
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
-                Cancel
+              <Button type="button" variant="outline" onClick={() => {
+                setDialogOpen(false);
+                resetForm();
+              }}>
+                Отмена
               </Button>
               <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending}>
-                {currentShipment ? 'Update' : 'Create'}
+                {currentShipment ? (updateMutation.isPending ? 'Сохранение...' : 'Сохранить') : (createMutation.isPending ? 'Создание...' : 'Создать')}
               </Button>
             </DialogFooter>
           </form>
@@ -410,18 +577,30 @@ export default function Shipments() {
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Shipment</AlertDialogTitle>
+            <AlertDialogTitle>Удалить отгрузку</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete shipment "{currentShipment?.shipment_number}"? This action cannot be undone.
+              Вы уверены, что хотите удалить отгрузку "{currentShipment?.shipmentNumber}"? Это действие нельзя отменить.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel onClick={() => {
+              setDeleteDialogOpen(false);
+              setCurrentShipment(null);
+            }}>
+              Отмена
+            </AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => deleteMutation.mutate(currentShipment.id)}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (currentShipment) {
+                  deleteMutation.mutate(currentShipment.shipmentId);
+                }
+              }}
               className="bg-red-600 hover:bg-red-700"
+              disabled={deleteMutation.isPending}
             >
-              Delete
+              {deleteMutation.isPending ? 'Удаление...' : 'Удалить'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

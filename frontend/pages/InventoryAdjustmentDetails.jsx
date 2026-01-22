@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { api } from '@/api';
+import { api, ApiError } from '@/api';
 import { 
   ArrowLeft, 
   Plus, 
@@ -28,13 +28,14 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+} from '@/components/ui/alert-dialog';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+} from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -49,182 +50,267 @@ import PageHeader from '@/components/ui/PageHeader';
 import DataTable from '@/components/ui/DataTable';
 import StatusBadge from '@/components/ui/StatusBadge';
 import { format } from 'date-fns';
+import { ru } from 'date-fns/locale';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 
 const emptyItem = {
-  product_id: '',
-  warehouse_id: '',
-  receipt_quantity: '',
-  writeoff_quantity: '',
+  productId: null,
+  warehouseId: null,
+  receiptQty: 0,
+  writeOffQty: 0,
   reason: '',
-  notes: ''
+  notes: null,
 };
 
 const reasons = [
-  { value: 'count_discrepancy', label: 'Count Discrepancy' },
-  { value: 'damage', label: 'Damage' },
-  { value: 'expiry', label: 'Expiry' },
-  { value: 'theft', label: 'Theft' },
-  { value: 'found', label: 'Found' },
-  { value: 'correction', label: 'Correction' },
-  { value: 'other', label: 'Other' }
+  { value: 'count_discrepancy', label: 'Расхождение учёта' },
+  { value: 'damage', label: 'Повреждение' },
+  { value: 'expiry', label: 'Истечение срока' },
+  { value: 'theft', label: 'Хищение' },
+  { value: 'found', label: 'Найдено' },
+  { value: 'correction', label: 'Коррекция' },
+  { value: 'other', label: 'Другое' }
 ];
 
 export default function InventoryAdjustmentDetails() {
   const urlParams = new URLSearchParams(window.location.search);
-  const adjustmentId = urlParams.get('id');
+  const adjustmentIdParam = urlParams.get('id');
+  const adjustmentId = adjustmentIdParam || null;
   const queryClient = useQueryClient();
 
   const [itemDialogOpen, setItemDialogOpen] = useState(false);
   const [deleteItemDialogOpen, setDeleteItemDialogOpen] = useState(false);
   const [currentItem, setCurrentItem] = useState(null);
   const [itemForm, setItemForm] = useState(emptyItem);
+  const [error, setError] = useState('');
 
-  const { data: adjustment, isLoading: loadingAdjustment } = useQuery({
-    queryKey: ['inventory-adjustment', adjustmentId],
-    queryFn: async () => {
-      const adjustments = await api.entities.InventoryAdjustment.filter({ id: adjustmentId });
-      return adjustments[0];
-    },
+  const { data: adjustment, error: adjustmentError, isLoading: loadingAdjustment } = useQuery({
+    queryKey: ['inventory', adjustmentId],
+    queryFn: () => api.inventories.get(adjustmentId),
     enabled: !!adjustmentId,
   });
 
-  const { data: adjustmentItems = [], isLoading: loadingItems } = useQuery({
-    queryKey: ['inventory-adjustment-items', adjustmentId],
-    queryFn: () => api.entities.InventoryAdjustmentItem.filter({ adjustment_id: adjustmentId }),
+  const { data: adjustmentItemsData = [], isLoading: loadingItems, refetch: refetchItems } = useQuery({
+    queryKey: ['inventoryItems', adjustmentId],
+    queryFn: () => api.inventories.getItems(adjustmentId),
     enabled: !!adjustmentId,
   });
 
-  const { data: products = [] } = useQuery({
+  const { data: productsData = [] } = useQuery({
     queryKey: ['products'],
-    queryFn: () => api.entities.Product.list(),
+    queryFn: () => api.products.list({ limit: 1000, offset: 0 }),
   });
 
-  const { data: warehouses = [] } = useQuery({
+  const { data: warehousesData = [] } = useQuery({
     queryKey: ['warehouses'],
-    queryFn: () => api.entities.Warehouse.list(),
+    queryFn: () => api.warehouses.list({ limit: 1000, offset: 0 }),
   });
 
-  // Item mutations
+  const { data: inventoryStatusesData = [] } = useQuery({
+    queryKey: ['inventoryStatuses'],
+    queryFn: () => api.inventoryStatuses.list({ limit: 100, offset: 0 }),
+  });
+
+  const products = Array.isArray(productsData) ? productsData : [];
+  const warehouses = Array.isArray(warehousesData) ? warehousesData : [];
+  const inventoryStatuses = Array.isArray(inventoryStatusesData) ? inventoryStatusesData : [];
+  const adjustmentItems = Array.isArray(adjustmentItemsData) ? adjustmentItemsData : [];
+
+  const maps = useMemo(() => {
+    return {
+      productMap: new Map(products.map(p => [p.productId, p])),
+      warehouseMap: new Map(warehouses.map(w => [w.warehouseId, w])),
+      statusMap: new Map(inventoryStatuses.map(s => [s.inventoryStatusId, s.name])),
+    };
+  }, [products, warehouses, inventoryStatuses]);
+
+  const enrichedItems = useMemo(() => {
+    return adjustmentItems.map(item => ({
+      ...item,
+      productName: item.productId ? maps.productMap.get(item.productId)?.name || 'Неизвестный товар' : '—',
+      productArticle: item.productId ? maps.productMap.get(item.productId)?.article || '' : '',
+      warehouseName: maps.warehouseMap.get(item.warehouseId)?.name || 'Не указан',
+      reasonLabel: reasons.find(r => r.value === item.reason)?.label || item.reason || '—',
+    }));
+  }, [adjustmentItems, maps]);
+
+  const totals = useMemo(() => {
+    return adjustmentItems.reduce((acc, item) => ({
+      receipt: acc.receipt + (item.receiptQty || 0),
+      writeoff: acc.writeoff + (item.writeOffQty || 0),
+    }), { receipt: 0, writeoff: 0 });
+  }, [adjustmentItems]);
+
   const createItemMutation = useMutation({
-    mutationFn: (data) => api.entities.InventoryAdjustmentItem.create(data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['inventory-adjustment-items', adjustmentId] });
+    mutationFn: (data) => api.inventoryItems.create(data),
+    onSuccess: async () => {
+      await refetchItems();
       setItemDialogOpen(false);
       setItemForm(emptyItem);
       setCurrentItem(null);
+      setError('');
+    },
+    onError: (err) => {
+      if (err instanceof ApiError) {
+        setError(err.message || 'Ошибка добавления позиции');
+      } else {
+        setError('Ошибка добавления позиции');
+      }
     },
   });
 
   const updateItemMutation = useMutation({
-    mutationFn: ({ id, data }) => api.entities.InventoryAdjustmentItem.update(id, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['inventory-adjustment-items', adjustmentId] });
+    mutationFn: ({ id, data }) => api.inventoryItems.update(id, data),
+    onSuccess: async () => {
+      await refetchItems();
       setItemDialogOpen(false);
       setItemForm(emptyItem);
       setCurrentItem(null);
+      setError('');
+    },
+    onError: (err) => {
+      if (err instanceof ApiError) {
+        setError(err.message || 'Ошибка обновления позиции');
+      } else {
+        setError('Ошибка обновления позиции');
+      }
     },
   });
 
   const deleteItemMutation = useMutation({
-    mutationFn: (id) => api.entities.InventoryAdjustmentItem.delete(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['inventory-adjustment-items', adjustmentId] });
+    mutationFn: (id) => api.inventoryItems.delete(id),
+    onMutate: async (deletedId) => {
+      await queryClient.cancelQueries({ queryKey: ['inventoryItems', adjustmentId] });
+      const previousData = queryClient.getQueryData(['inventoryItems', adjustmentId]);
+
+      queryClient.setQueryData(['inventoryItems', adjustmentId], (oldData) => {
+        if (!oldData || !Array.isArray(oldData)) return oldData;
+        return oldData.filter((item) => item.inventoryItemId !== deletedId);
+      });
+
+      return { previousData };
+    },
+    onSuccess: async () => {
       setDeleteItemDialogOpen(false);
       setCurrentItem(null);
+      setError('');
+      await refetchItems();
+    },
+    onError: (err, deletedId, context) => {
+      if (context?.previousData) {
+        queryClient.setQueryData(['inventoryItems', adjustmentId], context.previousData);
+      }
+      if (err instanceof ApiError) {
+        setError(err.message || 'Ошибка удаления позиции');
+      } else {
+        setError('Ошибка удаления позиции');
+      }
+      setDeleteItemDialogOpen(false);
     },
   });
 
   const handleEditItem = (item) => {
     setCurrentItem(item);
     setItemForm({
-      product_id: item.product_id || '',
-      warehouse_id: item.warehouse_id || adjustment?.warehouse_id || '',
-      receipt_quantity: item.receipt_quantity || '',
-      writeoff_quantity: item.writeoff_quantity || '',
+      productId: item.productId || null,
+      warehouseId: item.warehouseId || adjustment?.warehouseId || null,
+      receiptQty: item.receiptQty ?? 0,
+      writeOffQty: item.writeOffQty ?? 0,
       reason: item.reason || '',
-      notes: item.notes || ''
+      notes: item.notes || null,
     });
+    setError('');
     setItemDialogOpen(true);
   };
 
   const handleItemSubmit = (e) => {
     e.preventDefault();
-    const product = products.find(p => p.id === itemForm.product_id);
-    
+    setError('');
+    if (!adjustmentId) return;
+
     const data = {
-      adjustment_id: adjustmentId,
-      product_id: itemForm.product_id,
-      product_name: product?.name || '',
-      warehouse_id: itemForm.warehouse_id || adjustment?.warehouse_id,
-      receipt_quantity: parseFloat(itemForm.receipt_quantity) || 0,
-      writeoff_quantity: parseFloat(itemForm.writeoff_quantity) || 0,
-      reason: itemForm.reason,
-      notes: itemForm.notes
+      inventoryId: adjustmentId,
+      productId: itemForm.productId || null,
+      warehouseId: itemForm.warehouseId || null,
+      receiptQty: itemForm.receiptQty ? parseInt(itemForm.receiptQty, 10) : 0,
+      writeOffQty: itemForm.writeOffQty ? parseInt(itemForm.writeOffQty, 10) : 0,
+      reason: itemForm.reason || null,
+      notes: itemForm.notes || null,
     };
 
     if (currentItem) {
-      updateItemMutation.mutate({ id: currentItem.id, data });
+      updateItemMutation.mutate({ id: currentItem.inventoryItemId, data });
     } else {
       createItemMutation.mutate(data);
     }
   };
 
-  // Calculate totals
-  const totals = adjustmentItems.reduce((acc, item) => ({
-    receipt: acc.receipt + (item.receipt_quantity || 0),
-    writeoff: acc.writeoff + (item.writeoff_quantity || 0)
-  }), { receipt: 0, writeoff: 0 });
+  const getStatusName = () => {
+    if (!adjustment?.statusId) return '—';
+    return maps.statusMap.get(adjustment.statusId) || '—';
+  };
 
   const itemColumns = [
     {
-      accessorKey: 'product_name',
-      header: 'Product',
+      accessorKey: 'productName',
+      header: 'Товар',
       cell: ({ row }) => (
         <div className="flex items-center gap-3">
           <div className="flex items-center justify-center rounded-lg h-9 w-9 bg-slate-100 dark:bg-slate-800">
             <Package className="w-4 h-4 text-slate-500" />
           </div>
-          <span className="font-medium text-slate-900 dark:text-slate-100">
-            {row.original.product_name || 'Unknown Product'}
-          </span>
+          <div className="flex flex-col">
+            <span className="font-medium text-slate-900 dark:text-slate-100">
+              {row.original.productName || '—'}
+            </span>
+            {row.original.productArticle && (
+              <span className="text-xs text-slate-500 dark:text-slate-400">Арт: {row.original.productArticle}</span>
+            )}
+          </div>
         </div>
       ),
     },
     {
-      accessorKey: 'receipt_quantity',
-      header: 'Receipt',
+      accessorKey: 'warehouseName',
+      header: 'Склад',
       cell: ({ row }) => (
-        <span className={`font-medium ${row.original.receipt_quantity > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400'}`}>
-          {row.original.receipt_quantity > 0 ? `+${row.original.receipt_quantity.toLocaleString()}` : '—'}
+        <div className="flex items-center gap-2">
+          <Warehouse className="w-4 h-4 text-slate-400" />
+          <span className="text-slate-700 dark:text-slate-300">{row.original.warehouseName || 'Не указан'}</span>
+        </div>
+      ),
+    },
+    {
+      accessorKey: 'receiptQty',
+      header: 'Поступление',
+      cell: ({ row }) => (
+        <span className={`font-medium ${row.original.receiptQty > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400'}`}>
+          {row.original.receiptQty > 0 ? `+${row.original.receiptQty.toLocaleString()}` : '—'}
         </span>
       ),
     },
     {
-      accessorKey: 'writeoff_quantity',
-      header: 'Write-off',
+      accessorKey: 'writeOffQty',
+      header: 'Списание',
       cell: ({ row }) => (
-        <span className={`font-medium ${row.original.writeoff_quantity > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-slate-400'}`}>
-          {row.original.writeoff_quantity > 0 ? `-${row.original.writeoff_quantity.toLocaleString()}` : '—'}
+        <span className={`font-medium ${row.original.writeOffQty > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-slate-400'}`}>
+          {row.original.writeOffQty > 0 ? `-${row.original.writeOffQty.toLocaleString()}` : '—'}
         </span>
       ),
     },
     {
-      accessorKey: 'reason',
-      header: 'Reason',
-      cell: ({ row }) => {
-        const reason = reasons.find(r => r.value === row.original.reason);
-        return (
-          <span className="capitalize text-slate-600 dark:text-slate-400">
-            {reason?.label || row.original.reason || '—'}
-          </span>
-        );
-      },
+      accessorKey: 'reasonLabel',
+      header: 'Причина',
+      cell: ({ row }) => (
+        <span className="text-slate-600 dark:text-slate-400">
+          {row.original.reasonLabel}
+        </span>
+      ),
     },
     {
       accessorKey: 'notes',
-      header: 'Notes',
+      header: 'Примечания',
       cell: ({ row }) => (
         <span className="block max-w-xs text-sm truncate text-slate-500 dark:text-slate-400">
           {row.original.notes || '—'}
@@ -245,14 +331,15 @@ export default function InventoryAdjustmentDetails() {
           <DropdownMenuContent align="end">
             <DropdownMenuItem onClick={() => handleEditItem(row.original)}>
               <Edit2 className="w-4 h-4 mr-2" />
-              Edit
+              Редактировать
             </DropdownMenuItem>
+            <DropdownMenuSeparator />
             <DropdownMenuItem 
               onClick={() => { setCurrentItem(row.original); setDeleteItemDialogOpen(true); }}
               className="text-red-600"
             >
               <Trash2 className="w-4 h-4 mr-2" />
-              Delete
+              Удалить
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -263,11 +350,11 @@ export default function InventoryAdjustmentDetails() {
   if (!adjustmentId) {
     return (
       <div className="p-8 text-center">
-        <p className="text-slate-500">No adjustment ID provided</p>
+        <p className="text-slate-500">Не передан ID инвентаризации</p>
         <Button asChild className="mt-4">
           <Link to={createPageUrl('InventoryAdjustments')}>
             <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Adjustments
+            Назад к инвентаризациям
           </Link>
         </Button>
       </div>
@@ -283,12 +370,18 @@ export default function InventoryAdjustmentDetails() {
           </Link>
         </Button>
         <PageHeader 
-          title={adjustment?.adjustment_number || 'Loading...'}
-          description={adjustment?.warehouse_name}
+          title={`Инвентаризация #${adjustment?.inventoryId || ''}`} 
+          description={maps.warehouseMap.get(adjustment?.warehouseId)?.name || 'Склад не указан'}
         >
-          <StatusBadge status={adjustment?.status} />
+          <StatusBadge status={getStatusName()} />
         </PageHeader>
       </div>
+
+      {adjustmentError && (
+        <div className="p-3 text-sm text-red-600 bg-red-50 dark:bg-red-900/20 dark:text-red-400 rounded-lg">
+          Ошибка загрузки инвентаризации: {adjustmentError.message}
+        </div>
+      )}
 
       {/* Summary */}
       <div className="grid grid-cols-4 gap-4">
@@ -296,24 +389,24 @@ export default function InventoryAdjustmentDetails() {
           <CardContent className="pt-6">
             <div className="flex items-center gap-2 mb-2">
               <Warehouse className="w-4 h-4 text-slate-400" />
-              <p className="text-sm text-slate-500">Warehouse</p>
+              <p className="text-sm text-slate-500">Склад</p>
             </div>
             <p className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-              {adjustment?.warehouse_name || '—'}
+              {maps.warehouseMap.get(adjustment?.warehouseId)?.name || adjustment?.warehouseId || '—'}
             </p>
           </CardContent>
         </Card>
         <Card className="dark:bg-slate-900 dark:border-slate-800">
           <CardContent className="pt-6">
-            <p className="text-sm text-slate-500">Adjustment Date</p>
+            <p className="text-sm text-slate-500">Дата инвентаризации</p>
             <p className="mt-1 text-lg font-semibold text-slate-900 dark:text-slate-100">
-              {adjustment?.adjustment_date ? format(new Date(adjustment.adjustment_date), 'MMM d, yyyy') : '—'}
+              {adjustment?.adjustmentDate ? format(new Date(adjustment.adjustmentDate), 'dd.MM.yyyy', { locale: ru }) : '—'}
             </p>
           </CardContent>
         </Card>
         <Card className="dark:bg-slate-900 dark:border-slate-800">
           <CardContent className="pt-6">
-            <p className="text-sm text-slate-500">Total Receipt</p>
+            <p className="text-sm text-slate-500">Поступление</p>
             <p className="mt-1 text-lg font-semibold text-emerald-600 dark:text-emerald-400">
               +{totals.receipt.toLocaleString()}
             </p>
@@ -321,7 +414,7 @@ export default function InventoryAdjustmentDetails() {
         </Card>
         <Card className="dark:bg-slate-900 dark:border-slate-800">
           <CardContent className="pt-6">
-            <p className="text-sm text-slate-500">Total Write-off</p>
+            <p className="text-sm text-slate-500">Списание</p>
             <p className="mt-1 text-lg font-semibold text-rose-600 dark:text-rose-400">
               -{totals.writeoff.toLocaleString()}
             </p>
@@ -332,7 +425,7 @@ export default function InventoryAdjustmentDetails() {
       {adjustment?.notes && (
         <Card className="dark:bg-slate-900 dark:border-slate-800">
           <CardContent className="pt-6">
-            <p className="mb-2 text-sm text-slate-500">Notes</p>
+            <p className="mb-2 text-sm text-slate-500">Примечания</p>
             <p className="text-slate-700 dark:text-slate-300">{adjustment.notes}</p>
           </CardContent>
         </Card>
@@ -342,43 +435,77 @@ export default function InventoryAdjustmentDetails() {
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-            Adjustment Items ({adjustmentItems.length})
+            Позиции инвентаризации ({enrichedItems.length})
           </h2>
-          <Button onClick={() => { setCurrentItem(null); setItemForm({ ...emptyItem, warehouse_id: adjustment?.warehouse_id || '' }); setItemDialogOpen(true); }}>
+          <Button onClick={() => { setCurrentItem(null); setItemForm({ ...emptyItem, warehouseId: adjustment?.warehouseId || null }); setItemDialogOpen(true); }}>
             <Plus className="w-4 h-4 mr-2" />
-            Add Item
+            Добавить позицию
           </Button>
         </div>
         <DataTable
           columns={itemColumns}
-          data={adjustmentItems}
+          data={enrichedItems}
+          isLoading={loadingItems || loadingAdjustment}
           searchable={false}
-          emptyMessage="No items in this adjustment"
+          emptyMessage="В инвентаризации пока нет позиций"
         />
       </div>
 
       {/* Item Dialog */}
-      <Dialog open={itemDialogOpen} onOpenChange={setItemDialogOpen}>
+      <Dialog
+        open={itemDialogOpen}
+        onOpenChange={(open) => {
+          setItemDialogOpen(open);
+          if (!open) {
+            setItemForm(emptyItem);
+            setCurrentItem(null);
+            setError('');
+          }
+        }}
+      >
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>
-              {currentItem ? 'Edit Item' : 'Add Item'}
+              {currentItem ? 'Редактировать позицию' : 'Добавить позицию'}
             </DialogTitle>
           </DialogHeader>
           <form onSubmit={handleItemSubmit} className="space-y-4">
+            {error && (
+              <div className="p-3 text-sm text-red-600 bg-red-50 dark:bg-red-900/20 dark:text-red-400 rounded-lg">
+                {error}
+              </div>
+            )}
             <div className="space-y-2">
-              <Label htmlFor="product">Product *</Label>
+              <Label htmlFor="productId">Товар</Label>
               <Select
-                value={itemForm.product_id}
-                onValueChange={(value) => setItemForm({ ...itemForm, product_id: value })}
+                value={itemForm.productId?.toString() || ''}
+                onValueChange={(value) => setItemForm({ ...itemForm, productId: value || null })}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Select product" />
+                  <SelectValue placeholder="Выберите товар" />
                 </SelectTrigger>
                 <SelectContent>
                   {products.map(product => (
-                    <SelectItem key={product.id} value={product.id}>
+                    <SelectItem key={product.productId} value={product.productId.toString()}>
                       {product.name} ({product.article})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="warehouseId">Склад *</Label>
+              <Select
+                value={itemForm.warehouseId?.toString() || ''}
+                onValueChange={(value) => setItemForm({ ...itemForm, warehouseId: value || null })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Выберите склад" />
+                </SelectTrigger>
+                <SelectContent>
+                  {warehouses.map(warehouse => (
+                    <SelectItem key={warehouse.warehouseId} value={warehouse.warehouseId.toString()}>
+                      {warehouse.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -386,34 +513,34 @@ export default function InventoryAdjustmentDetails() {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="receipt_quantity">Receipt Quantity</Label>
+                <Label htmlFor="receiptQty">Поступление</Label>
                 <Input
-                  id="receipt_quantity"
+                  id="receiptQty"
                   type="number"
                   min="0"
-                  value={itemForm.receipt_quantity}
-                  onChange={(e) => setItemForm({ ...itemForm, receipt_quantity: e.target.value })}
+                  value={itemForm.receiptQty ?? 0}
+                  onChange={(e) => setItemForm({ ...itemForm, receiptQty: e.target.value })}
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="writeoff_quantity">Write-off Quantity</Label>
+                <Label htmlFor="writeOffQty">Списание</Label>
                 <Input
-                  id="writeoff_quantity"
+                  id="writeOffQty"
                   type="number"
                   min="0"
-                  value={itemForm.writeoff_quantity}
-                  onChange={(e) => setItemForm({ ...itemForm, writeoff_quantity: e.target.value })}
+                  value={itemForm.writeOffQty ?? 0}
+                  onChange={(e) => setItemForm({ ...itemForm, writeOffQty: e.target.value })}
                 />
               </div>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="reason">Reason</Label>
+              <Label htmlFor="reason">Причина</Label>
               <Select
-                value={itemForm.reason}
-                onValueChange={(value) => setItemForm({ ...itemForm, reason: value })}
+                value={itemForm.reason || ''}
+                onValueChange={(value) => setItemForm({ ...itemForm, reason: value || '' })}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Select reason" />
+                  <SelectValue placeholder="Выберите причину" />
                 </SelectTrigger>
                 <SelectContent>
                   {reasons.map(reason => (
@@ -425,20 +552,25 @@ export default function InventoryAdjustmentDetails() {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="notes">Notes</Label>
+              <Label htmlFor="notes">Примечания</Label>
               <Textarea
                 id="notes"
-                value={itemForm.notes}
-                onChange={(e) => setItemForm({ ...itemForm, notes: e.target.value })}
+                value={itemForm.notes || ''}
+                onChange={(e) => setItemForm({ ...itemForm, notes: e.target.value || null })}
                 rows={2}
               />
             </div>
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setItemDialogOpen(false)}>
-                Cancel
+              <Button type="button" variant="outline" onClick={() => {
+                setItemDialogOpen(false);
+                setItemForm(emptyItem);
+                setCurrentItem(null);
+                setError('');
+              }}>
+                Отмена
               </Button>
-              <Button type="submit">
-                {currentItem ? 'Update' : 'Add'}
+              <Button type="submit" disabled={createItemMutation.isPending || updateItemMutation.isPending}>
+                {currentItem ? (updateItemMutation.isPending ? 'Сохранение...' : 'Сохранить') : (createItemMutation.isPending ? 'Создание...' : 'Создать')}
               </Button>
             </DialogFooter>
           </form>
@@ -449,18 +581,30 @@ export default function InventoryAdjustmentDetails() {
       <AlertDialog open={deleteItemDialogOpen} onOpenChange={setDeleteItemDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Item</AlertDialogTitle>
+            <AlertDialogTitle>Удалить позицию</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to remove this item from the adjustment?
+              Вы уверены, что хотите удалить эту позицию из инвентаризации? Это действие нельзя отменить.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel onClick={() => {
+              setDeleteItemDialogOpen(false);
+              setCurrentItem(null);
+            }}>
+              Отмена
+            </AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => deleteItemMutation.mutate(currentItem.id)}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (currentItem) {
+                  deleteItemMutation.mutate(currentItem.inventoryItemId);
+                }
+              }}
               className="bg-red-600 hover:bg-red-700"
+              disabled={deleteItemMutation.isPending}
             >
-              Delete
+              {deleteItemMutation.isPending ? 'Удаление...' : 'Удалить'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

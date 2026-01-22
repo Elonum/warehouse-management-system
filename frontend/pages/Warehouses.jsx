@@ -265,7 +265,7 @@ export default function Warehouses() {
 
     const data = {
       name,
-      warehouseTypeId: warehouseForm.warehouseTypeId ? (typeof warehouseForm.warehouseTypeId === 'number' ? warehouseForm.warehouseTypeId : parseInt(warehouseForm.warehouseTypeId)) : null,
+      warehouseTypeId: warehouseForm.warehouseTypeId || null,
       location: warehouseForm.location?.trim() || null,
     };
 
@@ -508,7 +508,7 @@ export default function Warehouses() {
                 onValueChange={(value) => {
                   setWarehouseForm({ 
                     ...warehouseForm, 
-                    warehouseTypeId: value && value !== '' ? parseInt(value) : null 
+                    warehouseTypeId: value && value !== '' ? value : null 
                   });
                 }}
               >

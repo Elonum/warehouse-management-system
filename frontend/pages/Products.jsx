@@ -165,7 +165,7 @@ export default function Products() {
     }
 
     if (!data.barcode) {
-      setError('Штрихкод обязателен для заполнения');
+      setError('Баркод обязателен для заполнения');
       return;
     }
 
@@ -188,7 +188,7 @@ export default function Products() {
     },
     {
       accessorKey: 'barcode',
-      header: 'Штрихкод',
+      header: 'Баркод',
       cell: ({ row }) => (
         <div className="flex items-center gap-3">
           <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-slate-100 dark:bg-slate-800">
@@ -307,7 +307,7 @@ export default function Products() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="barcode">Штрихкод *</Label>
+                <Label htmlFor="barcode">Баркод *</Label>
                 <Input
                   id="barcode"
                   value={formData.barcode}

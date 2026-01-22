@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError } from '@/api';
 import { 
@@ -197,6 +197,14 @@ export default function SupplierOrders() {
     setError('');
   };
 
+  const calculateLogisticsTotal = useCallback((chinaMsk, mskKzn, additional) => {
+    const c = chinaMsk ? parseFloat(chinaMsk) : 0;
+    const m = mskKzn ? parseFloat(mskKzn) : 0;
+    const a = additional ? parseFloat(additional) : 0;
+    const total = c + m + a;
+    return Number.isFinite(total) ? total : null;
+  }, []);
+
   const handleEdit = (order) => {
     setCurrentOrder(order);
     setFormData({
@@ -251,22 +259,30 @@ export default function SupplierOrders() {
       return;
     }
 
+    const logisticsTotalCalc = calculateLogisticsTotal(
+      formData.logisticsChinaMsk,
+      formData.logisticsMskKzn,
+      formData.logisticsAdditional
+    );
+
     const data = {
       orderNumber,
       buyer: formData.buyer?.trim() || null,
-      statusId: formData.statusId ? parseInt(formData.statusId) : null,
+      statusId: formData.statusId || null,
       purchaseDate: formData.purchaseDate ? new Date(formData.purchaseDate).toISOString() : null,
       plannedReceiptDate: formData.plannedReceiptDate ? new Date(formData.plannedReceiptDate).toISOString() : null,
       actualReceiptDate: formData.actualReceiptDate ? new Date(formData.actualReceiptDate).toISOString() : null,
       logisticsChinaMsk: formData.logisticsChinaMsk ? parseFloat(formData.logisticsChinaMsk) : null,
       logisticsMskKzn: formData.logisticsMskKzn ? parseFloat(formData.logisticsMskKzn) : null,
       logisticsAdditional: formData.logisticsAdditional ? parseFloat(formData.logisticsAdditional) : null,
-      logisticsTotal: formData.logisticsTotal ? parseFloat(formData.logisticsTotal) : null,
+      logisticsTotal: formData.logisticsTotal
+        ? parseFloat(formData.logisticsTotal)
+        : logisticsTotalCalc,
       orderItemCost: formData.orderItemCost ? parseFloat(formData.orderItemCost) : null,
       positionsQty: parseInt(formData.positionsQty) || 0,
       totalQty: parseInt(formData.totalQty) || 0,
       orderItemWeight: formData.orderItemWeight ? parseFloat(formData.orderItemWeight) : null,
-      parentOrderId: formData.parentOrderId ? parseInt(formData.parentOrderId) : null,
+      parentOrderId: formData.parentOrderId || null,
     };
 
     if (currentOrder) {
@@ -335,13 +351,34 @@ export default function SupplierOrders() {
           <td className="px-4 py-3 text-slate-600 dark:text-slate-400">
             {order.plannedReceiptDate ? format(new Date(order.plannedReceiptDate), 'dd.MM.yyyy') : '—'}
           </td>
+          <td className="px-4 py-3 text-slate-600 dark:text-slate-400">
+            {order.actualReceiptDate ? format(new Date(order.actualReceiptDate), 'dd.MM.yyyy') : '—'}
+          </td>
+          <td className="px-4 py-3 text-slate-900 dark:text-slate-100">
+            <div className="flex flex-col gap-1">
+              <span className="text-sm font-semibold">
+                Позиции: {order.positionsQty ?? 0}
+              </span>
+              <span className="text-xs text-slate-500">
+                Всего: {order.totalQty ?? 0} шт.
+              </span>
+              <span className="text-xs text-slate-500">
+                Вес: {order.orderItemWeight ? `${order.orderItemWeight.toFixed(2)} г` : '—'}
+              </span>
+            </div>
+          </td>
+          <td className="px-4 py-3">
+            <div className="flex flex-col gap-1 text-sm text-slate-700 dark:text-slate-300">
+              <span>Китай-Мск: {order.logisticsChinaMsk ? `${order.logisticsChinaMsk.toFixed(2)} ₽` : '—'}</span>
+              <span>Мск-Кзн: {order.logisticsMskKzn ? `${order.logisticsMskKzn.toFixed(2)} ₽` : '—'}</span>
+              <span>Доп.: {order.logisticsAdditional ? `${order.logisticsAdditional.toFixed(2)} ₽` : '—'}</span>
+              <span className="font-semibold">Итого: {order.logisticsTotal ? `${order.logisticsTotal.toFixed(2)} ₽` : '—'}</span>
+            </div>
+          </td>
           <td className="px-4 py-3">
             <div>
               <p className="font-semibold text-slate-900 dark:text-slate-100">
                 {order.orderItemCost ? `₽${order.orderItemCost.toLocaleString('ru-RU', { minimumFractionDigits: 2 })}` : '—'}
-              </p>
-              <p className="text-xs text-slate-500">
-                {order.totalQty || 0} шт.
               </p>
             </div>
           </td>
@@ -414,6 +451,9 @@ export default function SupplierOrders() {
                 <th className="px-4 py-3 text-sm font-semibold text-left text-slate-700 dark:text-slate-300">Статус</th>
                 <th className="px-4 py-3 text-sm font-semibold text-left text-slate-700 dark:text-slate-300">Дата заказа</th>
                 <th className="px-4 py-3 text-sm font-semibold text-left text-slate-700 dark:text-slate-300">План. получение</th>
+                <th className="px-4 py-3 text-sm font-semibold text-left text-slate-700 dark:text-slate-300">Факт. получение</th>
+                <th className="px-4 py-3 text-sm font-semibold text-left text-slate-700 dark:text-slate-300">Объем заказа</th>
+                <th className="px-4 py-3 text-sm font-semibold text-left text-slate-700 dark:text-slate-300">Логистика</th>
                 <th className="px-4 py-3 text-sm font-semibold text-left text-slate-700 dark:text-slate-300">Сумма</th>
                 <th className="px-4 py-3 text-sm font-semibold text-left text-slate-700 dark:text-slate-300"></th>
               </tr>
@@ -474,7 +514,7 @@ export default function SupplierOrders() {
                   onValueChange={(value) => {
                     setFormData({ 
                       ...formData, 
-                      statusId: value && value !== '' ? parseInt(value) : null 
+                      statusId: value && value !== '' ? value : null 
                     });
                   }}
                 >
@@ -539,8 +579,11 @@ export default function SupplierOrders() {
                   type="number"
                   min="0"
                   value={formData.positionsQty}
-                  onChange={(e) => setFormData({ ...formData, positionsQty: e.target.value })}
+                  disabled
                 />
+                <p className="text-xs text-slate-500">
+                  Поле рассчитывается автоматически из позиций заказа.
+                </p>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="totalQty">Общее количество</Label>
@@ -549,8 +592,11 @@ export default function SupplierOrders() {
                   type="number"
                   min="0"
                   value={formData.totalQty}
-                  onChange={(e) => setFormData({ ...formData, totalQty: e.target.value })}
+                  disabled
                 />
+                <p className="text-xs text-slate-500">
+                  Поле рассчитывается автоматически из позиций заказа.
+                </p>
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
@@ -562,7 +608,73 @@ export default function SupplierOrders() {
                   step="0.01"
                   min="0"
                   value={formData.orderItemCost || ''}
-                  onChange={(e) => setFormData({ ...formData, orderItemCost: e.target.value || null })}
+                  disabled
+                />
+                <p className="text-xs text-slate-500">
+                  Поле рассчитывается автоматически из позиций заказа.
+                </p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="orderItemWeight">Общий вес (кг)</Label>
+                <Input
+                  id="orderItemWeight"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={formData.orderItemWeight || ''}
+                  disabled
+                />
+                <p className="text-xs text-slate-500">
+                  Поле рассчитывается автоматически из позиций заказа.
+                </p>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="logisticsChinaMsk">Логистика Китай-Мск (₽)</Label>
+                <Input
+                  id="logisticsChinaMsk"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={formData.logisticsChinaMsk || ''}
+                  onChange={(e) => {
+                    const value = e.target.value || null;
+                    const total = calculateLogisticsTotal(value, formData.logisticsMskKzn, formData.logisticsAdditional);
+                    setFormData({ ...formData, logisticsChinaMsk: value, logisticsTotal: total });
+                  }}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="logisticsMskKzn">Логистика Мск-Кзн (₽)</Label>
+                <Input
+                  id="logisticsMskKzn"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={formData.logisticsMskKzn || ''}
+                  onChange={(e) => {
+                    const value = e.target.value || null;
+                    const total = calculateLogisticsTotal(formData.logisticsChinaMsk, value, formData.logisticsAdditional);
+                    setFormData({ ...formData, logisticsMskKzn: value, logisticsTotal: total });
+                  }}
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="logisticsAdditional">Доп. логистика (₽)</Label>
+                <Input
+                  id="logisticsAdditional"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={formData.logisticsAdditional || ''}
+                  onChange={(e) => {
+                    const value = e.target.value || null;
+                    const total = calculateLogisticsTotal(formData.logisticsChinaMsk, formData.logisticsMskKzn, value);
+                    setFormData({ ...formData, logisticsAdditional: value, logisticsTotal: total });
+                  }}
                 />
               </div>
               <div className="space-y-2">
@@ -572,9 +684,12 @@ export default function SupplierOrders() {
                   type="number"
                   step="0.01"
                   min="0"
-                  value={formData.logisticsTotal || ''}
+                  value={formData.logisticsTotal ?? ''}
                   onChange={(e) => setFormData({ ...formData, logisticsTotal: e.target.value || null })}
                 />
+                <p className="text-xs text-slate-500">
+                  Суммируется автоматически из трех полей логистики, но можно задать вручную.
+                </p>
               </div>
             </div>
             <DialogFooter>

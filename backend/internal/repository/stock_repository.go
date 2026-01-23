@@ -75,3 +75,34 @@ func (r *StockRepository) GetCurrentStock(
 
 	return result, nil
 }
+
+func (r *StockRepository) UpdateStockByInventoryItem(ctx context.Context, productID *uuid.UUID, warehouseID uuid.UUID, adjustmentDate *time.Time, createdBy *uuid.UUID) error {
+	if productID == nil || adjustmentDate == nil {
+		return nil
+	}
+
+	query := `
+		INSERT INTO stock_snapshots (product_id, warehouse_id, snapshot_date, quantity, created_by)
+		VALUES ($1, $2, $3, 
+			COALESCE(
+				(SELECT quantity FROM stock_snapshots 
+				 WHERE product_id = $1 AND warehouse_id = $2 
+				 ORDER BY snapshot_date DESC LIMIT 1),
+				0
+			),
+			$4
+		)
+		ON CONFLICT (product_id, warehouse_id, snapshot_date)
+		DO NOTHING
+	`
+
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	_, err := r.pool.Exec(ctx, query, *productID, warehouseID, adjustmentDate, createdBy)
+	return err
+}
+
+func (r *StockRepository) RevertStockByInventoryItem(ctx context.Context, productID *uuid.UUID, warehouseID uuid.UUID, adjustmentDate *time.Time) error {
+	return nil
+}

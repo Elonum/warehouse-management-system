@@ -59,19 +59,8 @@ const emptyItem = {
   warehouseId: null,
   receiptQty: 0,
   writeOffQty: 0,
-  reason: '',
-  notes: null,
+  reason: null, // Примечания сохраняются в поле reason
 };
-
-const reasons = [
-  { value: 'count_discrepancy', label: 'Расхождение учёта' },
-  { value: 'damage', label: 'Повреждение' },
-  { value: 'expiry', label: 'Истечение срока' },
-  { value: 'theft', label: 'Хищение' },
-  { value: 'found', label: 'Найдено' },
-  { value: 'correction', label: 'Коррекция' },
-  { value: 'other', label: 'Другое' }
-];
 
 export default function InventoryAdjustmentDetails() {
   const urlParams = new URLSearchParams(window.location.search);
@@ -131,7 +120,6 @@ export default function InventoryAdjustmentDetails() {
       productName: item.productId ? maps.productMap.get(item.productId)?.name || 'Неизвестный товар' : '—',
       productArticle: item.productId ? maps.productMap.get(item.productId)?.article || '' : '',
       warehouseName: maps.warehouseMap.get(item.warehouseId)?.name || 'Не указан',
-      reasonLabel: reasons.find(r => r.value === item.reason)?.label || item.reason || '—',
     }));
   }, [adjustmentItems, maps]);
 
@@ -217,8 +205,7 @@ export default function InventoryAdjustmentDetails() {
       warehouseId: item.warehouseId || adjustment?.warehouseId || null,
       receiptQty: item.receiptQty ?? 0,
       writeOffQty: item.writeOffQty ?? 0,
-      reason: item.reason || '',
-      notes: item.notes || null,
+      reason: item.reason || null, // Примечания из поля reason
     });
     setError('');
     setItemDialogOpen(true);
@@ -235,8 +222,7 @@ export default function InventoryAdjustmentDetails() {
       warehouseId: itemForm.warehouseId || null,
       receiptQty: itemForm.receiptQty ? parseInt(itemForm.receiptQty, 10) : 0,
       writeOffQty: itemForm.writeOffQty ? parseInt(itemForm.writeOffQty, 10) : 0,
-      reason: itemForm.reason || null,
-      notes: itemForm.notes || null,
+      reason: itemForm.reason || null, // Примечания сохраняются в поле reason
     };
 
     if (currentItem) {
@@ -300,20 +286,11 @@ export default function InventoryAdjustmentDetails() {
       ),
     },
     {
-      accessorKey: 'reasonLabel',
-      header: 'Причина',
-      cell: ({ row }) => (
-        <span className="text-slate-600 dark:text-slate-400">
-          {row.original.reasonLabel}
-        </span>
-      ),
-    },
-    {
-      accessorKey: 'notes',
+      accessorKey: 'reason',
       header: 'Примечания',
       cell: ({ row }) => (
         <span className="block max-w-xs text-sm truncate text-slate-500 dark:text-slate-400">
-          {row.original.notes || '—'}
+          {row.original.reason || '—'}
         </span>
       ),
     },
@@ -370,8 +347,8 @@ export default function InventoryAdjustmentDetails() {
           </Link>
         </Button>
         <PageHeader 
-          title={`Инвентаризация #${adjustment?.inventoryId || ''}`} 
-          description={maps.warehouseMap.get(adjustment?.warehouseId)?.name || 'Склад не указан'}
+          title="Инвентаризация" 
+          description={adjustment?.adjustmentDate ? format(new Date(adjustment.adjustmentDate), 'dd.MM.yyyy', { locale: ru }) : 'Дата не указана'}
         >
           <StatusBadge status={getStatusName()} />
         </PageHeader>
@@ -385,17 +362,6 @@ export default function InventoryAdjustmentDetails() {
 
       {/* Summary */}
       <div className="grid grid-cols-4 gap-4">
-        <Card className="dark:bg-slate-900 dark:border-slate-800">
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-2 mb-2">
-              <Warehouse className="w-4 h-4 text-slate-400" />
-              <p className="text-sm text-slate-500">Склад</p>
-            </div>
-            <p className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-              {maps.warehouseMap.get(adjustment?.warehouseId)?.name || adjustment?.warehouseId || '—'}
-            </p>
-          </CardContent>
-        </Card>
         <Card className="dark:bg-slate-900 dark:border-slate-800">
           <CardContent className="pt-6">
             <p className="text-sm text-slate-500">Дата инвентаризации</p>
@@ -420,16 +386,15 @@ export default function InventoryAdjustmentDetails() {
             </p>
           </CardContent>
         </Card>
-      </div>
-
-      {adjustment?.notes && (
         <Card className="dark:bg-slate-900 dark:border-slate-800">
           <CardContent className="pt-6">
-            <p className="mb-2 text-sm text-slate-500">Примечания</p>
-            <p className="text-slate-700 dark:text-slate-300">{adjustment.notes}</p>
+            <p className="text-sm text-slate-500">Примечания</p>
+            <p className="mt-1 text-sm text-slate-700 dark:text-slate-300 line-clamp-2">
+              {adjustment?.notes || '—'}
+            </p>
           </CardContent>
         </Card>
-      )}
+      </div>
 
       {/* Items */}
       <div className="space-y-4">
@@ -437,7 +402,7 @@ export default function InventoryAdjustmentDetails() {
           <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
             Позиции инвентаризации ({enrichedItems.length})
           </h2>
-          <Button onClick={() => { setCurrentItem(null); setItemForm({ ...emptyItem, warehouseId: adjustment?.warehouseId || null }); setItemDialogOpen(true); }}>
+          <Button onClick={() => { setCurrentItem(null); setItemForm({ ...emptyItem, warehouseId: adjustment?.warehouseId || null }); setError(''); setItemDialogOpen(true); }}>
             <Plus className="w-4 h-4 mr-2" />
             Добавить позицию
           </Button>
@@ -487,7 +452,7 @@ export default function InventoryAdjustmentDetails() {
                 <SelectContent>
                   {products.map(product => (
                     <SelectItem key={product.productId} value={product.productId.toString()}>
-                      {product.name} ({product.article})
+                      {product.name || product.article || 'Товар'}{product.name && product.article ? ` (${product.article})` : product.article ? ` - ${product.article}` : ''}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -505,7 +470,7 @@ export default function InventoryAdjustmentDetails() {
                 <SelectContent>
                   {warehouses.map(warehouse => (
                     <SelectItem key={warehouse.warehouseId} value={warehouse.warehouseId.toString()}>
-                      {warehouse.name}
+                      {warehouse.name || 'Склад'}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -534,30 +499,13 @@ export default function InventoryAdjustmentDetails() {
               </div>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="reason">Причина</Label>
-              <Select
-                value={itemForm.reason || ''}
-                onValueChange={(value) => setItemForm({ ...itemForm, reason: value || '' })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Выберите причину" />
-                </SelectTrigger>
-                <SelectContent>
-                  {reasons.map(reason => (
-                    <SelectItem key={reason.value} value={reason.value}>
-                      {reason.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="notes">Примечания</Label>
+              <Label htmlFor="reason">Примечания</Label>
               <Textarea
-                id="notes"
-                value={itemForm.notes || ''}
-                onChange={(e) => setItemForm({ ...itemForm, notes: e.target.value || null })}
-                rows={2}
+                id="reason"
+                value={itemForm.reason || ''}
+                onChange={(e) => setItemForm({ ...itemForm, reason: e.target.value || null })}
+                rows={3}
+                placeholder="Введите примечания к позиции инвентаризации"
               />
             </div>
             <DialogFooter>

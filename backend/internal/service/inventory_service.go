@@ -13,12 +13,14 @@ import (
 type InventoryService struct {
 	repo                *repository.InventoryRepository
 	inventoryStatusRepo *repository.InventoryStatusRepository
+	inventoryItemRepo   *repository.InventoryItemRepository
 }
 
-func NewInventoryService(repo *repository.InventoryRepository, inventoryStatusRepo *repository.InventoryStatusRepository) *InventoryService {
+func NewInventoryService(repo *repository.InventoryRepository, inventoryStatusRepo *repository.InventoryStatusRepository, inventoryItemRepo *repository.InventoryItemRepository) *InventoryService {
 	return &InventoryService{
 		repo:                repo,
 		inventoryStatusRepo: inventoryStatusRepo,
+		inventoryItemRepo:   inventoryItemRepo,
 	}
 }
 
@@ -35,15 +37,29 @@ func (s *InventoryService) GetByID(ctx context.Context, inventoryID uuid.UUID) (
 		updatedByStr = &str
 	}
 
+	items, err := s.inventoryItemRepo.GetByInventoryID(ctx, inventoryID)
+	if err != nil {
+		log.Warn().Err(err).Str("inventoryId", inventoryID.String()).Msg("Failed to get inventory items for totals")
+	}
+
+	totalReceiptQty := 0
+	totalWriteOffQty := 0
+	for _, item := range items {
+		totalReceiptQty += item.ReceiptQty
+		totalWriteOffQty += item.WriteOffQty
+	}
+
 	return &dto.InventoryResponse{
-		InventoryID:    inventory.InventoryID.String(),
-		AdjustmentDate: inventory.AdjustmentDate,
-		StatusID:       inventory.StatusID.String(),
-		Notes:          inventory.Notes,
-		CreatedBy:      inventory.CreatedBy.String(),
-		CreatedAt:      inventory.CreatedAt,
-		UpdatedBy:      updatedByStr,
-		UpdatedAt:      inventory.UpdatedAt,
+		InventoryID:     inventory.InventoryID.String(),
+		AdjustmentDate:  inventory.AdjustmentDate,
+		StatusID:        inventory.StatusID.String(),
+		Notes:           inventory.Notes,
+		CreatedBy:       inventory.CreatedBy.String(),
+		CreatedAt:       inventory.CreatedAt,
+		UpdatedBy:       updatedByStr,
+		UpdatedAt:       inventory.UpdatedAt,
+		TotalReceiptQty: totalReceiptQty,
+		TotalWriteOffQty: totalWriteOffQty,
 	}, nil
 }
 
@@ -63,15 +79,29 @@ func (s *InventoryService) List(ctx context.Context, limit, offset int, statusID
 			updatedByStr = &str
 		}
 
+		items, err := s.inventoryItemRepo.GetByInventoryID(ctx, inventory.InventoryID)
+		if err != nil {
+			log.Warn().Err(err).Str("inventoryId", inventory.InventoryID.String()).Msg("Failed to get inventory items for totals")
+		}
+
+		totalReceiptQty := 0
+		totalWriteOffQty := 0
+		for _, item := range items {
+			totalReceiptQty += item.ReceiptQty
+			totalWriteOffQty += item.WriteOffQty
+		}
+
 		result = append(result, dto.InventoryResponse{
-			InventoryID:    inventory.InventoryID.String(),
-			AdjustmentDate: inventory.AdjustmentDate,
-			StatusID:       inventory.StatusID.String(),
-			Notes:          inventory.Notes,
-			CreatedBy:      inventory.CreatedBy.String(),
-			CreatedAt:      inventory.CreatedAt,
-			UpdatedBy:      updatedByStr,
-			UpdatedAt:      inventory.UpdatedAt,
+			InventoryID:     inventory.InventoryID.String(),
+			AdjustmentDate:  inventory.AdjustmentDate,
+			StatusID:        inventory.StatusID.String(),
+			Notes:           inventory.Notes,
+			CreatedBy:       inventory.CreatedBy.String(),
+			CreatedAt:       inventory.CreatedAt,
+			UpdatedBy:       updatedByStr,
+			UpdatedAt:       inventory.UpdatedAt,
+			TotalReceiptQty: totalReceiptQty,
+			TotalWriteOffQty: totalWriteOffQty,
 		})
 	}
 

@@ -11,6 +11,8 @@ type InventoryResponse struct {
 	CreatedAt      time.Time  `json:"createdAt"`
 	UpdatedBy      *string    `json:"updatedBy,omitempty"`
 	UpdatedAt      time.Time  `json:"updatedAt"`
+	TotalReceiptQty int       `json:"totalReceiptQty,omitempty"` // Total receipt quantity from all items
+	TotalWriteOffQty int      `json:"totalWriteOffQty,omitempty"` // Total write-off quantity from all items
 }
 
 type InventoryCreateRequest struct {

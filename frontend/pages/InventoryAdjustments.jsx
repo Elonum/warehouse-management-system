@@ -85,13 +85,13 @@ export default function InventoryAdjustments() {
   const inventories = Array.isArray(inventoriesData) ? inventoriesData : [];
   const inventoryStatuses = Array.isArray(inventoryStatusesData) ? inventoryStatusesData : [];
 
-  // Enrich inventories with status names
   const enrichedInventories = useMemo(() => {
     const statusMap = new Map(inventoryStatuses.map(s => [s.inventoryStatusId, s.name]));
 
-    return inventories.map(inventory => ({
+    return inventories.map((inventory, index) => ({
       ...inventory,
       statusName: statusMap.get(inventory.statusId) || 'Не указан',
+      rowNumber: index + 1,
     }));
   }, [inventories, inventoryStatuses]);
 
@@ -214,15 +214,15 @@ export default function InventoryAdjustments() {
 
   const columns = [
     {
-      accessorKey: 'inventoryId',
-      header: 'ID',
+      accessorKey: 'rowNumber',
+      header: '№',
       cell: ({ row }) => (
         <div className="flex items-center gap-3">
           <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-amber-100 dark:bg-amber-500/20">
             <ClipboardList className="w-5 h-5 text-amber-600 dark:text-amber-400" />
           </div>
           <span className="font-medium text-slate-900 dark:text-slate-100">
-            #{row.original.inventoryId}
+            {row.original.rowNumber}
           </span>
         </div>
       ),
@@ -240,6 +240,24 @@ export default function InventoryAdjustments() {
       accessorKey: 'statusName',
       header: 'Статус',
       cell: ({ row }) => <StatusBadge status={row.original.statusName || 'Не указан'} />,
+    },
+    {
+      accessorKey: 'totalReceiptQty',
+      header: 'Поступление',
+      cell: ({ row }) => (
+        <span className="font-medium text-emerald-600 dark:text-emerald-400">
+          {row.original.totalReceiptQty > 0 ? `+${row.original.totalReceiptQty.toLocaleString()}` : '—'}
+        </span>
+      ),
+    },
+    {
+      accessorKey: 'totalWriteOffQty',
+      header: 'Списание',
+      cell: ({ row }) => (
+        <span className="font-medium text-rose-600 dark:text-rose-400">
+          {row.original.totalWriteOffQty > 0 ? `-${row.original.totalWriteOffQty.toLocaleString()}` : '—'}
+        </span>
+      ),
     },
     {
       accessorKey: 'notes',
@@ -397,7 +415,7 @@ export default function InventoryAdjustments() {
           <AlertDialogHeader>
             <AlertDialogTitle>Удалить инвентаризацию</AlertDialogTitle>
             <AlertDialogDescription>
-              Вы уверены, что хотите удалить инвентаризацию #{currentAdjustment?.inventoryId}? Это действие нельзя отменить.
+              Вы уверены, что хотите удалить эту инвентаризацию? Это действие нельзя отменить.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

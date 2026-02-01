@@ -1,12 +1,16 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { api } from '@/api';
+import { api, ApiError } from '@/api';
+import { useI18n } from '@/lib/i18n';
 import { 
   Users, 
   Shield, 
-  MoreHorizontal, 
+  Plus,
+  Edit2,
+  Trash2,
   Mail,
-  Edit2
+  MoreHorizontal,
+  UserPlus
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -20,8 +24,20 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
   Select,
@@ -30,114 +46,222 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import PageHeader from '@/components/ui/PageHeader';
 import DataTable from '@/components/ui/DataTable';
-import StatusBadge from '@/components/ui/StatusBadge';
-import { format } from 'date-fns';
+import { cn } from '@/lib/utils';
+
+const emptyUser = {
+  email: '',
+  password: '',
+  name: '',
+  surname: '',
+  patronymic: '',
+  roleId: '',
+};
 
 export default function UsersRoles() {
+  const { t } = useI18n();
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState('users');
-  const [roleDialogOpen, setRoleDialogOpen] = useState(false);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
-  const [selectedRole, setSelectedRole] = useState('');
+  const [formData, setFormData] = useState(emptyUser);
+  const [error, setError] = useState('');
 
-  const { data: users = [], isLoading } = useQuery({
+  const { data: usersData, isLoading: usersLoading } = useQuery({
     queryKey: ['users'],
-    queryFn: () => api.entities.User.list('-created_date'),
+    queryFn: async () => {
+      const response = await api.users.list({ limit: 1000, offset: 0 });
+      return Array.isArray(response) ? response : [];
+    },
   });
 
-  const updateUserMutation = useMutation({
-    mutationFn: ({ id, data }) => api.entities.User.update(id, data),
+  const { data: rolesData, isLoading: rolesLoading } = useQuery({
+    queryKey: ['roles'],
+    queryFn: async () => {
+      const response = await api.roles.list({ limit: 1000, offset: 0 });
+      return Array.isArray(response) ? response : [];
+    },
+  });
+
+  const users = Array.isArray(usersData) ? usersData : [];
+  const roles = Array.isArray(rolesData) ? rolesData : [];
+
+  const createMutation = useMutation({
+    mutationFn: (data) => api.users.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['users'] });
-      setRoleDialogOpen(false);
-      setCurrentUser(null);
+      setDialogOpen(false);
+      resetForm();
+      setError('');
+    },
+    onError: (err) => {
+      if (err instanceof ApiError) {
+        setError(err.message || t('users.errors.createFailed'));
+      } else {
+        setError(t('users.errors.createFailed'));
+      }
     },
   });
 
-  const handleRoleChange = (user) => {
-    setCurrentUser(user);
-    setSelectedRole(user.role || 'user');
-    setRoleDialogOpen(true);
-  };
-
-  const handleRoleSubmit = (e) => {
-    e.preventDefault();
-    updateUserMutation.mutate({ 
-      id: currentUser.id, 
-      data: { role: selectedRole } 
-    });
-  };
-
-  const roleDescriptions = {
-    admin: {
-      title: 'Administrator',
-      description: 'Full access to all features including user management',
-      permissions: [
-        'Manage all inventory',
-        'Create and manage orders',
-        'Manage users and roles',
-        'Access all reports',
-        'Configure system settings'
-      ]
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }) => api.users.update(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+      setDialogOpen(false);
+      resetForm();
+      setError('');
     },
-    user: {
-      title: 'Standard User',
-      description: 'Access to inventory and order management',
-      permissions: [
-        'View and manage inventory',
-        'Create and manage orders',
-        'View stock reports',
-        'Manage shipments'
-      ]
+    onError: (err) => {
+      if (err instanceof ApiError) {
+        setError(err.message || t('users.errors.updateFailed'));
+      } else {
+        setError(t('users.errors.updateFailed'));
+      }
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id) => api.users.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+      setDeleteDialogOpen(false);
+      setCurrentUser(null);
+    },
+    onError: (err) => {
+      if (err instanceof ApiError) {
+        setError(err.message || t('users.errors.deleteFailed'));
+      } else {
+        setError(t('users.errors.deleteFailed'));
+      }
+    },
+  });
+
+  const resetForm = () => {
+    setFormData(emptyUser);
+    setCurrentUser(null);
+    setError('');
+  };
+
+  const handleOpenDialog = (user = null) => {
+    if (user) {
+      setCurrentUser(user);
+      setFormData({
+        email: user.email || '',
+        password: '',
+        name: user.name || '',
+        surname: user.surname || '',
+        patronymic: user.patronymic || '',
+        roleId: user.roleId || '',
+      });
+    } else {
+      resetForm();
     }
+    setDialogOpen(true);
+  };
+
+  const handleCloseDialog = () => {
+    setDialogOpen(false);
+    resetForm();
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    setError('');
+
+    if (!formData.email || !formData.roleId) {
+      setError(t('users.errors.requiredFields'));
+      return;
+    }
+
+    if (!currentUser && !formData.password) {
+      setError(t('users.errors.passwordRequired'));
+      return;
+    }
+
+    if (formData.password && formData.password.length < 6) {
+      setError(t('users.errors.passwordMinLength'));
+      return;
+    }
+
+    const submitData = {
+      email: formData.email,
+      roleId: formData.roleId,
+      name: formData.name || null,
+      surname: formData.surname || null,
+      patronymic: formData.patronymic || null,
+    };
+
+    if (currentUser) {
+      updateMutation.mutate({ id: currentUser.userId, data: submitData });
+    } else {
+      submitData.password = formData.password;
+      createMutation.mutate(submitData);
+    }
+  };
+
+  const handleDelete = (user) => {
+    setCurrentUser(user);
+    setDeleteDialogOpen(true);
+  };
+
+  const confirmDelete = () => {
+    if (currentUser) {
+      deleteMutation.mutate(currentUser.userId);
+    }
+  };
+
+  const getRoleName = (roleId) => {
+    const role = roles.find(r => r.roleId === roleId);
+    return role ? role.name : roleId;
+  };
+
+  const getFullName = (user) => {
+    const parts = [user.name, user.surname, user.patronymic].filter(Boolean);
+    return parts.length > 0 ? parts.join(' ') : user.email;
   };
 
   const userColumns = [
     {
-      accessorKey: 'full_name',
-      header: 'User',
-      cell: ({ row }) => (
-        <div className="flex items-center gap-3">
-          <Avatar className="w-10 h-10">
-            <AvatarFallback className="text-indigo-700 bg-indigo-100 dark:bg-indigo-500/20 dark:text-indigo-400">
-              {row.original.full_name?.charAt(0) || row.original.email?.charAt(0) || 'U'}
-            </AvatarFallback>
-          </Avatar>
-          <div>
-            <p className="font-medium text-slate-900 dark:text-slate-100">
-              {row.original.full_name || 'Unknown'}
-            </p>
-            <p className="flex items-center gap-1 text-sm text-slate-500 dark:text-slate-400">
-              <Mail className="w-3 h-3" />
-              {row.original.email}
-            </p>
+      accessorKey: 'user',
+      header: t('users.table.user'),
+      cell: ({ row }) => {
+        const user = row.original;
+        const fullName = getFullName(user);
+        return (
+          <div className="flex items-center gap-3">
+            <Avatar className="w-10 h-10">
+              <AvatarFallback className="text-indigo-700 bg-indigo-100 dark:bg-indigo-500/20 dark:text-indigo-400">
+                {fullName.charAt(0).toUpperCase()}
+              </AvatarFallback>
+            </Avatar>
+            <div>
+              <p className="font-medium text-slate-900 dark:text-slate-100">
+                {fullName}
+              </p>
+              <p className="flex items-center gap-1 text-sm text-slate-500 dark:text-slate-400">
+                <Mail className="w-3 h-3" />
+                {user.email}
+              </p>
+            </div>
           </div>
-        </div>
-      ),
+        );
+      },
     },
     {
-      accessorKey: 'role',
-      header: 'Role',
-      cell: ({ row }) => (
-        <div className="flex items-center gap-2">
-          <Shield className={`h-4 w-4 ${row.original.role === 'admin' ? 'text-indigo-500' : 'text-slate-400'}`} />
-          <StatusBadge status={row.original.role === 'admin' ? 'admin' : 'active'} />
-        </div>
-      ),
-    },
-    {
-      accessorKey: 'created_date',
-      header: 'Joined',
-      cell: ({ row }) => (
-        <span className="text-slate-600 dark:text-slate-400">
-          {row.original.created_date ? format(new Date(row.original.created_date), 'MMM d, yyyy') : '—'}
-        </span>
-      ),
+      accessorKey: 'roleId',
+      header: t('users.table.role'),
+      cell: ({ row }) => {
+        const roleName = getRoleName(row.original.roleId);
+        return (
+          <div className="flex items-center gap-2">
+            <Shield className="h-4 w-4 text-slate-400" />
+            <span className="text-slate-700 dark:text-slate-300">{roleName}</span>
+          </div>
+        );
+      },
     },
     {
       id: 'actions',
@@ -151,9 +275,17 @@ export default function UsersRoles() {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => handleRoleChange(row.original)}>
+            <DropdownMenuItem onClick={() => handleOpenDialog(row.original)}>
               <Edit2 className="w-4 h-4 mr-2" />
-              Change Role
+              {t('common.edit')}
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem 
+              onClick={() => handleDelete(row.original)}
+              className="text-red-600 dark:text-red-400"
+            >
+              <Trash2 className="w-4 h-4 mr-2" />
+              {t('common.delete')}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -161,171 +293,202 @@ export default function UsersRoles() {
     },
   ];
 
-  const adminCount = users.filter(u => u.role === 'admin').length;
-  const userCount = users.filter(u => u.role !== 'admin').length;
+  const totalUsers = users.length;
+  const adminCount = users.filter(u => {
+    const role = roles.find(r => r.roleId === u.roleId);
+    return role && role.name.toLowerCase().includes('admin');
+  }).length;
+  const standardCount = totalUsers - adminCount;
 
   return (
     <div className="space-y-6">
       <PageHeader 
-        title="Users & Roles" 
-        description="Manage user access and permissions"
+        title={t('users.title')}
+        description={t('users.description')}
+        action={
+          <Button onClick={() => handleOpenDialog()} className="gap-2">
+            <UserPlus className="w-4 h-4" />
+            {t('users.addUser')}
+          </Button>
+        }
       />
 
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList>
-          <TabsTrigger value="users" className="flex items-center gap-2">
-            <Users className="w-4 h-4" />
-            Users ({users.length})
-          </TabsTrigger>
-          <TabsTrigger value="roles" className="flex items-center gap-2">
-            <Shield className="w-4 h-4" />
-            Roles
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="users" className="space-y-4">
-          {/* Summary Cards */}
-          <div className="grid grid-cols-3 gap-4">
-            <Card className="dark:bg-slate-900 dark:border-slate-800">
-              <CardContent className="pt-6">
-                <div className="flex items-center gap-4">
-                  <div className="flex items-center justify-center w-12 h-12 bg-indigo-100 rounded-xl dark:bg-indigo-500/20">
-                    <Users className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
-                  </div>
-                  <div>
-                    <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">{users.length}</p>
-                    <p className="text-sm text-slate-500">Total Users</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            <Card className="dark:bg-slate-900 dark:border-slate-800">
-              <CardContent className="pt-6">
-                <div className="flex items-center gap-4">
-                  <div className="flex items-center justify-center w-12 h-12 bg-purple-100 rounded-xl dark:bg-purple-500/20">
-                    <Shield className="w-6 h-6 text-purple-600 dark:text-purple-400" />
-                  </div>
-                  <div>
-                    <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">{adminCount}</p>
-                    <p className="text-sm text-slate-500">Administrators</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            <Card className="dark:bg-slate-900 dark:border-slate-800">
-              <CardContent className="pt-6">
-                <div className="flex items-center gap-4">
-                  <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-emerald-100 dark:bg-emerald-500/20">
-                    <Users className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
-                  </div>
-                  <div>
-                    <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">{userCount}</p>
-                    <p className="text-sm text-slate-500">Standard Users</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          <DataTable
-            columns={userColumns}
-            data={users}
-            searchPlaceholder="Search users..."
-            emptyMessage="No users found"
-          />
-        </TabsContent>
-
-        <TabsContent value="roles" className="space-y-4">
-          <div className="grid grid-cols-2 gap-6">
-            {Object.entries(roleDescriptions).map(([role, info]) => (
-              <Card key={role} className="dark:bg-slate-900 dark:border-slate-800">
-                <CardHeader>
-                  <div className="flex items-center gap-3">
-                    <div className={`h-12 w-12 rounded-xl flex items-center justify-center ${
-                      role === 'admin' 
-                        ? 'bg-indigo-100 dark:bg-indigo-500/20' 
-                        : 'bg-emerald-100 dark:bg-emerald-500/20'
-                    }`}>
-                      <Shield className={`h-6 w-6 ${
-                        role === 'admin' 
-                          ? 'text-indigo-600 dark:text-indigo-400' 
-                          : 'text-emerald-600 dark:text-emerald-400'
-                      }`} />
-                    </div>
-                    <div>
-                      <CardTitle className="text-lg">{info.title}</CardTitle>
-                      <CardDescription>{info.description}</CardDescription>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <h4 className="mb-3 text-sm font-medium text-slate-700 dark:text-slate-300">
-                    Permissions
-                  </h4>
-                  <ul className="space-y-2">
-                    {info.permissions.map((permission, index) => (
-                      <li key={index} className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
-                        <div className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                        {permission}
-                      </li>
-                    ))}
-                  </ul>
-                  <div className="pt-4 mt-4 border-t dark:border-slate-800">
-                    <p className="text-sm text-slate-500">
-                      {users.filter(u => u.role === role || (role === 'user' && u.role !== 'admin')).length} users with this role
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </TabsContent>
-      </Tabs>
-
-      {/* Role Change Dialog */}
-      <Dialog open={roleDialogOpen} onOpenChange={setRoleDialogOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Change User Role</DialogTitle>
-          </DialogHeader>
-          <form onSubmit={handleRoleSubmit} className="space-y-4">
-            <div className="flex items-center gap-3 p-4 rounded-lg bg-slate-50 dark:bg-slate-800">
-              <Avatar className="w-12 h-12">
-                <AvatarFallback className="text-indigo-700 bg-indigo-100">
-                  {currentUser?.full_name?.charAt(0) || 'U'}
-                </AvatarFallback>
-              </Avatar>
+      <div className="grid grid-cols-3 gap-4">
+        <Card className="dark:bg-slate-900 dark:border-slate-800">
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-4">
+              <div className="flex items-center justify-center w-12 h-12 bg-indigo-100 rounded-xl dark:bg-indigo-500/20">
+                <Users className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
+              </div>
               <div>
-                <p className="font-medium">{currentUser?.full_name}</p>
-                <p className="text-sm text-slate-500">{currentUser?.email}</p>
+                <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">{totalUsers}</p>
+                <p className="text-sm text-slate-500">{t('users.stats.totalUsers')}</p>
               </div>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="role">Role</Label>
-              <Select
-                value={selectedRole}
-                onValueChange={setSelectedRole}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="admin">Administrator</SelectItem>
-                  <SelectItem value="user">Standard User</SelectItem>
-                </SelectContent>
-              </Select>
+          </CardContent>
+        </Card>
+        <Card className="dark:bg-slate-900 dark:border-slate-800">
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-4">
+              <div className="flex items-center justify-center w-12 h-12 bg-purple-100 rounded-xl dark:bg-purple-500/20">
+                <Shield className="w-6 h-6 text-purple-600 dark:text-purple-400" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">{adminCount}</p>
+                <p className="text-sm text-slate-500">{t('users.stats.administrators')}</p>
+              </div>
             </div>
+          </CardContent>
+        </Card>
+        <Card className="dark:bg-slate-900 dark:border-slate-800">
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-4">
+              <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-emerald-100 dark:bg-emerald-500/20">
+                <Users className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">{standardCount}</p>
+                <p className="text-sm text-slate-500">{t('users.stats.standardUsers')}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <DataTable
+        columns={userColumns}
+        data={users}
+        isLoading={usersLoading}
+        searchPlaceholder={t('users.searchPlaceholder')}
+        emptyMessage={t('users.emptyMessage')}
+      />
+
+      <Dialog open={dialogOpen} onOpenChange={handleCloseDialog}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              {currentUser ? t('users.editUser') : t('users.addUser')}
+            </DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {error && (
+              <div className="p-3 text-sm text-red-600 bg-red-50 rounded-lg dark:bg-red-900/20 dark:text-red-400">
+                {error}
+              </div>
+            )}
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="email">{t('users.form.email')} *</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="roleId">{t('users.form.role')} *</Label>
+                <Select
+                  value={formData.roleId}
+                  onValueChange={(value) => setFormData({ ...formData, roleId: value })}
+                  disabled={rolesLoading}
+                >
+                  <SelectTrigger id="roleId">
+                    <SelectValue placeholder={t('users.form.selectRole')} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {roles.map((role) => (
+                      <SelectItem key={role.roleId} value={role.roleId}>
+                        {role.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {!currentUser && (
+              <div className="space-y-2">
+                <Label htmlFor="password">{t('users.form.password')} *</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  value={formData.password}
+                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                  required
+                  minLength={6}
+                />
+                <p className="text-xs text-slate-500">{t('users.form.passwordHint')}</p>
+              </div>
+            )}
+
+            <div className="grid grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="surname">{t('users.form.surname')}</Label>
+                <Input
+                  id="surname"
+                  value={formData.surname}
+                  onChange={(e) => setFormData({ ...formData, surname: e.target.value })}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="name">{t('users.form.name')}</Label>
+                <Input
+                  id="name"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="patronymic">{t('users.form.patronymic')}</Label>
+                <Input
+                  id="patronymic"
+                  value={formData.patronymic}
+                  onChange={(e) => setFormData({ ...formData, patronymic: e.target.value })}
+                />
+              </div>
+            </div>
+
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setRoleDialogOpen(false)}>
-                Cancel
+              <Button type="button" variant="outline" onClick={handleCloseDialog}>
+                {t('common.cancel')}
               </Button>
-              <Button type="submit" disabled={updateUserMutation.isPending}>
-                Update Role
+              <Button 
+                type="submit" 
+                disabled={createMutation.isPending || updateMutation.isPending}
+              >
+                {currentUser ? t('common.save') : t('common.create')}
               </Button>
             </DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t('users.deleteConfirm.title')}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t('users.deleteConfirm.description', { name: currentUser ? getFullName(currentUser) : '' })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDelete}
+              className="bg-red-600 hover:bg-red-700 text-white"
+              disabled={deleteMutation.isPending}
+            >
+              {t('common.delete')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

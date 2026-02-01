@@ -168,6 +168,31 @@ const translations = {
       warehouseTypes: {
         title: 'Типы складов',
         description: 'Управление типами складских помещений',
+        addType: 'Добавить тип',
+        editType: 'Редактировать тип',
+        searchPlaceholder: 'Поиск типов...',
+        emptyMessage: 'Типы складов не найдены',
+        table: {
+          name: 'Название типа',
+        },
+        form: {
+          name: 'Название типа',
+          namePlaceholder: 'Введите название типа',
+          nameHint: 'Минимум 2 символа, максимум 100 символов',
+        },
+        deleteConfirm: {
+          title: 'Удалить тип',
+          description: 'Вы уверены, что хотите удалить тип "{name}"? Это действие нельзя отменить.',
+        },
+        errors: {
+          nameRequired: 'Название типа обязательно',
+          nameMinLength: 'Название типа должно содержать минимум 2 символа',
+          createFailed: 'Ошибка создания типа',
+          updateFailed: 'Ошибка обновления типа',
+          deleteFailed: 'Ошибка удаления типа',
+          typeInUse: 'Невозможно удалить тип: он используется в {count} складах',
+          typeInUseSingle: 'Невозможно удалить тип: он используется в одном складе',
+        },
       },
       items: 'Элементы',
       moreItems: 'и еще {count}',
@@ -640,6 +665,31 @@ const translations = {
       warehouseTypes: {
         title: 'Warehouse Types',
         description: 'Manage warehouse facility types',
+        addType: 'Add Type',
+        editType: 'Edit Type',
+        searchPlaceholder: 'Search types...',
+        emptyMessage: 'No warehouse types found',
+        table: {
+          name: 'Type Name',
+        },
+        form: {
+          name: 'Type Name',
+          namePlaceholder: 'Enter type name',
+          nameHint: 'Minimum 2 characters, maximum 100 characters',
+        },
+        deleteConfirm: {
+          title: 'Delete Type',
+          description: 'Are you sure you want to delete type "{name}"? This action cannot be undone.',
+        },
+        errors: {
+          nameRequired: 'Type name is required',
+          nameMinLength: 'Type name must be at least 2 characters',
+          createFailed: 'Failed to create type',
+          updateFailed: 'Failed to update type',
+          deleteFailed: 'Failed to delete type',
+          typeInUse: 'Cannot delete type: it is used in {count} warehouses',
+          typeInUseSingle: 'Cannot delete type: it is used in 1 warehouse',
+        },
       },
       items: 'Items',
       moreItems: 'and {count} more',

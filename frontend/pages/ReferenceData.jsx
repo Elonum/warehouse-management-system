@@ -58,6 +58,14 @@ export default function ReferenceData() {
   const [roleName, setRoleName] = useState('');
   const [error, setError] = useState('');
   const [deleteError, setDeleteError] = useState('');
+  
+  // Order Status states
+  const [orderStatusDialogOpen, setOrderStatusDialogOpen] = useState(false);
+  const [deleteOrderStatusDialogOpen, setDeleteOrderStatusDialogOpen] = useState(false);
+  const [currentOrderStatus, setCurrentOrderStatus] = useState(null);
+  const [orderStatusName, setOrderStatusName] = useState('');
+  const [orderStatusError, setOrderStatusError] = useState('');
+  const [orderStatusDeleteError, setOrderStatusDeleteError] = useState('');
 
   const { data: roles = [], isLoading: rolesLoading } = useQuery({
     queryKey: ['roles'],
@@ -220,6 +228,173 @@ export default function ReferenceData() {
     deleteRoleMutation.mutate(currentRole.roleId);
   };
 
+  // Order Status mutations
+  const createOrderStatusMutation = useMutation({
+    mutationFn: (data) => api.orderStatuses.create(data),
+    onSuccess: async () => {
+      queryClient.invalidateQueries({ queryKey: ['orderStatuses'] });
+      setOrderStatusDialogOpen(false);
+      resetOrderStatusForm();
+      setOrderStatusError('');
+    },
+    onError: (err) => {
+      if (err instanceof ApiError) {
+        setOrderStatusError(err.message || t('referenceData.orderStatuses.errors.createFailed'));
+      } else {
+        setOrderStatusError(t('referenceData.orderStatuses.errors.createFailed'));
+      }
+    },
+  });
+
+  const updateOrderStatusMutation = useMutation({
+    mutationFn: ({ id, data }) => api.orderStatuses.update(id, data),
+    onSuccess: async () => {
+      queryClient.invalidateQueries({ queryKey: ['orderStatuses'] });
+      setOrderStatusDialogOpen(false);
+      resetOrderStatusForm();
+      setOrderStatusError('');
+    },
+    onError: (err) => {
+      if (err instanceof ApiError) {
+        setOrderStatusError(err.message || t('referenceData.orderStatuses.errors.updateFailed'));
+      } else {
+        setOrderStatusError(t('referenceData.orderStatuses.errors.updateFailed'));
+      }
+    },
+  });
+
+  const deleteOrderStatusMutation = useMutation({
+    mutationFn: (id) => api.orderStatuses.delete(id),
+    onSuccess: async () => {
+      queryClient.invalidateQueries({ queryKey: ['orderStatuses'] });
+      setDeleteOrderStatusDialogOpen(false);
+      setCurrentOrderStatus(null);
+    },
+    onError: (err) => {
+      if (err instanceof ApiError) {
+        setOrderStatusError(err.message || t('referenceData.orderStatuses.errors.deleteFailed'));
+      } else {
+        setOrderStatusError(t('referenceData.orderStatuses.errors.deleteFailed'));
+      }
+      setDeleteOrderStatusDialogOpen(false);
+    },
+  });
+
+  const resetOrderStatusForm = () => {
+    setOrderStatusName('');
+    setCurrentOrderStatus(null);
+    setOrderStatusError('');
+  };
+
+  const handleOpenOrderStatusDialog = (orderStatus = null) => {
+    if (orderStatus) {
+      setCurrentOrderStatus(orderStatus);
+      setOrderStatusName(orderStatus.name || '');
+    } else {
+      resetOrderStatusForm();
+    }
+    setOrderStatusError('');
+    setOrderStatusDialogOpen(true);
+  };
+
+  const handleCloseOrderStatusDialog = () => {
+    setOrderStatusDialogOpen(false);
+    resetOrderStatusForm();
+  };
+
+  const handleOrderStatusSubmit = (e) => {
+    e.preventDefault();
+    setOrderStatusError('');
+
+    const name = orderStatusName.trim();
+    if (!name) {
+      setOrderStatusError(t('referenceData.orderStatuses.errors.nameRequired'));
+      return;
+    }
+
+    if (name.length < 2) {
+      setOrderStatusError(t('referenceData.orderStatuses.errors.nameMinLength'));
+      return;
+    }
+
+    const data = { name };
+
+    if (currentOrderStatus) {
+      updateOrderStatusMutation.mutate({ id: currentOrderStatus.orderStatusId, data });
+    } else {
+      createOrderStatusMutation.mutate(data);
+    }
+  };
+
+  const handleDeleteOrderStatus = (orderStatus) => {
+    setCurrentOrderStatus(orderStatus);
+    setOrderStatusDeleteError('');
+    setDeleteOrderStatusDialogOpen(true);
+  };
+
+  const confirmDeleteOrderStatus = () => {
+    if (!currentOrderStatus) return;
+
+    // Check if order status is used by any orders
+    const ordersWithStatus = supplierOrders.filter(order => order.statusId === currentOrderStatus.orderStatusId);
+    if (ordersWithStatus.length > 0) {
+      const count = ordersWithStatus.length;
+      const errorMessage = count === 1 
+        ? t('referenceData.orderStatuses.errors.statusInUseSingle')
+        : t('referenceData.orderStatuses.errors.statusInUse', { count });
+      setOrderStatusDeleteError(errorMessage);
+      return;
+    }
+
+    setOrderStatusDeleteError('');
+    deleteOrderStatusMutation.mutate(currentOrderStatus.orderStatusId);
+  };
+
+  const orderStatusColumns = [
+    {
+      accessorKey: 'name',
+      header: t('referenceData.orderStatuses.table.name'),
+      cell: ({ row }) => (
+        <div className="flex items-center gap-3">
+          <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-blue-100 dark:bg-blue-500/20">
+            <Truck className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+          </div>
+          <span className="font-medium text-slate-900 dark:text-slate-100">
+            {row.original.name}
+          </span>
+        </div>
+      ),
+    },
+    {
+      id: 'actions',
+      header: '',
+      sortable: false,
+      cell: ({ row }) => (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" className="w-8 h-8">
+              <MoreHorizontal className="w-4 h-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => handleOpenOrderStatusDialog(row.original)}>
+              <Edit2 className="w-4 h-4 mr-2" />
+              {t('common.edit')}
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem 
+              onClick={() => handleDeleteOrderStatus(row.original)}
+              className="text-red-600 dark:text-red-400"
+            >
+              <Trash2 className="w-4 h-4 mr-2" />
+              {t('common.delete')}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ),
+    },
+  ];
+
   const roleColumns = [
     {
       accessorKey: 'name',
@@ -359,6 +534,14 @@ export default function ReferenceData() {
     },
   });
 
+  const { data: supplierOrders = [] } = useQuery({
+    queryKey: ['supplierOrders'],
+    queryFn: async () => {
+      const response = await api.supplierOrders.list({ limit: 1000, offset: 0 });
+      return Array.isArray(response) ? response : [];
+    },
+  });
+
   if (selectedSection === 'roles') {
     return (
       <div className="space-y-6">
@@ -476,6 +659,131 @@ export default function ReferenceData() {
                 disabled={deleteRoleMutation.isPending}
               >
                 {deleteRoleMutation.isPending ? t('common.deleting') : t('common.delete')}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </div>
+    );
+  }
+
+  if (selectedSection === 'orderStatuses') {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-4 flex-1">
+            <Button
+              variant="ghost"
+              onClick={() => setSelectedSection(null)}
+            >
+              <ChevronRight className="w-4 h-4 mr-2 rotate-180" />
+              {t('common.back')}
+            </Button>
+            <div>
+              <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
+                {t('referenceData.orderStatuses.title')}
+              </h1>
+              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                {t('referenceData.orderStatuses.description')}
+              </p>
+            </div>
+          </div>
+          <Button onClick={() => handleOpenOrderStatusDialog()}>
+            <Plus className="w-4 h-4 mr-2" />
+            {t('referenceData.orderStatuses.addStatus')}
+          </Button>
+        </div>
+
+        <DataTable
+          columns={orderStatusColumns}
+          data={orderStatuses}
+          isLoading={orderStatusesLoading}
+          searchPlaceholder={t('referenceData.orderStatuses.searchPlaceholder')}
+          emptyMessage={t('referenceData.orderStatuses.emptyMessage')}
+        />
+
+        <Dialog open={orderStatusDialogOpen} onOpenChange={handleCloseOrderStatusDialog}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle>
+                {currentOrderStatus ? t('referenceData.orderStatuses.editStatus') : t('referenceData.orderStatuses.addStatus')}
+              </DialogTitle>
+            </DialogHeader>
+            <form onSubmit={handleOrderStatusSubmit} className="space-y-4">
+              {orderStatusError && (
+                <div className="p-3 text-sm text-red-600 bg-red-50 dark:bg-red-900/20 dark:text-red-400 rounded-lg">
+                  {orderStatusError}
+                </div>
+              )}
+              <div className="space-y-2">
+                <Label htmlFor="orderStatusName">
+                  {t('referenceData.orderStatuses.form.name')} *
+                </Label>
+                <Input
+                  id="orderStatusName"
+                  value={orderStatusName}
+                  onChange={(e) => setOrderStatusName(e.target.value)}
+                  placeholder={t('referenceData.orderStatuses.form.namePlaceholder')}
+                  required
+                  minLength={2}
+                  maxLength={100}
+                />
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  {t('referenceData.orderStatuses.form.nameHint')}
+                </p>
+              </div>
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={handleCloseOrderStatusDialog}>
+                  {t('common.cancel')}
+                </Button>
+                <Button 
+                  type="submit" 
+                  disabled={createOrderStatusMutation.isPending || updateOrderStatusMutation.isPending}
+                >
+                  {currentOrderStatus ? t('common.save') : t('common.create')}
+                </Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
+
+        <AlertDialog open={deleteOrderStatusDialogOpen} onOpenChange={(open) => {
+          setDeleteOrderStatusDialogOpen(open);
+          if (!open) {
+            setCurrentOrderStatus(null);
+            setOrderStatusDeleteError('');
+          }
+        }}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>{t('referenceData.orderStatuses.deleteConfirm.title')}</AlertDialogTitle>
+              <AlertDialogDescription>
+                {t('referenceData.orderStatuses.deleteConfirm.description', { name: currentOrderStatus?.name || '' })}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            {orderStatusDeleteError && (
+              <div className="p-3 text-sm text-red-600 bg-red-50 dark:bg-red-900/20 dark:text-red-400 rounded-lg">
+                {orderStatusDeleteError}
+              </div>
+            )}
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => {
+                setDeleteOrderStatusDialogOpen(false);
+                setCurrentOrderStatus(null);
+                setOrderStatusDeleteError('');
+              }}>
+                {t('common.cancel')}
+              </AlertDialogCancel>
+              <AlertDialogAction
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  confirmDeleteOrderStatus();
+                }}
+                className="bg-red-600 hover:bg-red-700 text-white"
+                disabled={deleteOrderStatusMutation.isPending}
+              >
+                {deleteOrderStatusMutation.isPending ? t('common.deleting') : t('common.delete')}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>

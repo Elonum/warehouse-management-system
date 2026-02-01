@@ -81,6 +81,31 @@ const translations = {
       orderStatuses: {
         title: 'Статусы заказов',
         description: 'Настройка статусов заказов поставщикам',
+        addStatus: 'Добавить статус',
+        editStatus: 'Редактировать статус',
+        searchPlaceholder: 'Поиск статусов...',
+        emptyMessage: 'Статусы заказов не найдены',
+        table: {
+          name: 'Название статуса',
+        },
+        form: {
+          name: 'Название статуса',
+          namePlaceholder: 'Введите название статуса',
+          nameHint: 'Минимум 2 символа, максимум 100 символов',
+        },
+        deleteConfirm: {
+          title: 'Удалить статус',
+          description: 'Вы уверены, что хотите удалить статус "{name}"? Это действие нельзя отменить.',
+        },
+        errors: {
+          nameRequired: 'Название статуса обязательно',
+          nameMinLength: 'Название статуса должно содержать минимум 2 символа',
+          createFailed: 'Ошибка создания статуса',
+          updateFailed: 'Ошибка обновления статуса',
+          deleteFailed: 'Ошибка удаления статуса',
+          statusInUse: 'Невозможно удалить статус: он используется в {count} заказах',
+          statusInUseSingle: 'Невозможно удалить статус: он используется в одном заказе',
+        },
       },
       shipmentStatuses: {
         title: 'Статусы отгрузок',
@@ -478,6 +503,31 @@ const translations = {
       orderStatuses: {
         title: 'Order Statuses',
         description: 'Configure supplier order statuses',
+        addStatus: 'Add Status',
+        editStatus: 'Edit Status',
+        searchPlaceholder: 'Search statuses...',
+        emptyMessage: 'No order statuses found',
+        table: {
+          name: 'Status Name',
+        },
+        form: {
+          name: 'Status Name',
+          namePlaceholder: 'Enter status name',
+          nameHint: 'Minimum 2 characters, maximum 100 characters',
+        },
+        deleteConfirm: {
+          title: 'Delete Status',
+          description: 'Are you sure you want to delete status "{name}"? This action cannot be undone.',
+        },
+        errors: {
+          nameRequired: 'Status name is required',
+          nameMinLength: 'Status name must be at least 2 characters',
+          createFailed: 'Failed to create status',
+          updateFailed: 'Failed to update status',
+          deleteFailed: 'Failed to delete status',
+          statusInUse: 'Cannot delete status: it is used in {count} orders',
+          statusInUseSingle: 'Cannot delete status: it is used in 1 order',
+        },
       },
       shipmentStatuses: {
         title: 'Shipment Statuses',

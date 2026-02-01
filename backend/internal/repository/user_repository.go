@@ -172,27 +172,47 @@ func (r *UserRepository) Create(ctx context.Context, email, passwordHash string,
 	return &user, nil
 }
 
-func (r *UserRepository) Update(ctx context.Context, userID uuid.UUID, email string, roleID uuid.UUID, name, surname, patronymic *string) (*User, error) {
-	query := `
-		UPDATE users
-		SET email = $1, role_id = $2, name = $3, surname = $4, patronymic = $5
-		WHERE user_id = $6
-		RETURNING user_id, email, name, surname, patronymic, password_hash, role_id
-	`
+func (r *UserRepository) Update(ctx context.Context, userID uuid.UUID, email string, roleID uuid.UUID, name, surname, patronymic *string, passwordHash *string) (*User, error) {
+	var query string
+	var err error
+	var user User
 
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
-	var user User
-	err := r.pool.QueryRow(ctx, query, email, roleID, name, surname, patronymic, userID).Scan(
-		&user.UserID,
-		&user.Email,
-		&user.Name,
-		&user.Surname,
-		&user.Patronymic,
-		&user.PasswordHash,
-		&user.RoleID,
-	)
+	if passwordHash != nil {
+		query = `
+			UPDATE users
+			SET email = $1, role_id = $2, name = $3, surname = $4, patronymic = $5, password_hash = $6
+			WHERE user_id = $7
+			RETURNING user_id, email, name, surname, patronymic, password_hash, role_id
+		`
+		err = r.pool.QueryRow(ctx, query, email, roleID, name, surname, patronymic, passwordHash, userID).Scan(
+			&user.UserID,
+			&user.Email,
+			&user.Name,
+			&user.Surname,
+			&user.Patronymic,
+			&user.PasswordHash,
+			&user.RoleID,
+		)
+	} else {
+		query = `
+			UPDATE users
+			SET email = $1, role_id = $2, name = $3, surname = $4, patronymic = $5
+			WHERE user_id = $6
+			RETURNING user_id, email, name, surname, patronymic, password_hash, role_id
+		`
+		err = r.pool.QueryRow(ctx, query, email, roleID, name, surname, patronymic, userID).Scan(
+			&user.UserID,
+			&user.Email,
+			&user.Name,
+			&user.Surname,
+			&user.Patronymic,
+			&user.PasswordHash,
+			&user.RoleID,
+		)
+	}
 
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {

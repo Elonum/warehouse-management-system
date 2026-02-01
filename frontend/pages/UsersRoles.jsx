@@ -9,8 +9,7 @@ import {
   Edit2,
   Trash2,
   Mail,
-  MoreHorizontal,
-  UserPlus
+  MoreHorizontal
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -159,6 +158,7 @@ export default function UsersRoles() {
     } else {
       resetForm();
     }
+    setError('');
     setDialogOpen(true);
   };
 
@@ -171,33 +171,45 @@ export default function UsersRoles() {
     e.preventDefault();
     setError('');
 
-    if (!formData.email || !formData.roleId) {
+    const email = formData.email.trim();
+    const roleId = formData.roleId.trim();
+
+    if (!email || !roleId) {
       setError(t('users.errors.requiredFields'));
       return;
     }
 
-    if (!currentUser && !formData.password) {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      setError(t('users.errors.invalidEmail'));
+      return;
+    }
+
+    if (!currentUser && !formData.password.trim()) {
       setError(t('users.errors.passwordRequired'));
       return;
     }
 
-    if (formData.password && formData.password.length < 6) {
+    if (formData.password && formData.password.trim().length < 6) {
       setError(t('users.errors.passwordMinLength'));
       return;
     }
 
     const submitData = {
-      email: formData.email,
+      email: formData.email.trim(),
       roleId: formData.roleId,
-      name: formData.name || null,
-      surname: formData.surname || null,
-      patronymic: formData.patronymic || null,
+      name: formData.name?.trim() || null,
+      surname: formData.surname?.trim() || null,
+      patronymic: formData.patronymic?.trim() || null,
     };
 
     if (currentUser) {
+      if (formData.password && formData.password.trim() !== '') {
+        submitData.password = formData.password.trim();
+      }
       updateMutation.mutate({ id: currentUser.userId, data: submitData });
     } else {
-      submitData.password = formData.password;
+      submitData.password = formData.password.trim();
       createMutation.mutate(submitData);
     }
   };
@@ -214,8 +226,13 @@ export default function UsersRoles() {
   };
 
   const getRoleName = (roleId) => {
+    if (!roleId) return '';
     const role = roles.find(r => r.roleId === roleId);
-    return role ? role.name : roleId;
+    return role ? role.name : '';
+  };
+
+  const getSelectedRoleName = () => {
+    return getRoleName(formData.roleId);
   };
 
   const getFullName = (user) => {
@@ -298,22 +315,20 @@ export default function UsersRoles() {
     const role = roles.find(r => r.roleId === u.roleId);
     return role && role.name.toLowerCase().includes('admin');
   }).length;
-  const standardCount = totalUsers - adminCount;
 
   return (
     <div className="space-y-6">
       <PageHeader 
         title={t('users.title')}
         description={t('users.description')}
-        action={
-          <Button onClick={() => handleOpenDialog()} className="gap-2">
-            <UserPlus className="w-4 h-4" />
-            {t('users.addUser')}
-          </Button>
-        }
-      />
+      >
+        <Button onClick={() => handleOpenDialog()}>
+          <Plus className="w-4 h-4 mr-2" />
+          {t('users.addUser')}
+        </Button>
+      </PageHeader>
 
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 gap-4">
         <Card className="dark:bg-slate-900 dark:border-slate-800">
           <CardContent className="pt-6">
             <div className="flex items-center gap-4">
@@ -336,19 +351,6 @@ export default function UsersRoles() {
               <div>
                 <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">{adminCount}</p>
                 <p className="text-sm text-slate-500">{t('users.stats.administrators')}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="dark:bg-slate-900 dark:border-slate-800">
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-4">
-              <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-emerald-100 dark:bg-emerald-500/20">
-                <Users className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">{standardCount}</p>
-                <p className="text-sm text-slate-500">{t('users.stats.standardUsers')}</p>
               </div>
             </div>
           </CardContent>
@@ -392,12 +394,14 @@ export default function UsersRoles() {
               <div className="space-y-2">
                 <Label htmlFor="roleId">{t('users.form.role')} *</Label>
                 <Select
-                  value={formData.roleId}
+                  value={formData.roleId || ''}
                   onValueChange={(value) => setFormData({ ...formData, roleId: value })}
                   disabled={rolesLoading}
                 >
                   <SelectTrigger id="roleId">
-                    <SelectValue placeholder={t('users.form.selectRole')} />
+                    <SelectValue placeholder={t('users.form.selectRole')}>
+                      {getSelectedRoleName()}
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     {roles.map((role) => (
@@ -410,20 +414,31 @@ export default function UsersRoles() {
               </div>
             </div>
 
-            {!currentUser && (
-              <div className="space-y-2">
-                <Label htmlFor="password">{t('users.form.password')} *</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  value={formData.password}
-                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                  required
-                  minLength={6}
-                />
+            <div className="space-y-2">
+              <Label htmlFor="password">
+                {t('users.form.password')} {!currentUser && '*'}
+                {currentUser && (
+                  <span className="text-xs text-slate-500 ml-2">
+                    ({t('users.form.passwordChangeHint')})
+                  </span>
+                )}
+              </Label>
+              <Input
+                id="password"
+                type="password"
+                value={formData.password}
+                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                required={!currentUser}
+                minLength={6}
+                placeholder={currentUser ? t('users.form.passwordChangeHint') : ''}
+              />
+              {!currentUser && (
                 <p className="text-xs text-slate-500">{t('users.form.passwordHint')}</p>
-              </div>
-            )}
+              )}
+              {currentUser && formData.password && formData.password.trim().length > 0 && formData.password.trim().length < 6 && (
+                <p className="text-xs text-red-500">{t('users.errors.passwordMinLength')}</p>
+              )}
+            </div>
 
             <div className="grid grid-cols-3 gap-4">
               <div className="space-y-2">
@@ -478,13 +493,22 @@ export default function UsersRoles() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
+            <AlertDialogCancel onClick={() => {
+              setDeleteDialogOpen(false);
+              setCurrentUser(null);
+            }}>
+              {t('common.cancel')}
+            </AlertDialogCancel>
             <AlertDialogAction
-              onClick={confirmDelete}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                confirmDelete();
+              }}
               className="bg-red-600 hover:bg-red-700 text-white"
               disabled={deleteMutation.isPending}
             >
-              {t('common.delete')}
+              {deleteMutation.isPending ? t('common.deleting') : t('common.delete')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

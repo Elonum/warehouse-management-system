@@ -176,7 +176,9 @@ export function SettingsDialog({ open, onOpenChange, user, darkMode, onDarkModeC
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
+            <AlertDialogCancel onClick={() => setShowLogoutConfirm(false)}>
+              {t('common.cancel')}
+            </AlertDialogCancel>
             <AlertDialogAction onClick={handleLogoutConfirm} className="bg-red-600 hover:bg-red-700 text-white">
               {t('settings.logout')}
             </AlertDialogAction>

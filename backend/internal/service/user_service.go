@@ -119,7 +119,17 @@ func (s *UserService) Update(ctx context.Context, userID uuid.UUID, req dto.User
 		return nil, err
 	}
 
-	user, err := s.repo.Update(ctx, userID, req.Email, roleID, req.Name, req.Surname, req.Patronymic)
+	var passwordHash *string
+	if req.Password != nil && *req.Password != "" {
+		hash, err := auth.HashPassword(*req.Password)
+		if err != nil {
+			log.Error().Err(err).Msg("Failed to hash password")
+			return nil, err
+		}
+		passwordHash = &hash
+	}
+
+	user, err := s.repo.Update(ctx, userID, req.Email, roleID, req.Name, req.Surname, req.Patronymic, passwordHash)
 	if err != nil {
 		log.Error().Err(err).Str("userId", userID.String()).Msg("Failed to update user")
 		return nil, err

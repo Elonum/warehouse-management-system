@@ -13,40 +13,40 @@ import {
   ClipboardList, 
   DollarSign, 
   Users, 
-  Settings, 
-  Moon,
-  Sun,
-  ChevronDown,
-  LogOut
+  Settings
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { SettingsDialog } from '@/components/SettingsDialog';
+import { useI18n } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
 
-const navItems = [
-  { name: 'Панель управления', icon: LayoutDashboard, page: 'Dashboard' },
-  { name: 'Товары', icon: Package, page: 'Products' },
-  { name: 'Склады', icon: Warehouse, page: 'Warehouses' },
-  { name: 'Остатки', icon: Layers, page: 'Stock' },
-  { name: 'Движения товаров', icon: ArrowLeftRight, page: 'StockMovements' },
-  { name: 'Заказы поставщикам', icon: Truck, page: 'SupplierOrders' },
-  { name: 'Отгрузки', icon: ShoppingCart, page: 'Shipments' },
-  { name: 'Инвентаризация', icon: ClipboardList, page: 'InventoryAdjustments' },
-  { name: 'Себестоимость', icon: DollarSign, page: 'ProductCosts' },
-  { name: 'Пользователи', icon: Users, page: 'UsersRoles' },
-  { name: 'Справочники', icon: Settings, page: 'ReferenceData' },
+const navItemsConfig = [
+  { key: 'dashboard', icon: LayoutDashboard, page: 'Dashboard' },
+  { key: 'products', icon: Package, page: 'Products' },
+  { key: 'warehouses', icon: Warehouse, page: 'Warehouses' },
+  { key: 'stock', icon: Layers, page: 'Stock' },
+  { key: 'stockMovements', icon: ArrowLeftRight, page: 'StockMovements' },
+  { key: 'supplierOrders', icon: Truck, page: 'SupplierOrders' },
+  { key: 'shipments', icon: ShoppingCart, page: 'Shipments' },
+  { key: 'inventoryAdjustments', icon: ClipboardList, page: 'InventoryAdjustments' },
+  { key: 'productCosts', icon: DollarSign, page: 'ProductCosts' },
+  { key: 'usersRoles', icon: Users, page: 'UsersRoles' },
+  { key: 'referenceData', icon: Settings, page: 'ReferenceData' },
 ];
 
 export default function Layout({ children, currentPageName }) {
-  const [darkMode, setDarkMode] = useState(false);
+  const { t } = useI18n();
+  const [darkMode, setDarkMode] = useState(() => {
+    return localStorage.getItem('darkMode') === 'true';
+  });
   const [user, setUser] = useState(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+
+  const navItems = navItemsConfig.map(item => ({
+    ...item,
+    name: t(`nav.${item.key}`),
+  }));
 
   useEffect(() => {
     const loadUser = async () => {
@@ -71,8 +71,10 @@ export default function Layout({ children, currentPageName }) {
   useEffect(() => {
     if (darkMode) {
       document.documentElement.classList.add('dark');
+      localStorage.setItem('darkMode', 'true');
     } else {
       document.documentElement.classList.remove('dark');
+      localStorage.setItem('darkMode', 'false');
     }
   }, [darkMode]);
 
@@ -112,11 +114,11 @@ export default function Layout({ children, currentPageName }) {
                 W
               </div>
               <div>
-                <h1 className="text-xl font-bold tracking-tight">WareFlow</h1>
+                <h1 className="text-xl font-bold tracking-tight">{t('layout.appName')}</h1>
                 <p className={cn(
                   "text-sm",
                   darkMode ? "text-slate-400" : "text-slate-500"
-                )}>Управление складом</p>
+                )}>{t('layout.appDescription')}</p>
               </div>
             </div>
           </div>
@@ -153,48 +155,33 @@ export default function Layout({ children, currentPageName }) {
 
           {/* Пользовательская панель */}
           <div className="p-4 border-t border-slate-200 dark:border-slate-800">
-            <div className="flex items-center justify-between">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="flex items-center justify-start w-full h-10 gap-2 px-3">
-                    <Avatar className="w-8 h-8">
-                      <AvatarFallback className={cn(
-                        "text-sm font-medium",
-                        darkMode ? "bg-slate-800 text-slate-200" : "bg-slate-100 text-slate-700"
-                      )}>
-                        {user?.full_name?.charAt(0) || 'U'}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1 text-left">
-                      <p className="text-sm font-medium truncate">{user?.full_name || 'User'}</p>
-                      <p className={cn(
-                        "text-xs capitalize truncate",
-                        darkMode ? "text-slate-400" : "text-slate-500"
-                      )}>{user?.role || 'user'}</p>
-                    </div>
-                    <ChevronDown className="w-4 h-4 opacity-50" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-48">
-                  <DropdownMenuItem>Настройки профиля</DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={handleLogout} className="text-red-600">
-                    <LogOut className="w-4 h-4 mr-2" />
-                    Выход
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-
+            <div className="flex items-center gap-3">
+              <Avatar className="w-10 h-10">
+                <AvatarFallback className={cn(
+                  "text-sm font-medium",
+                  darkMode ? "bg-slate-800 text-slate-200" : "bg-slate-100 text-slate-700"
+                )}>
+                  {user?.full_name?.charAt(0) || 'U'}
+                </AvatarFallback>
+              </Avatar>
+              <div className="flex-1 text-left min-w-0">
+                <p className="text-sm font-medium truncate">{user?.full_name || 'User'}</p>
+                <p className={cn(
+                  "text-xs capitalize truncate",
+                  darkMode ? "text-slate-400" : "text-slate-500"
+                )}>{user?.role || 'user'}</p>
+              </div>
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => setDarkMode(!darkMode)}
+                onClick={() => setSettingsOpen(true)}
                 className={cn(
-                  "h-10 w-10",
-                  darkMode ? "text-slate-400 hover:text-slate-100" : "text-slate-600 hover:text-slate-900"
+                  "h-10 w-10 flex-shrink-0",
+                  darkMode ? "text-slate-400 hover:text-slate-100 hover:bg-slate-800" : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
                 )}
+                title={t('layout.settings')}
               >
-                {darkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+                <Settings className="w-5 h-5" />
               </Button>
             </div>
           </div>
@@ -209,6 +196,15 @@ export default function Layout({ children, currentPageName }) {
           </div>
         </main>
       </div>
+
+      <SettingsDialog
+        open={settingsOpen}
+        onOpenChange={setSettingsOpen}
+        user={user}
+        darkMode={darkMode}
+        onDarkModeChange={setDarkMode}
+        onLogout={handleLogout}
+      />
     </div>
   );
 }

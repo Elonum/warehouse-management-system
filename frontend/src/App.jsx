@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { Routes, Route, useLocation, Navigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
+import { I18nProvider, useI18n } from '@/lib/i18n'
 import Layout from '../layout.jsx'
 import Login from '../pages/Login'
 import Dashboard from '../pages/Dashboard'
@@ -37,6 +38,7 @@ const pageNameMap = {
 }
 
 function ProtectedRoute({ children }) {
+  const { t } = useI18n();
   const token = localStorage.getItem('auth_token')
   const { data: user, isLoading } = useQuery({
     queryKey: ['auth', 'me'],
@@ -52,7 +54,7 @@ function ProtectedRoute({ children }) {
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="text-slate-600 dark:text-slate-400">Загрузка...</div>
+        <div className="text-slate-600 dark:text-slate-400">{t('common.loading')}</div>
       </div>
     )
   }
@@ -70,34 +72,36 @@ function App() {
   const currentPageName = pageNameMap[location.pathname] || 'Dashboard'
 
   return (
-    <Routes>
-      <Route path="/login" element={<Login />} />
-      <Route
-        path="/*"
-        element={
-          <ProtectedRoute>
-            <Layout currentPageName={currentPageName}>
-              <Routes>
-                <Route path="/" element={<Dashboard />} />
-                <Route path="/products" element={<Products />} />
-                <Route path="/warehouses" element={<Warehouses />} />
-                <Route path="/stock" element={<Stock />} />
-                <Route path="/stock-movements" element={<StockMovements />} />
-                <Route path="/supplier-orders" element={<SupplierOrders />} />
-                <Route path="/supplier-orders/details" element={<SupplierOrderDetails />} />
-                <Route path="/shipments" element={<Shipments />} />
-                <Route path="/shipments/details" element={<ShipmentDetails />} />
-                <Route path="/inventory-adjustments" element={<InventoryAdjustments />} />
-                <Route path="/inventory-adjustments/details" element={<InventoryAdjustmentDetails />} />
-                <Route path="/product-costs" element={<ProductCosts />} />
-                <Route path="/users-roles" element={<UsersRoles />} />
-                <Route path="/reference-data" element={<ReferenceData />} />
-              </Routes>
-            </Layout>
-          </ProtectedRoute>
-        }
-      />
-    </Routes>
+    <I18nProvider>
+      <Routes>
+        <Route path="/login" element={<Login />} />
+        <Route
+          path="/*"
+          element={
+            <ProtectedRoute>
+              <Layout currentPageName={currentPageName}>
+                <Routes>
+                  <Route path="/" element={<Dashboard />} />
+                  <Route path="/products" element={<Products />} />
+                  <Route path="/warehouses" element={<Warehouses />} />
+                  <Route path="/stock" element={<Stock />} />
+                  <Route path="/stock-movements" element={<StockMovements />} />
+                  <Route path="/supplier-orders" element={<SupplierOrders />} />
+                  <Route path="/supplier-orders/details" element={<SupplierOrderDetails />} />
+                  <Route path="/shipments" element={<Shipments />} />
+                  <Route path="/shipments/details" element={<ShipmentDetails />} />
+                  <Route path="/inventory-adjustments" element={<InventoryAdjustments />} />
+                  <Route path="/inventory-adjustments/details" element={<InventoryAdjustmentDetails />} />
+                  <Route path="/product-costs" element={<ProductCosts />} />
+                  <Route path="/users-roles" element={<UsersRoles />} />
+                  <Route path="/reference-data" element={<ReferenceData />} />
+                </Routes>
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
+      </Routes>
+    </I18nProvider>
   )
 }
 

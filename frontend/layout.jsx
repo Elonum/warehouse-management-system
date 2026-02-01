@@ -13,7 +13,8 @@ import {
   ClipboardList, 
   DollarSign, 
   Users, 
-  Settings
+  Settings,
+  BookOpen
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -32,7 +33,7 @@ const navItemsConfig = [
   { key: 'inventoryAdjustments', icon: ClipboardList, page: 'InventoryAdjustments' },
   { key: 'productCosts', icon: DollarSign, page: 'ProductCosts' },
   { key: 'usersRoles', icon: Users, page: 'UsersRoles' },
-  { key: 'referenceData', icon: Settings, page: 'ReferenceData' },
+  { key: 'referenceData', icon: BookOpen, page: 'ReferenceData' },
 ];
 
 export default function Layout({ children, currentPageName }) {

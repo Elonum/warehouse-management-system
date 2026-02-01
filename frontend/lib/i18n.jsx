@@ -46,6 +46,38 @@ const translations = {
       usersRoles: 'Пользователи',
       referenceData: 'Справочники',
     },
+    referenceData: {
+      title: 'Справочники',
+      description: 'Управление справочными данными системы',
+      roles: {
+        title: 'Роли пользователей',
+        description: 'Управление ролями и правами доступа',
+      },
+      orderStatuses: {
+        title: 'Статусы заказов',
+        description: 'Настройка статусов заказов поставщикам',
+      },
+      shipmentStatuses: {
+        title: 'Статусы отгрузок',
+        description: 'Настройка статусов отгрузок на маркетплейсы',
+      },
+      inventoryStatuses: {
+        title: 'Статусы инвентаризаций',
+        description: 'Настройка статусов инвентаризаций',
+      },
+      warehouseTypes: {
+        title: 'Типы складов',
+        description: 'Управление типами складских помещений',
+      },
+      items: 'Элементы',
+      moreItems: 'и еще {count}',
+      empty: 'Нет данных',
+      manage: 'Управление',
+      summary: {
+        title: 'Сводка справочников',
+        description: 'Общее количество элементов в справочниках',
+      },
+    },
     dashboard: {
       title: 'Панель управления',
       description: 'Обзор складских операций',
@@ -385,6 +417,38 @@ const translations = {
       productCosts: 'Product Costs',
       usersRoles: 'Users & Roles',
       referenceData: 'Reference Data',
+    },
+    referenceData: {
+      title: 'Reference Data',
+      description: 'Manage system reference data',
+      roles: {
+        title: 'User Roles',
+        description: 'Manage user roles and access permissions',
+      },
+      orderStatuses: {
+        title: 'Order Statuses',
+        description: 'Configure supplier order statuses',
+      },
+      shipmentStatuses: {
+        title: 'Shipment Statuses',
+        description: 'Configure marketplace shipment statuses',
+      },
+      inventoryStatuses: {
+        title: 'Inventory Statuses',
+        description: 'Configure inventory adjustment statuses',
+      },
+      warehouseTypes: {
+        title: 'Warehouse Types',
+        description: 'Manage warehouse facility types',
+      },
+      items: 'Items',
+      moreItems: 'and {count} more',
+      empty: 'No data',
+      manage: 'Manage',
+      summary: {
+        title: 'Reference Data Summary',
+        description: 'Total number of items across all reference data',
+      },
     },
     dashboard: {
       title: 'Dashboard',

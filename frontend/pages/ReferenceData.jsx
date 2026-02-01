@@ -1,6 +1,6 @@
-import React from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { api } from '@/api';
+import React, { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { api, ApiError } from '@/api';
 import { useI18n } from '@/lib/i18n';
 import { 
   Shield,
@@ -9,15 +9,55 @@ import {
   ClipboardList,
   Warehouse,
   BookOpen,
-  ChevronRight
+  ChevronRight,
+  Plus,
+  Edit2,
+  Trash2,
+  MoreHorizontal
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import PageHeader from '@/components/ui/PageHeader';
+import DataTable from '@/components/ui/DataTable';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 
 export default function ReferenceData() {
   const { t } = useI18n();
+  const queryClient = useQueryClient();
+  const [selectedSection, setSelectedSection] = useState(null);
+  const [roleDialogOpen, setRoleDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [currentRole, setCurrentRole] = useState(null);
+  const [roleName, setRoleName] = useState('');
+  const [error, setError] = useState('');
+  const [deleteError, setDeleteError] = useState('');
 
   const { data: roles = [], isLoading: rolesLoading } = useQuery({
     queryKey: ['roles'],
@@ -59,6 +99,172 @@ export default function ReferenceData() {
     },
   });
 
+  const createRoleMutation = useMutation({
+    mutationFn: (data) => api.roles.create(data),
+    onSuccess: async () => {
+      queryClient.invalidateQueries({ queryKey: ['roles'] });
+      setRoleDialogOpen(false);
+      resetRoleForm();
+      setError('');
+    },
+    onError: (err) => {
+      if (err instanceof ApiError) {
+        setError(err.message || t('referenceData.roles.errors.createFailed'));
+      } else {
+        setError(t('referenceData.roles.errors.createFailed'));
+      }
+    },
+  });
+
+  const updateRoleMutation = useMutation({
+    mutationFn: ({ id, data }) => api.roles.update(id, data),
+    onSuccess: async () => {
+      queryClient.invalidateQueries({ queryKey: ['roles'] });
+      setRoleDialogOpen(false);
+      resetRoleForm();
+      setError('');
+    },
+    onError: (err) => {
+      if (err instanceof ApiError) {
+        setError(err.message || t('referenceData.roles.errors.updateFailed'));
+      } else {
+        setError(t('referenceData.roles.errors.updateFailed'));
+      }
+    },
+  });
+
+  const deleteRoleMutation = useMutation({
+    mutationFn: (id) => api.roles.delete(id),
+    onSuccess: async () => {
+      queryClient.invalidateQueries({ queryKey: ['roles'] });
+      setDeleteDialogOpen(false);
+      setCurrentRole(null);
+    },
+    onError: (err) => {
+      if (err instanceof ApiError) {
+        setError(err.message || t('referenceData.roles.errors.deleteFailed'));
+      } else {
+        setError(t('referenceData.roles.errors.deleteFailed'));
+      }
+      setDeleteDialogOpen(false);
+    },
+  });
+
+  const resetRoleForm = () => {
+    setRoleName('');
+    setCurrentRole(null);
+    setError('');
+  };
+
+  const handleOpenRoleDialog = (role = null) => {
+    if (role) {
+      setCurrentRole(role);
+      setRoleName(role.name || '');
+    } else {
+      resetRoleForm();
+    }
+    setError('');
+    setRoleDialogOpen(true);
+  };
+
+  const handleCloseRoleDialog = () => {
+    setRoleDialogOpen(false);
+    resetRoleForm();
+  };
+
+  const handleRoleSubmit = (e) => {
+    e.preventDefault();
+    setError('');
+
+    const name = roleName.trim();
+    if (!name) {
+      setError(t('referenceData.roles.errors.nameRequired'));
+      return;
+    }
+
+    if (name.length < 2) {
+      setError(t('referenceData.roles.errors.nameMinLength'));
+      return;
+    }
+
+    const data = { name };
+
+    if (currentRole) {
+      updateRoleMutation.mutate({ id: currentRole.roleId, data });
+    } else {
+      createRoleMutation.mutate(data);
+    }
+  };
+
+  const handleDeleteRole = (role) => {
+    setCurrentRole(role);
+    setDeleteError('');
+    setDeleteDialogOpen(true);
+  };
+
+  const confirmDeleteRole = () => {
+    if (!currentRole) return;
+
+    // Check if role is used by any users
+    const usersWithRole = users.filter(user => user.roleId === currentRole.roleId);
+    if (usersWithRole.length > 0) {
+      const count = usersWithRole.length;
+      const errorMessage = count === 1 
+        ? t('referenceData.roles.errors.roleInUseSingle')
+        : t('referenceData.roles.errors.roleInUse', { count });
+      setDeleteError(errorMessage);
+      return;
+    }
+
+    setDeleteError('');
+    deleteRoleMutation.mutate(currentRole.roleId);
+  };
+
+  const roleColumns = [
+    {
+      accessorKey: 'name',
+      header: t('referenceData.roles.table.name'),
+      cell: ({ row }) => (
+        <div className="flex items-center gap-3">
+          <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-indigo-100 dark:bg-indigo-500/20">
+            <Shield className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+          </div>
+          <span className="font-medium text-slate-900 dark:text-slate-100">
+            {row.original.name}
+          </span>
+        </div>
+      ),
+    },
+    {
+      id: 'actions',
+      header: '',
+      sortable: false,
+      cell: ({ row }) => (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" className="w-8 h-8">
+              <MoreHorizontal className="w-4 h-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => handleOpenRoleDialog(row.original)}>
+              <Edit2 className="w-4 h-4 mr-2" />
+              {t('common.edit')}
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem 
+              onClick={() => handleDeleteRole(row.original)}
+              className="text-red-600 dark:text-red-400"
+            >
+              <Trash2 className="w-4 h-4 mr-2" />
+              {t('common.delete')}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ),
+    },
+  ];
+
   const referenceSections = [
     {
       key: 'roles',
@@ -69,6 +275,7 @@ export default function ReferenceData() {
       isLoading: rolesLoading,
       color: 'indigo',
       items: roles,
+      onManage: () => setSelectedSection('roles'),
     },
     {
       key: 'orderStatuses',
@@ -79,6 +286,7 @@ export default function ReferenceData() {
       isLoading: orderStatusesLoading,
       color: 'blue',
       items: orderStatuses,
+      onManage: () => setSelectedSection('orderStatuses'),
     },
     {
       key: 'shipmentStatuses',
@@ -89,6 +297,7 @@ export default function ReferenceData() {
       isLoading: shipmentStatusesLoading,
       color: 'purple',
       items: shipmentStatuses,
+      onManage: () => setSelectedSection('shipmentStatuses'),
     },
     {
       key: 'inventoryStatuses',
@@ -99,6 +308,7 @@ export default function ReferenceData() {
       isLoading: inventoryStatusesLoading,
       color: 'amber',
       items: inventoryStatuses,
+      onManage: () => setSelectedSection('inventoryStatuses'),
     },
     {
       key: 'warehouseTypes',
@@ -109,6 +319,7 @@ export default function ReferenceData() {
       isLoading: warehouseTypesLoading,
       color: 'emerald',
       items: warehouseTypes,
+      onManage: () => setSelectedSection('warehouseTypes'),
     },
   ];
 
@@ -140,6 +351,139 @@ export default function ReferenceData() {
     },
   };
 
+  const { data: users = [] } = useQuery({
+    queryKey: ['users'],
+    queryFn: async () => {
+      const response = await api.users.list({ limit: 1000, offset: 0 });
+      return Array.isArray(response) ? response : [];
+    },
+  });
+
+  if (selectedSection === 'roles') {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-4 flex-1">
+            <Button
+              variant="ghost"
+              onClick={() => setSelectedSection(null)}
+            >
+              <ChevronRight className="w-4 h-4 mr-2 rotate-180" />
+              {t('common.back')}
+            </Button>
+            <div>
+              <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
+                {t('referenceData.roles.title')}
+              </h1>
+              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                {t('referenceData.roles.description')}
+              </p>
+            </div>
+          </div>
+          <Button onClick={() => handleOpenRoleDialog()}>
+            <Plus className="w-4 h-4 mr-2" />
+            {t('referenceData.roles.addRole')}
+          </Button>
+        </div>
+
+        <DataTable
+          columns={roleColumns}
+          data={roles}
+          isLoading={rolesLoading}
+          searchPlaceholder={t('referenceData.roles.searchPlaceholder')}
+          emptyMessage={t('referenceData.roles.emptyMessage')}
+        />
+
+        <Dialog open={roleDialogOpen} onOpenChange={handleCloseRoleDialog}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle>
+                {currentRole ? t('referenceData.roles.editRole') : t('referenceData.roles.addRole')}
+              </DialogTitle>
+            </DialogHeader>
+            <form onSubmit={handleRoleSubmit} className="space-y-4">
+              {error && (
+                <div className="p-3 text-sm text-red-600 bg-red-50 dark:bg-red-900/20 dark:text-red-400 rounded-lg">
+                  {error}
+                </div>
+              )}
+              <div className="space-y-2">
+                <Label htmlFor="roleName">
+                  {t('referenceData.roles.form.name')} *
+                </Label>
+                <Input
+                  id="roleName"
+                  value={roleName}
+                  onChange={(e) => setRoleName(e.target.value)}
+                  placeholder={t('referenceData.roles.form.namePlaceholder')}
+                  required
+                  minLength={2}
+                  maxLength={100}
+                />
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  {t('referenceData.roles.form.nameHint')}
+                </p>
+              </div>
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={handleCloseRoleDialog}>
+                  {t('common.cancel')}
+                </Button>
+                <Button 
+                  type="submit" 
+                  disabled={createRoleMutation.isPending || updateRoleMutation.isPending}
+                >
+                  {currentRole ? t('common.save') : t('common.create')}
+                </Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
+
+        <AlertDialog open={deleteDialogOpen} onOpenChange={(open) => {
+          setDeleteDialogOpen(open);
+          if (!open) {
+            setCurrentRole(null);
+            setDeleteError('');
+          }
+        }}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>{t('referenceData.roles.deleteConfirm.title')}</AlertDialogTitle>
+              <AlertDialogDescription>
+                {t('referenceData.roles.deleteConfirm.description', { name: currentRole?.name || '' })}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            {deleteError && (
+              <div className="p-3 text-sm text-red-600 bg-red-50 dark:bg-red-900/20 dark:text-red-400 rounded-lg">
+                {deleteError}
+              </div>
+            )}
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => {
+                setDeleteDialogOpen(false);
+                setCurrentRole(null);
+                setDeleteError('');
+              }}>
+                {t('common.cancel')}
+              </AlertDialogCancel>
+              <AlertDialogAction
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  confirmDeleteRole();
+                }}
+                className="bg-red-600 hover:bg-red-700 text-white"
+                disabled={deleteRoleMutation.isPending}
+              >
+                {deleteRoleMutation.isPending ? t('common.deleting') : t('common.delete')}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <PageHeader 
@@ -156,10 +500,11 @@ export default function ReferenceData() {
             <Card 
               key={section.key} 
               className={cn(
-                "transition-all duration-200 hover:shadow-lg dark:bg-slate-900 dark:border-slate-800",
+                "transition-all duration-200 hover:shadow-lg dark:bg-slate-900 dark:border-slate-800 cursor-pointer",
                 "border-2 hover:border-opacity-50",
                 colors.border
               )}
+              onClick={section.onManage}
             >
               <CardHeader>
                 <div className="flex items-start justify-between mb-4">
@@ -200,7 +545,6 @@ export default function ReferenceData() {
                     </div>
                     <div className="space-y-1.5 max-h-48 overflow-y-auto">
                       {section.items.slice(0, 5).map((item, index) => {
-                        // Get ID based on section type
                         const itemId = item.roleId || item.orderStatusId || item.shipmentStatusId || 
                                       item.inventoryStatusId || item.warehouseTypeId || item.id || index;
                         return (
@@ -231,7 +575,7 @@ export default function ReferenceData() {
                 )}
                 <div className="mt-4 pt-4 border-t border-slate-200 dark:border-slate-800">
                   <div className={cn(
-                    "flex items-center text-sm font-medium cursor-pointer group",
+                    "flex items-center text-sm font-medium group",
                     colors.text
                   )}>
                     <span>{t('referenceData.manage')}</span>
@@ -247,7 +591,6 @@ export default function ReferenceData() {
         })}
       </div>
 
-      {/* Summary Card */}
       <Card className="dark:bg-slate-900 dark:border-slate-800">
         <CardHeader>
           <div className="flex items-center gap-3">

@@ -52,6 +52,31 @@ const translations = {
       roles: {
         title: 'Роли пользователей',
         description: 'Управление ролями и правами доступа',
+        addRole: 'Добавить роль',
+        editRole: 'Редактировать роль',
+        searchPlaceholder: 'Поиск ролей...',
+        emptyMessage: 'Роли не найдены',
+        table: {
+          name: 'Название роли',
+        },
+        form: {
+          name: 'Название роли',
+          namePlaceholder: 'Введите название роли',
+          nameHint: 'Минимум 2 символа, максимум 100 символов',
+        },
+        deleteConfirm: {
+          title: 'Удалить роль',
+          description: 'Вы уверены, что хотите удалить роль "{name}"? Это действие нельзя отменить.',
+        },
+        errors: {
+          nameRequired: 'Название роли обязательно',
+          nameMinLength: 'Название роли должно содержать минимум 2 символа',
+          createFailed: 'Ошибка создания роли',
+          updateFailed: 'Ошибка обновления роли',
+          deleteFailed: 'Ошибка удаления роли',
+          roleInUse: 'Невозможно удалить роль: она используется {count} пользователями',
+          roleInUseSingle: 'Невозможно удалить роль: она используется одним пользователем',
+        },
       },
       orderStatuses: {
         title: 'Статусы заказов',
@@ -424,6 +449,31 @@ const translations = {
       roles: {
         title: 'User Roles',
         description: 'Manage user roles and access permissions',
+        addRole: 'Add Role',
+        editRole: 'Edit Role',
+        searchPlaceholder: 'Search roles...',
+        emptyMessage: 'No roles found',
+        table: {
+          name: 'Role Name',
+        },
+        form: {
+          name: 'Role Name',
+          namePlaceholder: 'Enter role name',
+          nameHint: 'Minimum 2 characters, maximum 100 characters',
+        },
+        deleteConfirm: {
+          title: 'Delete Role',
+          description: 'Are you sure you want to delete role "{name}"? This action cannot be undone.',
+        },
+        errors: {
+          nameRequired: 'Role name is required',
+          nameMinLength: 'Role name must be at least 2 characters',
+          createFailed: 'Failed to create role',
+          updateFailed: 'Failed to update role',
+          deleteFailed: 'Failed to delete role',
+          roleInUse: 'Cannot delete role: it is used by {count} users',
+          roleInUseSingle: 'Cannot delete role: it is used by 1 user',
+        },
       },
       orderStatuses: {
         title: 'Order Statuses',

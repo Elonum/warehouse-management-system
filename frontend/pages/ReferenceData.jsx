@@ -66,6 +66,14 @@ export default function ReferenceData() {
   const [orderStatusName, setOrderStatusName] = useState('');
   const [orderStatusError, setOrderStatusError] = useState('');
   const [orderStatusDeleteError, setOrderStatusDeleteError] = useState('');
+  
+  // Shipment Status states
+  const [shipmentStatusDialogOpen, setShipmentStatusDialogOpen] = useState(false);
+  const [deleteShipmentStatusDialogOpen, setDeleteShipmentStatusDialogOpen] = useState(false);
+  const [currentShipmentStatus, setCurrentShipmentStatus] = useState(null);
+  const [shipmentStatusName, setShipmentStatusName] = useState('');
+  const [shipmentStatusError, setShipmentStatusError] = useState('');
+  const [shipmentStatusDeleteError, setShipmentStatusDeleteError] = useState('');
 
   const { data: roles = [], isLoading: rolesLoading } = useQuery({
     queryKey: ['roles'],
@@ -350,6 +358,173 @@ export default function ReferenceData() {
     deleteOrderStatusMutation.mutate(currentOrderStatus.orderStatusId);
   };
 
+  // Shipment Status mutations
+  const createShipmentStatusMutation = useMutation({
+    mutationFn: (data) => api.shipmentStatuses.create(data),
+    onSuccess: async () => {
+      queryClient.invalidateQueries({ queryKey: ['shipmentStatuses'] });
+      setShipmentStatusDialogOpen(false);
+      resetShipmentStatusForm();
+      setShipmentStatusError('');
+    },
+    onError: (err) => {
+      if (err instanceof ApiError) {
+        setShipmentStatusError(err.message || t('referenceData.shipmentStatuses.errors.createFailed'));
+      } else {
+        setShipmentStatusError(t('referenceData.shipmentStatuses.errors.createFailed'));
+      }
+    },
+  });
+
+  const updateShipmentStatusMutation = useMutation({
+    mutationFn: ({ id, data }) => api.shipmentStatuses.update(id, data),
+    onSuccess: async () => {
+      queryClient.invalidateQueries({ queryKey: ['shipmentStatuses'] });
+      setShipmentStatusDialogOpen(false);
+      resetShipmentStatusForm();
+      setShipmentStatusError('');
+    },
+    onError: (err) => {
+      if (err instanceof ApiError) {
+        setShipmentStatusError(err.message || t('referenceData.shipmentStatuses.errors.updateFailed'));
+      } else {
+        setShipmentStatusError(t('referenceData.shipmentStatuses.errors.updateFailed'));
+      }
+    },
+  });
+
+  const deleteShipmentStatusMutation = useMutation({
+    mutationFn: (id) => api.shipmentStatuses.delete(id),
+    onSuccess: async () => {
+      queryClient.invalidateQueries({ queryKey: ['shipmentStatuses'] });
+      setDeleteShipmentStatusDialogOpen(false);
+      setCurrentShipmentStatus(null);
+    },
+    onError: (err) => {
+      if (err instanceof ApiError) {
+        setShipmentStatusError(err.message || t('referenceData.shipmentStatuses.errors.deleteFailed'));
+      } else {
+        setShipmentStatusError(t('referenceData.shipmentStatuses.errors.deleteFailed'));
+      }
+      setDeleteShipmentStatusDialogOpen(false);
+    },
+  });
+
+  const resetShipmentStatusForm = () => {
+    setShipmentStatusName('');
+    setCurrentShipmentStatus(null);
+    setShipmentStatusError('');
+  };
+
+  const handleOpenShipmentStatusDialog = (shipmentStatus = null) => {
+    if (shipmentStatus) {
+      setCurrentShipmentStatus(shipmentStatus);
+      setShipmentStatusName(shipmentStatus.name || '');
+    } else {
+      resetShipmentStatusForm();
+    }
+    setShipmentStatusError('');
+    setShipmentStatusDialogOpen(true);
+  };
+
+  const handleCloseShipmentStatusDialog = () => {
+    setShipmentStatusDialogOpen(false);
+    resetShipmentStatusForm();
+  };
+
+  const handleShipmentStatusSubmit = (e) => {
+    e.preventDefault();
+    setShipmentStatusError('');
+
+    const name = shipmentStatusName.trim();
+    if (!name) {
+      setShipmentStatusError(t('referenceData.shipmentStatuses.errors.nameRequired'));
+      return;
+    }
+
+    if (name.length < 2) {
+      setShipmentStatusError(t('referenceData.shipmentStatuses.errors.nameMinLength'));
+      return;
+    }
+
+    const data = { name };
+
+    if (currentShipmentStatus) {
+      updateShipmentStatusMutation.mutate({ id: currentShipmentStatus.shipmentStatusId, data });
+    } else {
+      createShipmentStatusMutation.mutate(data);
+    }
+  };
+
+  const handleDeleteShipmentStatus = (shipmentStatus) => {
+    setCurrentShipmentStatus(shipmentStatus);
+    setShipmentStatusDeleteError('');
+    setDeleteShipmentStatusDialogOpen(true);
+  };
+
+  const confirmDeleteShipmentStatus = () => {
+    if (!currentShipmentStatus) return;
+
+    // Check if shipment status is used by any shipments
+    const shipmentsWithStatus = shipments.filter(shipment => shipment.statusId === currentShipmentStatus.shipmentStatusId);
+    if (shipmentsWithStatus.length > 0) {
+      const count = shipmentsWithStatus.length;
+      const errorMessage = count === 1 
+        ? t('referenceData.shipmentStatuses.errors.statusInUseSingle')
+        : t('referenceData.shipmentStatuses.errors.statusInUse', { count });
+      setShipmentStatusDeleteError(errorMessage);
+      return;
+    }
+
+    setShipmentStatusDeleteError('');
+    deleteShipmentStatusMutation.mutate(currentShipmentStatus.shipmentStatusId);
+  };
+
+  const shipmentStatusColumns = [
+    {
+      accessorKey: 'name',
+      header: t('referenceData.shipmentStatuses.table.name'),
+      cell: ({ row }) => (
+        <div className="flex items-center gap-3">
+          <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-purple-100 dark:bg-purple-500/20">
+            <ShoppingCart className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+          </div>
+          <span className="font-medium text-slate-900 dark:text-slate-100">
+            {row.original.name}
+          </span>
+        </div>
+      ),
+    },
+    {
+      id: 'actions',
+      header: '',
+      sortable: false,
+      cell: ({ row }) => (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" className="w-8 h-8">
+              <MoreHorizontal className="w-4 h-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => handleOpenShipmentStatusDialog(row.original)}>
+              <Edit2 className="w-4 h-4 mr-2" />
+              {t('common.edit')}
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem 
+              onClick={() => handleDeleteShipmentStatus(row.original)}
+              className="text-red-600 dark:text-red-400"
+            >
+              <Trash2 className="w-4 h-4 mr-2" />
+              {t('common.delete')}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ),
+    },
+  ];
+
   const orderStatusColumns = [
     {
       accessorKey: 'name',
@@ -538,6 +713,14 @@ export default function ReferenceData() {
     queryKey: ['supplierOrders'],
     queryFn: async () => {
       const response = await api.supplierOrders.list({ limit: 1000, offset: 0 });
+      return Array.isArray(response) ? response : [];
+    },
+  });
+
+  const { data: shipments = [] } = useQuery({
+    queryKey: ['mpShipments'],
+    queryFn: async () => {
+      const response = await api.mpShipments.list({ limit: 1000, offset: 0 });
       return Array.isArray(response) ? response : [];
     },
   });
@@ -784,6 +967,131 @@ export default function ReferenceData() {
                 disabled={deleteOrderStatusMutation.isPending}
               >
                 {deleteOrderStatusMutation.isPending ? t('common.deleting') : t('common.delete')}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </div>
+    );
+  }
+
+  if (selectedSection === 'shipmentStatuses') {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-4 flex-1">
+            <Button
+              variant="ghost"
+              onClick={() => setSelectedSection(null)}
+            >
+              <ChevronRight className="w-4 h-4 mr-2 rotate-180" />
+              {t('common.back')}
+            </Button>
+            <div>
+              <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
+                {t('referenceData.shipmentStatuses.title')}
+              </h1>
+              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                {t('referenceData.shipmentStatuses.description')}
+              </p>
+            </div>
+          </div>
+          <Button onClick={() => handleOpenShipmentStatusDialog()}>
+            <Plus className="w-4 h-4 mr-2" />
+            {t('referenceData.shipmentStatuses.addStatus')}
+          </Button>
+        </div>
+
+        <DataTable
+          columns={shipmentStatusColumns}
+          data={shipmentStatuses}
+          isLoading={shipmentStatusesLoading}
+          searchPlaceholder={t('referenceData.shipmentStatuses.searchPlaceholder')}
+          emptyMessage={t('referenceData.shipmentStatuses.emptyMessage')}
+        />
+
+        <Dialog open={shipmentStatusDialogOpen} onOpenChange={handleCloseShipmentStatusDialog}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle>
+                {currentShipmentStatus ? t('referenceData.shipmentStatuses.editStatus') : t('referenceData.shipmentStatuses.addStatus')}
+              </DialogTitle>
+            </DialogHeader>
+            <form onSubmit={handleShipmentStatusSubmit} className="space-y-4">
+              {shipmentStatusError && (
+                <div className="p-3 text-sm text-red-600 bg-red-50 dark:bg-red-900/20 dark:text-red-400 rounded-lg">
+                  {shipmentStatusError}
+                </div>
+              )}
+              <div className="space-y-2">
+                <Label htmlFor="shipmentStatusName">
+                  {t('referenceData.shipmentStatuses.form.name')} *
+                </Label>
+                <Input
+                  id="shipmentStatusName"
+                  value={shipmentStatusName}
+                  onChange={(e) => setShipmentStatusName(e.target.value)}
+                  placeholder={t('referenceData.shipmentStatuses.form.namePlaceholder')}
+                  required
+                  minLength={2}
+                  maxLength={100}
+                />
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  {t('referenceData.shipmentStatuses.form.nameHint')}
+                </p>
+              </div>
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={handleCloseShipmentStatusDialog}>
+                  {t('common.cancel')}
+                </Button>
+                <Button 
+                  type="submit" 
+                  disabled={createShipmentStatusMutation.isPending || updateShipmentStatusMutation.isPending}
+                >
+                  {currentShipmentStatus ? t('common.save') : t('common.create')}
+                </Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
+
+        <AlertDialog open={deleteShipmentStatusDialogOpen} onOpenChange={(open) => {
+          setDeleteShipmentStatusDialogOpen(open);
+          if (!open) {
+            setCurrentShipmentStatus(null);
+            setShipmentStatusDeleteError('');
+          }
+        }}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>{t('referenceData.shipmentStatuses.deleteConfirm.title')}</AlertDialogTitle>
+              <AlertDialogDescription>
+                {t('referenceData.shipmentStatuses.deleteConfirm.description', { name: currentShipmentStatus?.name || '' })}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            {shipmentStatusDeleteError && (
+              <div className="p-3 text-sm text-red-600 bg-red-50 dark:bg-red-900/20 dark:text-red-400 rounded-lg">
+                {shipmentStatusDeleteError}
+              </div>
+            )}
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => {
+                setDeleteShipmentStatusDialogOpen(false);
+                setCurrentShipmentStatus(null);
+                setShipmentStatusDeleteError('');
+              }}>
+                {t('common.cancel')}
+              </AlertDialogCancel>
+              <AlertDialogAction
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  confirmDeleteShipmentStatus();
+                }}
+                className="bg-red-600 hover:bg-red-700 text-white"
+                disabled={deleteShipmentStatusMutation.isPending}
+              >
+                {deleteShipmentStatusMutation.isPending ? t('common.deleting') : t('common.delete')}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>

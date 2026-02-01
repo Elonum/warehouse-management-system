@@ -311,9 +311,17 @@ export default function UsersRoles() {
   ];
 
   const totalUsers = users.length;
+  
+  // Подсчет администраторов: проверяем точное совпадение названия роли
+  // Используем нормализованное сравнение (trim + case-insensitive) для надежности
   const adminCount = users.filter(u => {
+    if (!u.roleId) return false;
     const role = roles.find(r => r.roleId === u.roleId);
-    return role && role.name.toLowerCase().includes('admin');
+    if (!role || !role.name) return false;
+    // Нормализуем название роли: убираем пробелы и приводим к нижнему регистру
+    const normalizedRoleName = role.name.trim().toLowerCase();
+    // Проверяем точное совпадение с "администратор"
+    return normalizedRoleName === 'администратор' || normalizedRoleName === 'administrator';
   }).length;
 
   return (
@@ -417,11 +425,6 @@ export default function UsersRoles() {
             <div className="space-y-2">
               <Label htmlFor="password">
                 {t('users.form.password')} {!currentUser && '*'}
-                {currentUser && (
-                  <span className="text-xs text-slate-500 ml-2">
-                    ({t('users.form.passwordChangeHint')})
-                  </span>
-                )}
               </Label>
               <Input
                 id="password"

@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError } from '@/api';
+import { useI18n } from '@/lib/i18n';
 import { 
   Plus, 
   Edit2, 
@@ -59,6 +60,7 @@ const emptyAdjustment = {
 };
 
 export default function InventoryAdjustments() {
+  const { t } = useI18n();
   const queryClient = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -215,7 +217,7 @@ export default function InventoryAdjustments() {
   const columns = [
     {
       accessorKey: 'rowNumber',
-      header: '№',
+      header: t('inventoryAdjustments.table.number'),
       cell: ({ row }) => (
         <div className="flex items-center gap-3">
           <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-amber-100 dark:bg-amber-500/20">
@@ -229,7 +231,7 @@ export default function InventoryAdjustments() {
     },
     {
       accessorKey: 'adjustmentDate',
-      header: 'Дата инвентаризации',
+      header: t('inventoryAdjustments.table.adjustmentDate'),
       cell: ({ row }) => (
         <span className="text-slate-600 dark:text-slate-400">
           {row.original.adjustmentDate ? format(new Date(row.original.adjustmentDate), 'dd.MM.yyyy', { locale: ru }) : '—'}
@@ -238,12 +240,12 @@ export default function InventoryAdjustments() {
     },
     {
       accessorKey: 'statusName',
-      header: 'Статус',
-      cell: ({ row }) => <StatusBadge status={row.original.statusName || 'Не указан'} />,
+      header: t('inventoryAdjustments.table.status'),
+      cell: ({ row }) => <StatusBadge status={row.original.statusName || t('common.notSpecified')} />,
     },
     {
       accessorKey: 'totalReceiptQty',
-      header: 'Поступление',
+      header: t('inventoryAdjustments.table.receipt'),
       cell: ({ row }) => (
         <span className="font-medium text-emerald-600 dark:text-emerald-400">
           {row.original.totalReceiptQty > 0 ? `+${row.original.totalReceiptQty.toLocaleString()}` : '—'}
@@ -252,7 +254,7 @@ export default function InventoryAdjustments() {
     },
     {
       accessorKey: 'totalWriteOffQty',
-      header: 'Списание',
+      header: t('inventoryAdjustments.table.writeOff'),
       cell: ({ row }) => (
         <span className="font-medium text-rose-600 dark:text-rose-400">
           {row.original.totalWriteOffQty > 0 ? `-${row.original.totalWriteOffQty.toLocaleString()}` : '—'}
@@ -261,7 +263,7 @@ export default function InventoryAdjustments() {
     },
     {
       accessorKey: 'notes',
-      header: 'Примечания',
+      header: t('inventoryAdjustments.table.notes'),
       cell: ({ row }) => (
         <span className="text-slate-600 dark:text-slate-400 truncate max-w-xs">
           {row.original.notes || '—'}
@@ -270,7 +272,7 @@ export default function InventoryAdjustments() {
     },
     {
       accessorKey: 'createdAt',
-      header: 'Создано',
+      header: t('inventoryAdjustments.table.createdAt'),
       cell: ({ row }) => (
         <span className="text-slate-600 dark:text-slate-400">
           {format(new Date(row.original.createdAt), 'dd.MM.yyyy HH:mm', { locale: ru })}
@@ -292,12 +294,12 @@ export default function InventoryAdjustments() {
             <DropdownMenuItem asChild>
               <Link to={`${createPageUrl('InventoryAdjustmentDetails')}?id=${row.original.inventoryId}`}>
                 <Eye className="w-4 h-4 mr-2" />
-                Детали
+                {t('common.details')}
               </Link>
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => handleEdit(row.original)}>
               <Edit2 className="w-4 h-4 mr-2" />
-              Редактировать
+              {t('common.edit')}
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem 
@@ -305,7 +307,7 @@ export default function InventoryAdjustments() {
               className="text-red-600"
             >
               <Trash2 className="w-4 h-4 mr-2" />
-              Удалить
+              {t('common.delete')}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -316,12 +318,12 @@ export default function InventoryAdjustments() {
   return (
     <div className="space-y-6">
       <PageHeader 
-        title="Инвентаризации" 
-        description="Управление инвентаризациями и корректировками остатков"
+        title={t('inventoryAdjustments.title')} 
+        description={t('inventoryAdjustments.description')}
       >
         <Button onClick={() => { resetForm(); setDialogOpen(true); }}>
           <Plus className="w-4 h-4 mr-2" />
-          Новая инвентаризация
+          {t('inventoryAdjustments.addAdjustment')}
         </Button>
       </PageHeader>
 
@@ -329,8 +331,8 @@ export default function InventoryAdjustments() {
         columns={columns}
         data={enrichedInventories}
         isLoading={isLoading}
-        searchPlaceholder="Поиск инвентаризаций..."
-        emptyMessage="Инвентаризации не найдены"
+        searchPlaceholder={t('inventoryAdjustments.searchPlaceholder')}
+        emptyMessage={t('inventoryAdjustments.emptyMessage')}
       />
 
       {/* Create/Edit Dialog */}
@@ -346,7 +348,7 @@ export default function InventoryAdjustments() {
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>
-              {currentAdjustment ? 'Редактировать инвентаризацию' : 'Новая инвентаризация'}
+              {currentAdjustment ? t('inventoryAdjustments.editAdjustment') : t('inventoryAdjustments.addAdjustment')}
             </DialogTitle>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -357,7 +359,7 @@ export default function InventoryAdjustments() {
             )}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="adjustmentDate">Дата инвентаризации</Label>
+                <Label htmlFor="adjustmentDate">{t('inventoryAdjustments.form.adjustmentDate')}</Label>
                 <Input
                   id="adjustmentDate"
                   type="date"
@@ -366,13 +368,13 @@ export default function InventoryAdjustments() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="statusId">Статус *</Label>
+                <Label htmlFor="statusId">{t('inventoryAdjustments.form.status')} *</Label>
                 <Select
                   value={formData.statusId?.toString() || ''}
                   onValueChange={(value) => setFormData({ ...formData, statusId: value || null })}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Выберите статус">{getSelectedStatusName()}</SelectValue>
+                    <SelectValue placeholder={t('inventoryAdjustments.form.status')}>{getSelectedStatusName()}</SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     {inventoryStatuses.map(status => (
@@ -385,13 +387,13 @@ export default function InventoryAdjustments() {
               </div>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="notes">Примечания</Label>
+              <Label htmlFor="notes">{t('inventoryAdjustments.form.notes')}</Label>
               <Textarea
                 id="notes"
                 value={formData.notes || ''}
                 onChange={(e) => setFormData({ ...formData, notes: e.target.value || null })}
                 rows={3}
-                placeholder="Введите примечания к инвентаризации"
+                placeholder={t('inventoryAdjustments.form.notes')}
               />
             </div>
             <DialogFooter>
@@ -399,10 +401,10 @@ export default function InventoryAdjustments() {
                 setDialogOpen(false);
                 resetForm();
               }}>
-                Отмена
+                {t('common.cancel')}
               </Button>
               <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending}>
-                {currentAdjustment ? (updateMutation.isPending ? 'Сохранение...' : 'Сохранить') : (createMutation.isPending ? 'Создание...' : 'Создать')}
+                {currentAdjustment ? (updateMutation.isPending ? t('common.loading') : t('common.save')) : (createMutation.isPending ? t('common.loading') : t('common.create'))}
               </Button>
             </DialogFooter>
           </form>
@@ -413,9 +415,9 @@ export default function InventoryAdjustments() {
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Удалить инвентаризацию</AlertDialogTitle>
+            <AlertDialogTitle>{t('inventoryAdjustments.deleteConfirm.title')}</AlertDialogTitle>
             <AlertDialogDescription>
-              Вы уверены, что хотите удалить эту инвентаризацию? Это действие нельзя отменить.
+              {t('inventoryAdjustments.deleteConfirm.description')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -423,7 +425,7 @@ export default function InventoryAdjustments() {
               setDeleteDialogOpen(false);
               setCurrentAdjustment(null);
             }}>
-              Отмена
+              {t('common.cancel')}
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={(e) => {
@@ -436,7 +438,7 @@ export default function InventoryAdjustments() {
               className="bg-red-600 hover:bg-red-700"
               disabled={deleteMutation.isPending}
             >
-              {deleteMutation.isPending ? 'Удаление...' : 'Удалить'}
+              {deleteMutation.isPending ? t('common.deleting') : t('common.delete')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

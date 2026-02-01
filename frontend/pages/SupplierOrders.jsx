@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError } from '@/api';
+import { useI18n } from '@/lib/i18n';
 import { 
   Plus, 
   Edit2, 
@@ -71,6 +72,7 @@ const emptyOrder = {
 };
 
 export default function SupplierOrders() {
+  const { t } = useI18n();
   const queryClient = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -255,7 +257,7 @@ export default function SupplierOrders() {
 
     const orderNumber = formData.orderNumber.trim();
     if (!orderNumber) {
-      setError('Номер заказа обязателен');
+      setError(t('supplierOrders.form.orderNumberRequired'));
       return;
     }
 
@@ -393,17 +395,17 @@ export default function SupplierOrders() {
                 <DropdownMenuItem asChild>
                   <Link to={`${createPageUrl('SupplierOrderDetails')}?id=${order.orderId}`}>
                     <Eye className="w-4 h-4 mr-2" />
-                    Детали
+                    {t('common.details')}
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => handleEdit(order)}>
                   <Edit2 className="w-4 h-4 mr-2" />
-                  Редактировать
+                  {t('common.edit')}
                 </DropdownMenuItem>
                 {!isChild && (
                   <DropdownMenuItem onClick={() => handleCreateSubOrder(order)}>
                     <Copy className="w-4 h-4 mr-2" />
-                    Создать подзаказ
+                    {t('supplierOrders.createSubOrder')}
                   </DropdownMenuItem>
                 )}
                 <DropdownMenuSeparator />
@@ -412,7 +414,7 @@ export default function SupplierOrders() {
                   className="text-red-600"
                 >
                   <Trash2 className="w-4 h-4 mr-2" />
-                  Удалить
+                  {t('common.delete')}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -428,19 +430,19 @@ export default function SupplierOrders() {
   return (
     <div className="space-y-6">
       <PageHeader 
-        title="Заказы поставщикам" 
-        description="Управление заказами поставщикам"
+        title={t('supplierOrders.title')} 
+        description={t('supplierOrders.description')}
       >
         <Button onClick={() => { resetForm(); setDialogOpen(true); }}>
           <Plus className="w-4 h-4 mr-2" />
-          Новый заказ
+          {t('supplierOrders.addOrder')}
         </Button>
       </PageHeader>
 
       <div className="overflow-hidden bg-white border rounded-lg dark:bg-slate-900 dark:border-slate-800">
         {isLoading ? (
           <div className="px-4 py-12 text-center text-slate-500">
-            Загрузка...
+            {t('common.loading')}
           </div>
         ) : (
           <table className="w-full">
@@ -462,7 +464,7 @@ export default function SupplierOrders() {
               {parentOrders.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="px-4 py-12 text-center text-slate-500">
-                    Заказы не найдены
+                    {t('supplierOrders.emptyMessage')}
                   </td>
                 </tr>
               ) : (
@@ -488,7 +490,7 @@ export default function SupplierOrders() {
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
-              {currentOrder ? 'Редактировать заказ' : 'Новый заказ поставщику'}
+              {currentOrder ? t('supplierOrders.editOrder') : t('supplierOrders.addOrder')}
             </DialogTitle>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -499,7 +501,7 @@ export default function SupplierOrders() {
             )}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="orderNumber">Номер заказа *</Label>
+                <Label htmlFor="orderNumber">{t('supplierOrders.form.orderNumber')} *</Label>
                 <Input
                   id="orderNumber"
                   value={formData.orderNumber}
@@ -508,7 +510,7 @@ export default function SupplierOrders() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="statusId">Статус</Label>
+                <Label htmlFor="statusId">{t('supplierOrders.form.status')}</Label>
                 <Select
                   value={formData.statusId ? formData.statusId.toString() : ''}
                   onValueChange={(value) => {
@@ -519,12 +521,12 @@ export default function SupplierOrders() {
                   }}
                 >
                   <SelectTrigger id="statusId">
-                    <SelectValue placeholder="Выберите статус">
+                    <SelectValue placeholder={t('supplierOrders.form.status')}>
                       {formData.statusId ? getOrderStatusName(formData.statusId) : ''}
                     </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Не указан</SelectItem>
+                    <SelectItem value="">{t('common.notSpecified')}</SelectItem>
                     {orderStatuses.map((status) => (
                       <SelectItem key={status.orderStatusId} value={status.orderStatusId.toString()}>
                         {status.name}
@@ -701,13 +703,13 @@ export default function SupplierOrders() {
                   resetForm();
                 }}
               >
-                Отмена
+                {t('common.cancel')}
               </Button>
               <Button 
                 type="submit" 
                 disabled={createMutation.isPending || updateMutation.isPending}
               >
-                {currentOrder ? 'Обновить' : 'Создать'}
+                {currentOrder ? t('common.update') : t('common.create')}
               </Button>
             </DialogFooter>
           </form>
@@ -718,14 +720,14 @@ export default function SupplierOrders() {
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Удалить заказ</AlertDialogTitle>
+            <AlertDialogTitle>{t('supplierOrders.deleteConfirm.title')}</AlertDialogTitle>
             <AlertDialogDescription>
-              Вы уверены, что хотите удалить заказ "{currentOrder?.orderNumber}"? Это действие невозможно отменить.
+              {t('supplierOrders.deleteConfirm.description', { orderNumber: currentOrder?.orderNumber || '' })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel onClick={() => setDeleteDialogOpen(false)}>
-              Отмена
+              {t('common.cancel')}
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={(e) => {
@@ -736,7 +738,7 @@ export default function SupplierOrders() {
               className="bg-red-600 hover:bg-red-700"
               disabled={deleteMutation.isPending}
             >
-              {deleteMutation.isPending ? 'Удаление...' : 'Удалить'}
+              {deleteMutation.isPending ? t('common.deleting') : t('common.delete')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

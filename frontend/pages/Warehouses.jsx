@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError } from '@/api';
+import { useI18n } from '@/lib/i18n';
 import { Plus, Edit2, Trash2, Warehouse, Store, MoreHorizontal } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -50,6 +51,7 @@ const emptyStore = {
 };
 
 export default function Warehouses() {
+  const { t } = useI18n();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState('warehouses');
   const [warehouseDialogOpen, setWarehouseDialogOpen] = useState(false);
@@ -259,7 +261,7 @@ export default function Warehouses() {
     
     const name = warehouseForm.name.trim();
     if (!name) {
-      setError('Название склада обязательно');
+      setError(t('warehouses.form.nameRequired'));
       return;
     }
 
@@ -285,7 +287,7 @@ export default function Warehouses() {
     };
 
     if (!data.name) {
-      setError('Название магазина обязательно');
+      setError(t('warehouses.form.storeNameRequired'));
       return;
     }
 
@@ -311,7 +313,7 @@ export default function Warehouses() {
   const warehouseColumns = [
     {
       accessorKey: 'name',
-      header: 'Название склада',
+      header: t('warehouses.table.name'),
       cell: ({ row }) => (
         <div className="flex items-center gap-3">
           <div className="flex items-center justify-center w-10 h-10 bg-indigo-100 rounded-lg dark:bg-indigo-500/20">
@@ -325,7 +327,7 @@ export default function Warehouses() {
     },
     {
       accessorKey: 'warehouseTypeId',
-      header: 'Тип',
+      header: t('warehouses.table.type'),
       cell: ({ row }) => (
         <span className="text-slate-600 dark:text-slate-400">
           {getWarehouseTypeName(row.original.warehouseTypeId)}
@@ -334,7 +336,7 @@ export default function Warehouses() {
     },
     {
       accessorKey: 'location',
-      header: 'Адрес',
+      header: t('warehouses.table.location'),
       cell: ({ row }) => (
         <span className="text-slate-600 dark:text-slate-400">
           {row.original.location || '—'}
@@ -355,14 +357,14 @@ export default function Warehouses() {
           <DropdownMenuContent align="end">
             <DropdownMenuItem onClick={() => handleEditWarehouse(row.original)}>
               <Edit2 className="w-4 h-4 mr-2" />
-              Редактировать
+              {t('common.edit')}
             </DropdownMenuItem>
             <DropdownMenuItem 
               onClick={() => handleDelete(row.original, 'warehouse')}
               className="text-red-600"
             >
               <Trash2 className="w-4 h-4 mr-2" />
-              Удалить
+              {t('common.delete')}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -373,7 +375,7 @@ export default function Warehouses() {
   const storeColumns = [
     {
       accessorKey: 'name',
-      header: 'Название магазина',
+      header: t('warehouses.table.name'),
       cell: ({ row }) => (
         <div className="flex items-center gap-3">
           <div className="flex items-center justify-center w-10 h-10 bg-purple-100 rounded-lg dark:bg-purple-500/20">
@@ -399,14 +401,14 @@ export default function Warehouses() {
           <DropdownMenuContent align="end">
             <DropdownMenuItem onClick={() => handleEditStore(row.original)}>
               <Edit2 className="w-4 h-4 mr-2" />
-              Редактировать
+              {t('common.edit')}
             </DropdownMenuItem>
             <DropdownMenuItem 
               onClick={() => handleDelete(row.original, 'store')}
               className="text-red-600"
             >
               <Trash2 className="w-4 h-4 mr-2" />
-              Удалить
+              {t('common.delete')}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -417,8 +419,8 @@ export default function Warehouses() {
   return (
     <div className="space-y-6">
       <PageHeader 
-        title="Склады и магазины" 
-        description="Управление складами и торговыми площадками"
+        title={t('warehouses.title')} 
+        description={t('warehouses.description')}
       />
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
@@ -426,23 +428,23 @@ export default function Warehouses() {
           <TabsList>
             <TabsTrigger value="warehouses" className="flex items-center gap-2">
               <Warehouse className="w-4 h-4" />
-              Склады
+              {t('warehouses.tabs.warehouses')}
             </TabsTrigger>
             <TabsTrigger value="stores" className="flex items-center gap-2">
               <Store className="w-4 h-4" />
-              Магазины
+              {t('warehouses.tabs.stores')}
             </TabsTrigger>
           </TabsList>
           
           {activeTab === 'warehouses' ? (
             <Button onClick={() => { setCurrentItem(null); setWarehouseForm(emptyWarehouse); setWarehouseDialogOpen(true); setError(''); }}>
               <Plus className="w-4 h-4 mr-2" />
-              Добавить склад
+              {t('warehouses.addWarehouse')}
             </Button>
           ) : (
             <Button onClick={() => { setCurrentItem(null); setStoreForm(emptyStore); setStoreDialogOpen(true); setError(''); }}>
               <Plus className="w-4 h-4 mr-2" />
-              Добавить магазин
+              {t('warehouses.addStore')}
             </Button>
           )}
         </div>
@@ -451,8 +453,8 @@ export default function Warehouses() {
           <DataTable
             columns={warehouseColumns}
             data={warehouses}
-            searchPlaceholder="Поиск складов..."
-            emptyMessage="Склады не найдены"
+            searchPlaceholder={t('warehouses.searchPlaceholder')}
+            emptyMessage={t('warehouses.emptyMessage')}
             isLoading={loadingWarehouses}
           />
         </TabsContent>
@@ -483,7 +485,7 @@ export default function Warehouses() {
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>
-              {currentItem ? 'Редактировать склад' : 'Добавить склад'}
+              {currentItem ? t('warehouses.editWarehouse') : t('warehouses.addWarehouse')}
             </DialogTitle>
           </DialogHeader>
           <form onSubmit={handleWarehouseSubmit} className="space-y-4">
@@ -493,7 +495,7 @@ export default function Warehouses() {
               </div>
             )}
             <div className="space-y-2">
-              <Label htmlFor="wh-name">Название склада *</Label>
+              <Label htmlFor="wh-name">{t('warehouses.form.name')} *</Label>
               <Input
                 id="wh-name"
                 value={warehouseForm.name}
@@ -502,7 +504,7 @@ export default function Warehouses() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="wh-type">Тип склада</Label>
+              <Label htmlFor="wh-type">{t('warehouses.form.type')}</Label>
               <Select
                 value={warehouseForm.warehouseTypeId ? warehouseForm.warehouseTypeId.toString() : ''}
                 onValueChange={(value) => {
@@ -513,12 +515,12 @@ export default function Warehouses() {
                 }}
               >
                 <SelectTrigger id="wh-type">
-                  <SelectValue placeholder="Выберите тип">
+                  <SelectValue placeholder={t('warehouses.form.type')}>
                     {getSelectedWarehouseTypeName()}
                   </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Не указан</SelectItem>
+                    <SelectItem value="">{t('common.notSpecified')}</SelectItem>
                   {warehouseTypes.map((type) => (
                     <SelectItem key={type.warehouseTypeId} value={type.warehouseTypeId.toString()}>
                       {type.name}
@@ -528,7 +530,7 @@ export default function Warehouses() {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="wh-location">Адрес</Label>
+              <Label htmlFor="wh-location">{t('warehouses.form.location')}</Label>
               <Input
                 id="wh-location"
                 value={warehouseForm.location || ''}
@@ -546,13 +548,13 @@ export default function Warehouses() {
                   setError('');
                 }}
               >
-                Отмена
+                {t('common.cancel')}
               </Button>
               <Button 
                 type="submit" 
                 disabled={createWarehouseMutation.isPending || updateWarehouseMutation.isPending}
               >
-                {currentItem ? 'Обновить' : 'Создать'}
+                {currentItem ? t('common.update') : t('common.create')}
               </Button>
             </DialogFooter>
           </form>
@@ -574,7 +576,7 @@ export default function Warehouses() {
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>
-              {currentItem ? 'Редактировать магазин' : 'Добавить магазин'}
+              {currentItem ? t('warehouses.editStore') : t('warehouses.addStore')}
             </DialogTitle>
           </DialogHeader>
           <form onSubmit={handleStoreSubmit} className="space-y-4">
@@ -603,13 +605,13 @@ export default function Warehouses() {
                   setError('');
                 }}
               >
-                Отмена
+                {t('common.cancel')}
               </Button>
               <Button 
                 type="submit" 
                 disabled={createStoreMutation.isPending || updateStoreMutation.isPending}
               >
-                {currentItem ? 'Обновить' : 'Создать'}
+                {currentItem ? t('common.update') : t('common.create')}
               </Button>
             </DialogFooter>
           </form>
@@ -621,15 +623,17 @@ export default function Warehouses() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              Удалить {deleteType === 'warehouse' ? 'склад' : 'магазин'}
+              {t('warehouses.deleteConfirm.title')} {deleteType === 'warehouse' ? t('warehouses.tabs.warehouses') : t('warehouses.tabs.stores')}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              Вы уверены, что хотите удалить "{currentItem?.name}"? Это действие невозможно отменить.
+              {deleteType === 'warehouse' 
+                ? t('warehouses.deleteConfirm.warehouseDescription', { name: currentItem?.name || '' })
+                : t('warehouses.deleteConfirm.storeDescription', { name: currentItem?.name || '' })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel onClick={() => setDeleteDialogOpen(false)}>
-              Отмена
+              {t('common.cancel')}
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={(e) => {
@@ -644,7 +648,7 @@ export default function Warehouses() {
               className="bg-red-600 hover:bg-red-700"
               disabled={deleteWarehouseMutation.isPending || deleteStoreMutation.isPending}
             >
-              {deleteWarehouseMutation.isPending || deleteStoreMutation.isPending ? 'Удаление...' : 'Удалить'}
+              {deleteWarehouseMutation.isPending || deleteStoreMutation.isPending ? t('common.deleting') : t('common.delete')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

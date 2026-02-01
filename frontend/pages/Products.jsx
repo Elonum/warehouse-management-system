@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError } from '@/api';
+import { useI18n } from '@/lib/i18n';
 import { Plus, Edit2, Trash2, Package, Eye, History, MoreHorizontal } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -42,6 +43,7 @@ const emptyProduct = {
 };
 
 export default function Products() {
+  const { t } = useI18n();
   const queryClient = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -69,9 +71,9 @@ export default function Products() {
     },
     onError: (err) => {
       if (err instanceof ApiError) {
-        setError(err.message || 'Ошибка создания товара');
+        setError(err.message || t('products.errors.createFailed'));
       } else {
-        setError('Ошибка создания товара');
+        setError(t('products.errors.createFailed'));
       }
     },
   });
@@ -86,9 +88,9 @@ export default function Products() {
     },
     onError: (err) => {
       if (err instanceof ApiError) {
-        setError(err.message || 'Ошибка обновления товара');
+        setError(err.message || t('products.errors.updateFailed'));
       } else {
-        setError('Ошибка обновления товара');
+        setError(t('products.errors.updateFailed'));
       }
     },
   });
@@ -118,9 +120,9 @@ export default function Products() {
         queryClient.setQueryData(['products'], context.previousData);
       }
       if (err instanceof ApiError) {
-        setError(err.message || 'Ошибка удаления товара');
+        setError(err.message || t('products.errors.deleteFailed'));
       } else {
-        setError('Ошибка удаления товара');
+        setError(t('products.errors.deleteFailed'));
       }
       setDeleteDialogOpen(false);
     },
@@ -160,12 +162,12 @@ export default function Products() {
     };
 
     if (!data.article) {
-      setError('Артикул обязателен для заполнения');
+      setError(t('products.form.articleRequired'));
       return;
     }
 
     if (!data.barcode) {
-      setError('Баркод обязателен для заполнения');
+      setError(t('products.form.barcodeRequired'));
       return;
     }
 
@@ -179,7 +181,7 @@ export default function Products() {
   const columns = [
     {
       accessorKey: 'article',
-      header: 'Артикул',
+      header: t('products.table.article'),
       cell: ({ row }) => (
         <span className="font-mono text-sm font-medium text-slate-900 dark:text-slate-100">
           {row.original.article}
@@ -188,7 +190,7 @@ export default function Products() {
     },
     {
       accessorKey: 'barcode',
-      header: 'Баркод',
+      header: t('products.table.barcode'),
       cell: ({ row }) => (
         <div className="flex items-center gap-3">
           <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-slate-100 dark:bg-slate-800">
@@ -202,7 +204,7 @@ export default function Products() {
     },
     {
       accessorKey: 'unitWeight',
-      header: 'Вес (г)',
+      header: t('products.table.weight'),
       cell: ({ row }) => (
         <span className="text-slate-600 dark:text-slate-400">
           {row.original.unitWeight ? `${row.original.unitWeight} г` : '—'}
@@ -211,7 +213,7 @@ export default function Products() {
     },
     {
       accessorKey: 'unitCost',
-      header: 'Цена',
+      header: t('products.table.price'),
       cell: ({ row }) => (
         <span className="font-medium text-slate-900 dark:text-slate-100">
           {row.original.unitCost ? `₽${row.original.unitCost.toFixed(2)}` : '—'}
@@ -233,20 +235,20 @@ export default function Products() {
             <DropdownMenuItem asChild>
               <Link to={`${createPageUrl('Stock')}?product=${row.original.productId}`}>
                 <Eye className="w-4 h-4 mr-2" />
-                Остатки
+                {t('products.table.stock')}
               </Link>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={() => handleEdit(row.original)}>
               <Edit2 className="w-4 h-4 mr-2" />
-              Редактировать
+              {t('common.edit')}
             </DropdownMenuItem>
             <DropdownMenuItem 
               onClick={() => handleDelete(row.original)}
               className="text-red-600"
             >
               <Trash2 className="w-4 h-4 mr-2" />
-              Удалить
+              {t('common.delete')}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -257,20 +259,20 @@ export default function Products() {
   return (
     <div className="space-y-6">
       <PageHeader 
-        title="Товары" 
-        description="Управление каталогом товаров"
+        title={t('products.title')} 
+        description={t('products.description')}
       >
         <Button onClick={() => { resetForm(); setDialogOpen(true); }}>
           <Plus className="w-4 h-4 mr-2" />
-          Добавить товар
+          {t('products.addProduct')}
         </Button>
       </PageHeader>
 
       <DataTable
         columns={columns}
         data={products}
-        searchPlaceholder="Поиск товаров..."
-        emptyMessage="Товары не найдены"
+        searchPlaceholder={t('products.searchPlaceholder')}
+        emptyMessage={t('products.emptyMessage')}
         isLoading={isLoading}
       />
 
@@ -287,7 +289,7 @@ export default function Products() {
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>
-              {currentProduct ? 'Редактировать товар' : 'Добавить товар'}
+              {currentProduct ? t('products.editProduct') : t('products.addProduct')}
             </DialogTitle>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -298,7 +300,7 @@ export default function Products() {
             )}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="article">Артикул *</Label>
+                <Label htmlFor="article">{t('products.form.article')} *</Label>
                 <Input
                   id="article"
                   value={formData.article}
@@ -307,7 +309,7 @@ export default function Products() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="barcode">Баркод *</Label>
+                <Label htmlFor="barcode">{t('products.form.barcode')} *</Label>
                 <Input
                   id="barcode"
                   value={formData.barcode}
@@ -318,7 +320,7 @@ export default function Products() {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="unitWeight">Вес (г) *</Label>
+                <Label htmlFor="unitWeight">{t('products.form.weight')} *</Label>
                 <Input
                   id="unitWeight"
                   type="number"
@@ -329,7 +331,7 @@ export default function Products() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="unitCost">Цена (₽)</Label>
+                <Label htmlFor="unitCost">{t('products.form.price')}</Label>
                 <Input
                   id="unitCost"
                   type="number"
@@ -342,10 +344,10 @@ export default function Products() {
             </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => { setDialogOpen(false); resetForm(); }}>
-                Отмена
+                {t('common.cancel')}
               </Button>
               <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending}>
-                {currentProduct ? 'Обновить' : 'Создать'}
+                {currentProduct ? t('common.update') : t('common.create')}
               </Button>
             </DialogFooter>
           </form>
@@ -356,14 +358,14 @@ export default function Products() {
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Удалить товар</AlertDialogTitle>
+            <AlertDialogTitle>{t('products.deleteConfirm.title')}</AlertDialogTitle>
             <AlertDialogDescription>
-              Вы уверены, что хотите удалить товар "{currentProduct?.article}"? Это действие невозможно отменить.
+              {t('products.deleteConfirm.description', { article: currentProduct?.article || '' })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel onClick={() => setDeleteDialogOpen(false)}>
-              Отмена
+              {t('common.cancel')}
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={(e) => {
@@ -376,7 +378,7 @@ export default function Products() {
               className="bg-red-600 hover:bg-red-700"
               disabled={deleteMutation.isPending}
             >
-              {deleteMutation.isPending ? 'Удаление...' : 'Удалить'}
+              {deleteMutation.isPending ? t('common.deleting') : t('common.delete')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

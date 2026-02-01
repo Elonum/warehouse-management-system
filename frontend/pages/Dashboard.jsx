@@ -1,6 +1,7 @@
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/api';
+import { useI18n } from '@/lib/i18n';
 import { 
   Package, 
   Warehouse, 
@@ -38,7 +39,7 @@ import {
 const COLORS = ['#6366f1', '#8b5cf6', '#a855f7', '#d946ef', '#ec4899'];
 
 export default function Dashboard() {
-  
+  const { t } = useI18n();
   
   const { data: products = [], isLoading: loadingProducts } = useQuery({
     queryKey: ['products'],
@@ -130,8 +131,8 @@ export default function Dashboard() {
   return (
     <div className="space-y-6">
       <PageHeader 
-        title="Панель управления" 
-        description="Обзор складских операций"
+        title={t('dashboard.title')} 
+        description={t('dashboard.description')}
       />
 
       {/* Stats Grid */}
@@ -145,23 +146,23 @@ export default function Dashboard() {
         ) : (
           <>
             <StatCard
-              title="Остатки (всего)"
+              title={t('dashboard.stats.totalStock')}
               value={`${totalStockQty.toLocaleString('ru-RU')} шт.`}
               icon={Boxes}
               variant="indigo"
             />
             <StatCard
-              title="Всего товаров"
+              title={t('dashboard.stats.totalProducts')}
               value={totalProducts}
               icon={Package}
             />
             <StatCard
-              title="Активных заказов"
+              title={t('dashboard.stats.activeOrders')}
               value={activeOrders}
               icon={Truck}
             />
             <StatCard
-              title="Активных отгрузок"
+              title={t('dashboard.stats.activeShipments')}
               value={activeShipments}
               icon={ShoppingCart}
             />
@@ -176,7 +177,7 @@ export default function Dashboard() {
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-lg font-semibold">
               <Warehouse className="w-5 h-5 text-indigo-500" />
-              Остатки по складам (шт.)
+              {t('dashboard.charts.stockByWarehouse')}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -197,7 +198,7 @@ export default function Dashboard() {
                     className="text-slate-600 dark:text-slate-400"
                   />
                   <Tooltip 
-                    formatter={(value) => [`${Number(value).toLocaleString('ru-RU')} шт.`, 'Остаток']}
+                    formatter={(value) => [`${Number(value).toLocaleString('ru-RU')} шт.`, t('dashboard.stock')]}
                     contentStyle={{ 
                       backgroundColor: 'var(--tooltip-bg, #fff)',
                       border: '1px solid var(--tooltip-border, #e2e8f0)',
@@ -209,7 +210,7 @@ export default function Dashboard() {
               </ResponsiveContainer>
             ) : (
               <div className="flex items-center justify-center h-64 text-slate-500">
-                Нет данных
+                {t('common.noData')}
               </div>
             )}
           </CardContent>
@@ -220,7 +221,7 @@ export default function Dashboard() {
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-lg font-semibold">
               <Truck className="w-5 h-5 text-purple-500" />
-              Заказы по статусам
+              {t('dashboard.charts.ordersByStatus')}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -278,13 +279,13 @@ export default function Dashboard() {
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="flex items-center gap-2 text-lg font-semibold">
               <TrendingUp className="w-5 h-5 text-emerald-500" />
-              Последние изменения остатков
+              {t('dashboard.charts.recentMovements')}
             </CardTitle>
             <Link 
               to={createPageUrl('StockMovements')}
               className="flex items-center gap-1 text-sm text-indigo-600 hover:text-indigo-700 dark:text-indigo-400"
             >
-              Все
+              {t('common.all')}
               <ArrowUpRight className="w-4 h-4" />
             </Link>
           </CardHeader>
@@ -311,10 +312,10 @@ export default function Dashboard() {
                       </div>
                       <div>
                         <p className="text-sm font-medium text-slate-900 dark:text-slate-100">
-                          {product?.article || `Товар #${snapshot.productId}`}
+                          {product?.article || `${t('dashboard.product')} #${snapshot.productId}`}
                         </p>
                         <p className="text-xs text-slate-500 dark:text-slate-400">
-                          {warehouse?.name || `Склад #${snapshot.warehouseId}`}
+                          {warehouse?.name || `${t('dashboard.warehouse')} #${snapshot.warehouseId}`}
                         </p>
                       </div>
                     </div>
@@ -333,7 +334,7 @@ export default function Dashboard() {
               </div>
             ) : (
               <div className="flex items-center justify-center h-32 text-slate-500">
-                Нет движений
+                {t('dashboard.movements')}
               </div>
             )}
           </CardContent>
@@ -344,13 +345,13 @@ export default function Dashboard() {
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="flex items-center gap-2 text-lg font-semibold">
               <Clock className="w-5 h-5 text-blue-500" />
-              Последние заказы
+              {t('dashboard.charts.recentOrders')}
             </CardTitle>
             <Link 
               to={createPageUrl('SupplierOrders')}
               className="flex items-center gap-1 text-sm text-indigo-600 hover:text-indigo-700 dark:text-indigo-400"
             >
-              Все
+              {t('common.all')}
               <ArrowUpRight className="w-4 h-4" />
             </Link>
           </CardHeader>
@@ -385,7 +386,7 @@ export default function Dashboard() {
               </div>
             ) : (
               <div className="flex items-center justify-center h-32 text-slate-500">
-                Нет заказов
+                {t('dashboard.orders')}
               </div>
             )}
           </CardContent>

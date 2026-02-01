@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError } from '@/api';
+import { useI18n } from '@/lib/i18n';
 import { 
   Plus, 
   Edit2, 
@@ -69,6 +70,7 @@ const emptyShipment = {
 };
 
 export default function Shipments() {
+  const { t } = useI18n();
   const queryClient = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -254,7 +256,7 @@ export default function Shipments() {
   const columns = [
     {
       accessorKey: 'shipmentNumber',
-      header: 'Номер отгрузки',
+      header: t('shipments.table.shipmentNumber'),
       cell: ({ row }) => (
         <div className="flex items-center gap-3">
           <div className="flex items-center justify-center w-10 h-10 bg-purple-100 rounded-lg dark:bg-purple-500/20">
@@ -268,36 +270,36 @@ export default function Shipments() {
     },
     {
       accessorKey: 'storeName',
-      header: 'Магазин',
+      header: t('shipments.table.store'),
       cell: ({ row }) => (
         <div className="flex items-center gap-2">
           <Store className="w-4 h-4 text-slate-400" />
           <span className="text-slate-700 dark:text-slate-300">
-            {row.original.storeName || 'Не указан'}
+            {row.original.storeName || t('common.notSpecified')}
           </span>
         </div>
       ),
     },
     {
       accessorKey: 'warehouseName',
-      header: 'Склад',
+      header: t('shipments.table.warehouse'),
       cell: ({ row }) => (
         <div className="flex items-center gap-2">
           <Warehouse className="w-4 h-4 text-slate-400" />
           <span className="text-slate-700 dark:text-slate-300">
-            {row.original.warehouseName || 'Не указан'}
+            {row.original.warehouseName || t('common.notSpecified')}
           </span>
         </div>
       ),
     },
     {
       accessorKey: 'statusName',
-      header: 'Статус',
-      cell: ({ row }) => <StatusBadge status={row.original.statusName || 'Не указан'} />,
+      header: t('shipments.table.status'),
+      cell: ({ row }) => <StatusBadge status={row.original.statusName || t('common.notSpecified')} />,
     },
     {
       accessorKey: 'shipmentDate',
-      header: 'Дата отгрузки',
+      header: t('shipments.table.shipmentDate'),
       cell: ({ row }) => (
         <span className="text-slate-600 dark:text-slate-400">
           {row.original.shipmentDate ? format(new Date(row.original.shipmentDate), 'dd.MM.yyyy', { locale: ru }) : '—'}
@@ -306,7 +308,7 @@ export default function Shipments() {
     },
     {
       accessorKey: 'sentQty',
-      header: 'Отправлено / Принято',
+      header: t('shipments.table.sentAccepted'),
       cell: ({ row }) => (
         <div>
           <span className="font-medium text-slate-900 dark:text-slate-100">
@@ -325,7 +327,7 @@ export default function Shipments() {
     },
     {
       accessorKey: 'logisticsCost',
-      header: 'Логистика',
+      header: t('shipments.table.logistics'),
       cell: ({ row }) => (
         <span className="text-slate-600 dark:text-slate-400">
           {row.original.logisticsCost ? `${row.original.logisticsCost.toFixed(2)} ₽` : '0.00 ₽'}
@@ -347,12 +349,12 @@ export default function Shipments() {
             <DropdownMenuItem asChild>
               <Link to={`${createPageUrl('ShipmentDetails')}?id=${row.original.shipmentId}`}>
                 <Eye className="w-4 h-4 mr-2" />
-                Детали
+                {t('common.details')}
               </Link>
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => handleEdit(row.original)}>
               <Edit2 className="w-4 h-4 mr-2" />
-              Редактировать
+              {t('common.edit')}
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem 
@@ -360,7 +362,7 @@ export default function Shipments() {
               className="text-red-600"
             >
               <Trash2 className="w-4 h-4 mr-2" />
-              Удалить
+              {t('common.delete')}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -371,12 +373,12 @@ export default function Shipments() {
   return (
     <div className="space-y-6">
       <PageHeader 
-        title="Отгрузки на маркетплейсы" 
-        description="Управление отгрузками в магазины маркетплейсов"
+        title={t('shipments.title')} 
+        description={t('shipments.description')}
       >
         <Button onClick={() => { resetForm(); setDialogOpen(true); }}>
           <Plus className="w-4 h-4 mr-2" />
-          Новая отгрузка
+          {t('shipments.addShipment')}
         </Button>
       </PageHeader>
 
@@ -384,8 +386,8 @@ export default function Shipments() {
         columns={columns}
         data={enrichedShipments}
         isLoading={isLoading}
-        searchPlaceholder="Поиск отгрузок..."
-        emptyMessage="Отгрузки не найдены"
+        searchPlaceholder={t('shipments.searchPlaceholder')}
+        emptyMessage={t('shipments.emptyMessage')}
       />
 
       {/* Create/Edit Dialog */}
@@ -401,7 +403,7 @@ export default function Shipments() {
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>
-              {currentShipment ? 'Редактировать отгрузку' : 'Новая отгрузка'}
+              {currentShipment ? t('shipments.editShipment') : t('shipments.addShipment')}
             </DialogTitle>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -412,7 +414,7 @@ export default function Shipments() {
             )}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="shipmentNumber">Номер отгрузки *</Label>
+                <Label htmlFor="shipmentNumber">{t('shipments.form.shipmentNumber')} *</Label>
                 <Input
                   id="shipmentNumber"
                   value={formData.shipmentNumber}
@@ -421,13 +423,13 @@ export default function Shipments() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="statusId">Статус</Label>
+                <Label htmlFor="statusId">{t('shipments.form.status')}</Label>
                 <Select
                   value={formData.statusId?.toString() || ''}
                   onValueChange={(value) => setFormData({ ...formData, statusId: value || null })}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Выберите статус">{getSelectedStatusName()}</SelectValue>
+                    <SelectValue placeholder={t('shipments.form.status')}>{getSelectedStatusName()}</SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     {shipmentStatuses.map(status => (
@@ -441,13 +443,13 @@ export default function Shipments() {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="storeId">Магазин</Label>
+                <Label htmlFor="storeId">{t('shipments.form.store')}</Label>
                 <Select
                   value={formData.storeId?.toString() || ''}
                   onValueChange={(value) => setFormData({ ...formData, storeId: value || null })}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Выберите магазин" />
+                    <SelectValue placeholder={t('shipments.form.store')} />
                   </SelectTrigger>
                   <SelectContent>
                     {stores.map(store => (
@@ -459,13 +461,13 @@ export default function Shipments() {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="warehouseId">Склад</Label>
+                <Label htmlFor="warehouseId">{t('shipments.form.warehouse')}</Label>
                 <Select
                   value={formData.warehouseId?.toString() || ''}
                   onValueChange={(value) => setFormData({ ...formData, warehouseId: value || null })}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Выберите склад" />
+                    <SelectValue placeholder={t('shipments.form.warehouse')} />
                   </SelectTrigger>
                   <SelectContent>
                     {warehouses.map(warehouse => (
@@ -479,7 +481,7 @@ export default function Shipments() {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="shipmentDate">Дата отгрузки</Label>
+                <Label htmlFor="shipmentDate">{t('shipments.form.shipmentDate')}</Label>
                 <Input
                   id="shipmentDate"
                   type="date"
@@ -563,10 +565,10 @@ export default function Shipments() {
                 setDialogOpen(false);
                 resetForm();
               }}>
-                Отмена
+                {t('common.cancel')}
               </Button>
               <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending}>
-                {currentShipment ? (updateMutation.isPending ? 'Сохранение...' : 'Сохранить') : (createMutation.isPending ? 'Создание...' : 'Создать')}
+                {currentShipment ? (updateMutation.isPending ? t('common.loading') : t('common.save')) : (createMutation.isPending ? t('common.loading') : t('common.create'))}
               </Button>
             </DialogFooter>
           </form>
@@ -577,9 +579,9 @@ export default function Shipments() {
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Удалить отгрузку</AlertDialogTitle>
+            <AlertDialogTitle>{t('shipments.deleteConfirm.title')}</AlertDialogTitle>
             <AlertDialogDescription>
-              Вы уверены, что хотите удалить отгрузку "{currentShipment?.shipmentNumber}"? Это действие нельзя отменить.
+              {t('shipments.deleteConfirm.description', { shipmentNumber: currentShipment?.shipmentNumber || '' })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -587,7 +589,7 @@ export default function Shipments() {
               setDeleteDialogOpen(false);
               setCurrentShipment(null);
             }}>
-              Отмена
+              {t('common.cancel')}
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={(e) => {
@@ -600,7 +602,7 @@ export default function Shipments() {
               className="bg-red-600 hover:bg-red-700"
               disabled={deleteMutation.isPending}
             >
-              {deleteMutation.isPending ? 'Удаление...' : 'Удалить'}
+              {deleteMutation.isPending ? t('common.deleting') : t('common.delete')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

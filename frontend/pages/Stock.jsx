@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/api';
+import { useI18n } from '@/lib/i18n';
 import { Package, Warehouse, History, Filter, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -17,6 +18,7 @@ import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 
 export default function Stock() {
+  const { t } = useI18n();
   const urlParams = new URLSearchParams(window.location.search);
   const initialProduct = urlParams.get('product') || 'all';
   const initialWarehouse = urlParams.get('warehouse') || 'all';
@@ -104,7 +106,7 @@ export default function Stock() {
   const columns = [
     {
       accessorKey: 'productName',
-      header: 'Товар',
+      header: t('stock.table.product'),
       cell: ({ row }) => {
         const product = productsMap.get(row.original.productId);
         return (
@@ -128,7 +130,7 @@ export default function Stock() {
     },
     {
       accessorKey: 'warehouseName',
-      header: 'Склад',
+      header: t('stock.table.warehouse'),
       cell: ({ row }) => (
         <div className="flex items-center gap-2">
           <Warehouse className="w-4 h-4 text-slate-400" />
@@ -140,7 +142,7 @@ export default function Stock() {
     },
     {
       accessorKey: 'currentQuantity',
-      header: 'Количество',
+      header: t('stock.table.quantity'),
       cell: ({ row }) => (
         <span className="font-semibold text-slate-900 dark:text-slate-100">
           {row.original.currentQuantity?.toLocaleString() || 0}
@@ -155,7 +157,7 @@ export default function Stock() {
         <Button variant="ghost" size="sm" asChild>
           <Link to={`${createPageUrl('StockMovements')}?product=${row.original.productId}`}>
             <History className="w-4 h-4 mr-2" />
-            История
+            {t('common.history')}
           </Link>
         </Button>
       ),
@@ -165,15 +167,15 @@ export default function Stock() {
   return (
     <div className="space-y-6">
       <PageHeader 
-        title="Остатки товаров" 
-        description="Текущие остатки товаров на складах"
+        title={t('stock.title')} 
+        description={t('stock.description')}
       />
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
         <Card className="dark:bg-slate-900 dark:border-slate-800">
           <CardContent className="pt-6">
-            <p className="text-sm text-slate-500 dark:text-slate-400">Всего товаров</p>
+            <p className="text-sm text-slate-500 dark:text-slate-400">{t('stock.stats.totalProducts')}</p>
             <p className="mt-1 text-2xl font-bold text-slate-900 dark:text-slate-100">
               {totals.quantity.toLocaleString()}
             </p>
@@ -181,7 +183,7 @@ export default function Stock() {
         </Card>
         <Card className="dark:bg-slate-900 dark:border-slate-800">
           <CardContent className="pt-6">
-            <p className="text-sm text-slate-500 dark:text-slate-400">Позиций на складах</p>
+            <p className="text-sm text-slate-500 dark:text-slate-400">{t('stock.stats.positions')}</p>
             <p className="mt-1 text-2xl font-bold text-indigo-600 dark:text-indigo-400">
               {filteredStock.length}
             </p>
@@ -195,14 +197,14 @@ export default function Stock() {
           <div className="flex flex-wrap items-center gap-4">
             <div className="flex items-center gap-2">
               <Filter className="w-4 h-4 text-slate-400" />
-              <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Фильтры:</span>
+              <span className="text-sm font-medium text-slate-700 dark:text-slate-300">{t('stock.filters.title')}</span>
             </div>
             <Select value={productFilter} onValueChange={setProductFilter}>
               <SelectTrigger className="w-48">
-                <SelectValue placeholder="Все товары" />
+                <SelectValue placeholder={t('stock.filters.product')} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Все товары</SelectItem>
+                <SelectItem value="all">{t('common.all')} {t('stock.filters.product')}</SelectItem>
                 {products.map(product => (
                   <SelectItem key={product.productId} value={product.productId.toString()}>
                     {product.article || `ID: ${product.productId}`}
@@ -212,10 +214,10 @@ export default function Stock() {
             </Select>
             <Select value={warehouseFilter} onValueChange={setWarehouseFilter}>
               <SelectTrigger className="w-48">
-                <SelectValue placeholder="Все склады" />
+                <SelectValue placeholder={t('stock.filters.warehouse')} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Все склады</SelectItem>
+                <SelectItem value="all">{t('common.all')} {t('stock.filters.warehouse')}</SelectItem>
                 {warehouses.map(warehouse => (
                   <SelectItem key={warehouse.warehouseId} value={warehouse.warehouseId.toString()}>
                     {warehouse.name}
@@ -226,7 +228,7 @@ export default function Stock() {
             {hasActiveFilters && (
               <Button variant="ghost" size="sm" onClick={clearFilters}>
                 <X className="w-4 h-4 mr-1" />
-                Очистить
+                {t('stock.filters.clear')}
               </Button>
             )}
           </div>
@@ -236,8 +238,8 @@ export default function Stock() {
       <DataTable
         columns={columns}
         data={filteredStock}
-        searchPlaceholder="Поиск остатков..."
-        emptyMessage="Остатки не найдены"
+        searchPlaceholder={t('stock.searchPlaceholder')}
+        emptyMessage={t('stock.emptyMessage')}
         isLoading={loadingStock}
       />
     </div>

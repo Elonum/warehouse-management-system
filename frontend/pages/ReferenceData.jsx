@@ -74,6 +74,14 @@ export default function ReferenceData() {
   const [shipmentStatusName, setShipmentStatusName] = useState('');
   const [shipmentStatusError, setShipmentStatusError] = useState('');
   const [shipmentStatusDeleteError, setShipmentStatusDeleteError] = useState('');
+  
+  // Inventory Status states
+  const [inventoryStatusDialogOpen, setInventoryStatusDialogOpen] = useState(false);
+  const [deleteInventoryStatusDialogOpen, setDeleteInventoryStatusDialogOpen] = useState(false);
+  const [currentInventoryStatus, setCurrentInventoryStatus] = useState(null);
+  const [inventoryStatusName, setInventoryStatusName] = useState('');
+  const [inventoryStatusError, setInventoryStatusError] = useState('');
+  const [inventoryStatusDeleteError, setInventoryStatusDeleteError] = useState('');
 
   const { data: roles = [], isLoading: rolesLoading } = useQuery({
     queryKey: ['roles'],
@@ -525,6 +533,173 @@ export default function ReferenceData() {
     },
   ];
 
+  // Inventory Status mutations
+  const createInventoryStatusMutation = useMutation({
+    mutationFn: (data) => api.inventoryStatuses.create(data),
+    onSuccess: async () => {
+      queryClient.invalidateQueries({ queryKey: ['inventoryStatuses'] });
+      setInventoryStatusDialogOpen(false);
+      resetInventoryStatusForm();
+      setInventoryStatusError('');
+    },
+    onError: (err) => {
+      if (err instanceof ApiError) {
+        setInventoryStatusError(err.message || t('referenceData.inventoryStatuses.errors.createFailed'));
+      } else {
+        setInventoryStatusError(t('referenceData.inventoryStatuses.errors.createFailed'));
+      }
+    },
+  });
+
+  const updateInventoryStatusMutation = useMutation({
+    mutationFn: ({ id, data }) => api.inventoryStatuses.update(id, data),
+    onSuccess: async () => {
+      queryClient.invalidateQueries({ queryKey: ['inventoryStatuses'] });
+      setInventoryStatusDialogOpen(false);
+      resetInventoryStatusForm();
+      setInventoryStatusError('');
+    },
+    onError: (err) => {
+      if (err instanceof ApiError) {
+        setInventoryStatusError(err.message || t('referenceData.inventoryStatuses.errors.updateFailed'));
+      } else {
+        setInventoryStatusError(t('referenceData.inventoryStatuses.errors.updateFailed'));
+      }
+    },
+  });
+
+  const deleteInventoryStatusMutation = useMutation({
+    mutationFn: (id) => api.inventoryStatuses.delete(id),
+    onSuccess: async () => {
+      queryClient.invalidateQueries({ queryKey: ['inventoryStatuses'] });
+      setDeleteInventoryStatusDialogOpen(false);
+      setCurrentInventoryStatus(null);
+    },
+    onError: (err) => {
+      if (err instanceof ApiError) {
+        setInventoryStatusError(err.message || t('referenceData.inventoryStatuses.errors.deleteFailed'));
+      } else {
+        setInventoryStatusError(t('referenceData.inventoryStatuses.errors.deleteFailed'));
+      }
+      setDeleteInventoryStatusDialogOpen(false);
+    },
+  });
+
+  const resetInventoryStatusForm = () => {
+    setInventoryStatusName('');
+    setCurrentInventoryStatus(null);
+    setInventoryStatusError('');
+  };
+
+  const handleOpenInventoryStatusDialog = (inventoryStatus = null) => {
+    if (inventoryStatus) {
+      setCurrentInventoryStatus(inventoryStatus);
+      setInventoryStatusName(inventoryStatus.name || '');
+    } else {
+      resetInventoryStatusForm();
+    }
+    setInventoryStatusError('');
+    setInventoryStatusDialogOpen(true);
+  };
+
+  const handleCloseInventoryStatusDialog = () => {
+    setInventoryStatusDialogOpen(false);
+    resetInventoryStatusForm();
+  };
+
+  const handleInventoryStatusSubmit = (e) => {
+    e.preventDefault();
+    setInventoryStatusError('');
+
+    const name = inventoryStatusName.trim();
+    if (!name) {
+      setInventoryStatusError(t('referenceData.inventoryStatuses.errors.nameRequired'));
+      return;
+    }
+
+    if (name.length < 2) {
+      setInventoryStatusError(t('referenceData.inventoryStatuses.errors.nameMinLength'));
+      return;
+    }
+
+    const data = { name };
+
+    if (currentInventoryStatus) {
+      updateInventoryStatusMutation.mutate({ id: currentInventoryStatus.inventoryStatusId, data });
+    } else {
+      createInventoryStatusMutation.mutate(data);
+    }
+  };
+
+  const handleDeleteInventoryStatus = (inventoryStatus) => {
+    setCurrentInventoryStatus(inventoryStatus);
+    setInventoryStatusDeleteError('');
+    setDeleteInventoryStatusDialogOpen(true);
+  };
+
+  const confirmDeleteInventoryStatus = () => {
+    if (!currentInventoryStatus) return;
+
+    // Check if inventory status is used by any inventories
+    const inventoriesWithStatus = inventories.filter(inventory => inventory.statusId === currentInventoryStatus.inventoryStatusId);
+    if (inventoriesWithStatus.length > 0) {
+      const count = inventoriesWithStatus.length;
+      const errorMessage = count === 1 
+        ? t('referenceData.inventoryStatuses.errors.statusInUseSingle')
+        : t('referenceData.inventoryStatuses.errors.statusInUse', { count });
+      setInventoryStatusDeleteError(errorMessage);
+      return;
+    }
+
+    setInventoryStatusDeleteError('');
+    deleteInventoryStatusMutation.mutate(currentInventoryStatus.inventoryStatusId);
+  };
+
+  const inventoryStatusColumns = [
+    {
+      accessorKey: 'name',
+      header: t('referenceData.inventoryStatuses.table.name'),
+      cell: ({ row }) => (
+        <div className="flex items-center gap-3">
+          <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-amber-100 dark:bg-amber-500/20">
+            <ClipboardList className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+          </div>
+          <span className="font-medium text-slate-900 dark:text-slate-100">
+            {row.original.name}
+          </span>
+        </div>
+      ),
+    },
+    {
+      id: 'actions',
+      header: '',
+      sortable: false,
+      cell: ({ row }) => (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" className="w-8 h-8">
+              <MoreHorizontal className="w-4 h-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => handleOpenInventoryStatusDialog(row.original)}>
+              <Edit2 className="w-4 h-4 mr-2" />
+              {t('common.edit')}
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem 
+              onClick={() => handleDeleteInventoryStatus(row.original)}
+              className="text-red-600 dark:text-red-400"
+            >
+              <Trash2 className="w-4 h-4 mr-2" />
+              {t('common.delete')}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ),
+    },
+  ];
+
   const orderStatusColumns = [
     {
       accessorKey: 'name',
@@ -721,6 +896,14 @@ export default function ReferenceData() {
     queryKey: ['mpShipments'],
     queryFn: async () => {
       const response = await api.mpShipments.list({ limit: 1000, offset: 0 });
+      return Array.isArray(response) ? response : [];
+    },
+  });
+
+  const { data: inventories = [] } = useQuery({
+    queryKey: ['inventories'],
+    queryFn: async () => {
+      const response = await api.inventories.list({ limit: 1000, offset: 0 });
       return Array.isArray(response) ? response : [];
     },
   });
@@ -1092,6 +1275,131 @@ export default function ReferenceData() {
                 disabled={deleteShipmentStatusMutation.isPending}
               >
                 {deleteShipmentStatusMutation.isPending ? t('common.deleting') : t('common.delete')}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </div>
+    );
+  }
+
+  if (selectedSection === 'inventoryStatuses') {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-4 flex-1">
+            <Button
+              variant="ghost"
+              onClick={() => setSelectedSection(null)}
+            >
+              <ChevronRight className="w-4 h-4 mr-2 rotate-180" />
+              {t('common.back')}
+            </Button>
+            <div>
+              <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
+                {t('referenceData.inventoryStatuses.title')}
+              </h1>
+              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                {t('referenceData.inventoryStatuses.description')}
+              </p>
+            </div>
+          </div>
+          <Button onClick={() => handleOpenInventoryStatusDialog()}>
+            <Plus className="w-4 h-4 mr-2" />
+            {t('referenceData.inventoryStatuses.addStatus')}
+          </Button>
+        </div>
+
+        <DataTable
+          columns={inventoryStatusColumns}
+          data={inventoryStatuses}
+          isLoading={inventoryStatusesLoading}
+          searchPlaceholder={t('referenceData.inventoryStatuses.searchPlaceholder')}
+          emptyMessage={t('referenceData.inventoryStatuses.emptyMessage')}
+        />
+
+        <Dialog open={inventoryStatusDialogOpen} onOpenChange={handleCloseInventoryStatusDialog}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle>
+                {currentInventoryStatus ? t('referenceData.inventoryStatuses.editStatus') : t('referenceData.inventoryStatuses.addStatus')}
+              </DialogTitle>
+            </DialogHeader>
+            <form onSubmit={handleInventoryStatusSubmit} className="space-y-4">
+              {inventoryStatusError && (
+                <div className="p-3 text-sm text-red-600 bg-red-50 dark:bg-red-900/20 dark:text-red-400 rounded-lg">
+                  {inventoryStatusError}
+                </div>
+              )}
+              <div className="space-y-2">
+                <Label htmlFor="inventoryStatusName">
+                  {t('referenceData.inventoryStatuses.form.name')} *
+                </Label>
+                <Input
+                  id="inventoryStatusName"
+                  value={inventoryStatusName}
+                  onChange={(e) => setInventoryStatusName(e.target.value)}
+                  placeholder={t('referenceData.inventoryStatuses.form.namePlaceholder')}
+                  required
+                  minLength={2}
+                  maxLength={100}
+                />
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  {t('referenceData.inventoryStatuses.form.nameHint')}
+                </p>
+              </div>
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={handleCloseInventoryStatusDialog}>
+                  {t('common.cancel')}
+                </Button>
+                <Button 
+                  type="submit" 
+                  disabled={createInventoryStatusMutation.isPending || updateInventoryStatusMutation.isPending}
+                >
+                  {currentInventoryStatus ? t('common.save') : t('common.create')}
+                </Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
+
+        <AlertDialog open={deleteInventoryStatusDialogOpen} onOpenChange={(open) => {
+          setDeleteInventoryStatusDialogOpen(open);
+          if (!open) {
+            setCurrentInventoryStatus(null);
+            setInventoryStatusDeleteError('');
+          }
+        }}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>{t('referenceData.inventoryStatuses.deleteConfirm.title')}</AlertDialogTitle>
+              <AlertDialogDescription>
+                {t('referenceData.inventoryStatuses.deleteConfirm.description', { name: currentInventoryStatus?.name || '' })}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            {inventoryStatusDeleteError && (
+              <div className="p-3 text-sm text-red-600 bg-red-50 dark:bg-red-900/20 dark:text-red-400 rounded-lg">
+                {inventoryStatusDeleteError}
+              </div>
+            )}
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => {
+                setDeleteInventoryStatusDialogOpen(false);
+                setCurrentInventoryStatus(null);
+                setInventoryStatusDeleteError('');
+              }}>
+                {t('common.cancel')}
+              </AlertDialogCancel>
+              <AlertDialogAction
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  confirmDeleteInventoryStatus();
+                }}
+                className="bg-red-600 hover:bg-red-700 text-white"
+                disabled={deleteInventoryStatusMutation.isPending}
+              >
+                {deleteInventoryStatusMutation.isPending ? t('common.deleting') : t('common.delete')}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>

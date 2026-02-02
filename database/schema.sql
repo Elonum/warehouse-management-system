@@ -1,8 +1,11 @@
--- ===== Создание базы данных с UUID =====
--- Включаем расширение для генерации UUID
+-- =====================================================
+-- Включение UUID
+-- =====================================================
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
--- ===== Роли и пользователи =====
+-- =====================================================
+-- Роли и пользователи
+-- =====================================================
 
 CREATE TABLE IF NOT EXISTS user_roles (
     role_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -19,7 +22,9 @@ CREATE TABLE IF NOT EXISTS users (
     role_id UUID NOT NULL REFERENCES user_roles(role_id)
 );
 
--- ===== Справочники =====
+-- =====================================================
+-- Справочники
+-- =====================================================
 
 CREATE TABLE IF NOT EXISTS warehouse_types (
     warehouse_type_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -38,15 +43,42 @@ CREATE TABLE IF NOT EXISTS warehouses (
     location VARCHAR(100)
 );
 
+-- =====================================================
+-- Товары
+-- =====================================================
+
 CREATE TABLE IF NOT EXISTS products (
     product_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     article VARCHAR(100) UNIQUE NOT NULL,
     barcode VARCHAR(50) UNIQUE NOT NULL,
     unit_weight INTEGER NOT NULL DEFAULT 0,
-    unit_cost DECIMAL(10,2)
+    unit_cost DECIMAL(10,2),
+    purchase_price DECIMAL(10,2),
+    processing_price DECIMAL(10,2)
 );
 
--- ===== Заказы поставщикам =====
+-- =====================================================
+-- Изображения товаров
+-- =====================================================
+
+CREATE TABLE IF NOT EXISTS product_images (
+    image_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    product_id UUID NOT NULL REFERENCES products(product_id) ON DELETE CASCADE,
+    file_path VARCHAR(500) NOT NULL,
+    display_order INTEGER NOT NULL DEFAULT 0,
+    is_main BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_product_images_product
+    ON product_images(product_id);
+
+CREATE INDEX IF NOT EXISTS idx_product_images_order
+    ON product_images(product_id, display_order);
+
+-- =====================================================
+-- Статусы заказов поставщиков
+-- =====================================================
 
 CREATE TABLE IF NOT EXISTS order_statuses (
     order_status_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -101,7 +133,9 @@ CREATE TABLE IF NOT EXISTS supplier_order_documents (
     file_path TEXT NOT NULL
 );
 
--- ===== Отгрузки на маркетплейсы =====
+-- =====================================================
+-- Отгрузки
+-- =====================================================
 
 CREATE TABLE IF NOT EXISTS shipment_statuses (
     shipment_status_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -138,7 +172,9 @@ CREATE TABLE IF NOT EXISTS mp_shipment_items (
     logistics_for_item DECIMAL(10,2)
 );
 
--- ===== Инвентаризация =====
+-- =====================================================
+-- Инвентаризация
+-- =====================================================
 
 CREATE TABLE IF NOT EXISTS inventory_statuses (
     inventory_status_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -166,7 +202,9 @@ CREATE TABLE IF NOT EXISTS inventory_items (
     reason VARCHAR(255)
 );
 
--- ===== Себестоимость и снапшоты =====
+-- =====================================================
+-- Себестоимость и снапшоты
+-- =====================================================
 
 CREATE TABLE IF NOT EXISTS product_costs (
     cost_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -192,7 +230,9 @@ CREATE TABLE IF NOT EXISTS stock_snapshots (
     UNIQUE (product_id, warehouse_id, snapshot_date)
 );
 
--- ===== Индексы =====
+-- =====================================================
+-- Индексы
+-- =====================================================
 
 CREATE INDEX IF NOT EXISTS idx_users_role ON users(role_id);
 
@@ -202,7 +242,7 @@ CREATE INDEX IF NOT EXISTS idx_supplier_orders_receipt_date ON supplier_orders(a
 
 CREATE INDEX IF NOT EXISTS idx_supplier_order_items_order ON supplier_order_items(order_id);
 CREATE INDEX IF NOT EXISTS idx_supplier_order_items_product ON supplier_order_items(product_id);
-CREATE INDEX IF NOT EXISTS idx_supplier_order_items_stock ON supplier_order_items (product_id, warehouse_id);
+CREATE INDEX IF NOT EXISTS idx_supplier_order_items_stock ON supplier_order_items(product_id, warehouse_id);
 
 CREATE INDEX IF NOT EXISTS idx_supplier_order_docs_order ON supplier_order_documents(order_id);
 
@@ -212,11 +252,12 @@ CREATE INDEX IF NOT EXISTS idx_mp_shipments_status ON mp_shipments(status_id);
 
 CREATE INDEX IF NOT EXISTS idx_mp_shipment_items_shipment ON mp_shipment_items(shipment_id);
 CREATE INDEX IF NOT EXISTS idx_mp_shipment_items_product ON mp_shipment_items(product_id);
-CREATE INDEX IF NOT EXISTS idx_mp_shipment_items_stock ON mp_shipment_items (product_id, warehouse_id);
+CREATE INDEX IF NOT EXISTS idx_mp_shipment_items_stock ON mp_shipment_items(product_id, warehouse_id);
 
 CREATE INDEX IF NOT EXISTS idx_inventories_status ON inventories(status_id);
 
 CREATE INDEX IF NOT EXISTS idx_inventory_items_product ON inventory_items(product_id);
-CREATE INDEX IF NOT EXISTS idx_inventory_items_stock ON inventory_items (product_id, warehouse_id);
+CREATE INDEX IF NOT EXISTS idx_inventory_items_stock ON inventory_items(product_id, warehouse_id);
 
-CREATE INDEX IF NOT EXISTS idx_product_costs_product_period ON product_costs (product_id, period_start);
+CREATE INDEX IF NOT EXISTS idx_product_costs_product_period
+    ON product_costs(product_id, period_start);

@@ -11,12 +11,12 @@ INSERT INTO user_roles (role_id, name) VALUES
 ON CONFLICT (role_id) DO NOTHING;
 
 -- Пароль для всех тестовых пользователей: "password123" (bcrypt hash)
--- ВАЖНО: Замените хеш на реальный bcrypt хеш для вашего пароля!
+-- Хеш сгенерирован с помощью: go run cmd/hash_password/main.go password123
 INSERT INTO users (user_id, email, name, surname, patronymic, password_hash, role_id) VALUES
-('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'admin@warehouse.ru', 'Иван', 'Иванов', 'Иванович', '$2a$10$rQZ8vK5J5J5J5J5J5J5J5O5J5J5J5J5J5J5J5J5J5J5J5J5J5J5J5J', '11111111-1111-1111-1111-111111111111'),
-('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'manager@warehouse.ru', 'Петр', 'Петров', 'Петрович', '$2a$10$rQZ8vK5J5J5J5J5J5J5J5O5J5J5J5J5J5J5J5J5J5J5J5J5J5J5J5J', '22222222-2222-2222-2222-222222222222'),
-('cccccccc-cccc-cccc-cccc-cccccccccccc', 'storekeeper@warehouse.ru', 'Сергей', 'Сергеев', 'Сергеевич', '$2a$10$rQZ8vK5J5J5J5J5J5J5J5O5J5J5J5J5J5J5J5J5J5J5J5J5J5J5J5J', '33333333-3333-3333-3333-333333333333')
-ON CONFLICT (user_id) DO NOTHING;
+('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'admin@warehouse.ru', 'Иван', 'Иванов', 'Иванович', '$2a$10$Uzc0U9fn4WIC9UeNRBf7J.vRTjChZSIOUnWuGPxp5gY9DpqzWCKna', '11111111-1111-1111-1111-111111111111'),
+('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'manager@warehouse.ru', 'Петр', 'Петров', 'Петрович', '$2a$10$Uzc0U9fn4WIC9UeNRBf7J.vRTjChZSIOUnWuGPxp5gY9DpqzWCKna', '22222222-2222-2222-2222-222222222222'),
+('cccccccc-cccc-cccc-cccc-cccccccccccc', 'storekeeper@warehouse.ru', 'Сергей', 'Сергеев', 'Сергеевич', '$2a$10$Uzc0U9fn4WIC9UeNRBf7J.vRTjChZSIOUnWuGPxp5gY9DpqzWCKna', '33333333-3333-3333-3333-333333333333')
+ON CONFLICT (user_id) DO UPDATE SET password_hash = EXCLUDED.password_hash;
 
 -- ===== Справочники =====
 
@@ -38,13 +38,26 @@ INSERT INTO warehouses (warehouse_id, name, warehouse_type_id, location) VALUES
 ('30000000-0000-0000-0000-000000000003', 'Склад возвратов', '10000000-0000-0000-0000-000000000002', 'Москва, ул. Возвратная, 1')
 ON CONFLICT (warehouse_id) DO NOTHING;
 
-INSERT INTO products (product_id, article, barcode, unit_weight, unit_cost) VALUES
-('40000000-0000-0000-0000-000000000001', 'PROD-001', '1234567890123', 500, 1500.00),
-('40000000-0000-0000-0000-000000000002', 'PROD-002', '1234567890124', 750, 2300.50),
-('40000000-0000-0000-0000-000000000003', 'PROD-003', '1234567890125', 300, 850.00),
-('40000000-0000-0000-0000-000000000004', 'PROD-004', '1234567890126', 1200, 3500.00),
-('40000000-0000-0000-0000-000000000005', 'PROD-005', '1234567890127', 250, 650.00)
+INSERT INTO products (product_id, article, barcode, unit_weight, unit_cost, purchase_price, processing_price) VALUES
+('40000000-0000-0000-0000-000000000001', 'PROD-001', '1234567890123', 500, 1500.00, 900.00, 120.00),
+('40000000-0000-0000-0000-000000000002', 'PROD-002', '1234567890124', 750, 2300.50, 1500.00, 180.00),
+('40000000-0000-0000-0000-000000000003', 'PROD-003', '1234567890125', 300, 850.00, 500.00, 90.00),
+('40000000-0000-0000-0000-000000000004', 'PROD-004', '1234567890126', 1200, 3500.00, 2200.00, 250.00),
+('40000000-0000-0000-0000-000000000005', 'PROD-005', '1234567890127', 250, 650.00, 380.00, 70.00)
 ON CONFLICT (product_id) DO NOTHING;
+
+INSERT INTO product_images (image_id, product_id, file_path, display_order, is_main) VALUES
+(uuid_generate_v4(), '40000000-0000-0000-0000-000000000001', 'uploads/products/prod-001/main.jpg', 0, true),
+(uuid_generate_v4(), '40000000-0000-0000-0000-000000000001', 'uploads/products/prod-001/side.jpg', 1, false),
+(uuid_generate_v4(), '40000000-0000-0000-0000-000000000002', 'uploads/products/prod-002/main.jpg', 0, true),
+(uuid_generate_v4(), '40000000-0000-0000-0000-000000000002', 'uploads/products/prod-002/back.jpg', 1, false),
+(uuid_generate_v4(), '40000000-0000-0000-0000-000000000003', 'uploads/products/prod-003/main.jpg', 0, true),
+(uuid_generate_v4(), '40000000-0000-0000-0000-000000000003', 'uploads/products/prod-003/detail.jpg', 1, false),
+(uuid_generate_v4(), '40000000-0000-0000-0000-000000000004', 'uploads/products/prod-004/main.jpg', 0, true),
+(uuid_generate_v4(), '40000000-0000-0000-0000-000000000004', 'uploads/products/prod-004/box.jpg', 1, false),
+(uuid_generate_v4(), '40000000-0000-0000-0000-000000000005', 'uploads/products/prod-005/main.jpg', 0, true),
+(uuid_generate_v4(), '40000000-0000-0000-0000-000000000005', 'uploads/products/prod-005/extra.jpg', 1, false)
+ON CONFLICT (image_id) DO NOTHING;
 
 -- ===== Заказы поставщикам =====
 

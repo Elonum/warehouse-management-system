@@ -34,12 +34,18 @@ import PageHeader from '@/components/ui/PageHeader';
 import DataTable from '@/components/ui/DataTable';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
+import ProductImageUpload from '@/components/ProductImageUpload';
+import { Image as ImageIcon } from 'lucide-react';
 
 const emptyProduct = {
   article: '',
   barcode: '',
   unitWeight: 0,
   unitCost: null,
+  purchasePrice: null,
+  processingPrice: null,
+  imagePaths: [],
+  images: [],
 };
 
 export default function Products() {
@@ -63,10 +69,27 @@ export default function Products() {
 
   const createMutation = useMutation({
     mutationFn: (data) => api.products.create(data),
-    onSuccess: async () => {
+    onSuccess: async (response) => {
+      // After creation, reload product to get images with IDs from DB
+      if (response?.productId) {
+        try {
+          const fullProduct = await api.products.get(response.productId);
+          // Update form data with images from DB if dialog is still open
+          if (dialogOpen) {
+            setFormData(prev => ({
+              ...prev,
+              images: fullProduct.images || [],
+              imagePaths: fullProduct.images?.map(img => img.filePath) || [],
+            }));
+          }
+        } catch (err) {
+          console.error('Failed to reload product images:', err);
+        }
+      }
       setDialogOpen(false);
       resetForm();
       setError('');
+      await queryClient.invalidateQueries({ queryKey: ['products'] });
       await refetch();
     },
     onError: (err) => {
@@ -80,10 +103,28 @@ export default function Products() {
 
   const updateMutation = useMutation({
     mutationFn: ({ id, data }) => api.products.update(id, data),
-    onSuccess: async () => {
+    onSuccess: async (response) => {
+      // After update, reload product to get updated images from DB
+      if (response?.productId || currentProduct?.productId) {
+        const productId = response?.productId || currentProduct?.productId;
+        try {
+          const fullProduct = await api.products.get(productId);
+          // Update form data with images from DB if dialog is still open
+          if (dialogOpen) {
+            setFormData(prev => ({
+              ...prev,
+              images: fullProduct.images || [],
+              imagePaths: fullProduct.images?.map(img => img.filePath) || [],
+            }));
+          }
+        } catch (err) {
+          console.error('Failed to reload product images:', err);
+        }
+      }
       setDialogOpen(false);
       resetForm();
       setError('');
+      await queryClient.invalidateQueries({ queryKey: ['products'] });
       await refetch();
     },
     onError: (err) => {
@@ -134,13 +175,29 @@ export default function Products() {
     setError('');
   };
 
-  const handleEdit = (product) => {
+  const handleEdit = async (product) => {
     setCurrentProduct(product);
+    
+    // Load full product data with images if not already loaded
+    let productImages = product.images || [];
+    if (product.productId && (!product.images || product.images.length === 0)) {
+      try {
+        const fullProduct = await api.products.get(product.productId);
+        productImages = fullProduct.images || [];
+      } catch (err) {
+        console.error('Failed to load product images:', err);
+      }
+    }
+
     setFormData({
       article: product.article || '',
       barcode: product.barcode || '',
       unitWeight: product.unitWeight || 0,
       unitCost: product.unitCost || null,
+      purchasePrice: product.purchasePrice || null,
+      processingPrice: product.processingPrice || null,
+      imagePaths: productImages.map(img => img.filePath) || [],
+      images: productImages, // Store full image objects for editing
     });
     setDialogOpen(true);
   };
@@ -154,22 +211,65 @@ export default function Products() {
     e.preventDefault();
     setError('');
 
-    const data = {
-      article: formData.article.trim(),
-      barcode: formData.barcode.trim(),
-      unitWeight: parseInt(formData.unitWeight) || 0,
-      unitCost: formData.unitCost ? parseFloat(formData.unitCost) : null,
-    };
+    // Validation
+    const article = formData.article.trim();
+    const barcode = formData.barcode.trim();
+    const unitWeight = parseInt(formData.unitWeight) || 0;
 
-    if (!data.article) {
+    if (!article) {
       setError(t('products.form.articleRequired'));
       return;
     }
 
-    if (!data.barcode) {
+    if (article.length < 2 || article.length > 100) {
+      setError(t('products.form.articleLength'));
+      return;
+    }
+
+    if (!barcode) {
       setError(t('products.form.barcodeRequired'));
       return;
     }
+
+    if (barcode.length < 2 || barcode.length > 50) {
+      setError(t('products.form.barcodeLength'));
+      return;
+    }
+
+    if (unitWeight < 0) {
+      setError(t('products.form.weightInvalid'));
+      return;
+    }
+
+    // Parse prices with validation
+    const unitCost = formData.unitCost ? parseFloat(formData.unitCost) : null;
+    const purchasePrice = formData.purchasePrice ? parseFloat(formData.purchasePrice) : null;
+    const processingPrice = formData.processingPrice ? parseFloat(formData.processingPrice) : null;
+
+    if (unitCost !== null && (isNaN(unitCost) || unitCost < 0)) {
+      setError(t('products.form.priceInvalid'));
+      return;
+    }
+
+    if (purchasePrice !== null && (isNaN(purchasePrice) || purchasePrice < 0)) {
+      setError(t('products.form.purchasePriceInvalid'));
+      return;
+    }
+
+    if (processingPrice !== null && (isNaN(processingPrice) || processingPrice < 0)) {
+      setError(t('products.form.processingPriceInvalid'));
+      return;
+    }
+
+    const data = {
+      article,
+      barcode,
+      unitWeight,
+      unitCost,
+      purchasePrice,
+      processingPrice,
+      imagePaths: formData.imagePaths || [],
+    };
 
     if (currentProduct) {
       updateMutation.mutate({ id: currentProduct.productId, data });
@@ -179,6 +279,38 @@ export default function Products() {
   };
 
   const columns = [
+    {
+      accessorKey: 'image',
+      header: '',
+      sortable: false,
+      cell: ({ row }) => {
+        const mainImage = row.original.images?.[0];
+        if (!mainImage) {
+          return (
+            <div className="flex items-center justify-center w-12 h-12 rounded-lg bg-slate-100 dark:bg-slate-800">
+              <ImageIcon className="w-5 h-5 text-slate-400" />
+            </div>
+          );
+        }
+        const imageUrl = mainImage.imageUrl || `${import.meta.env.VITE_API_URL || 'http://localhost:8080/api/v1'}/files?path=${encodeURIComponent(mainImage.filePath)}`;
+        return (
+          <div className="flex items-center justify-center w-12 h-12 rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800">
+            <img
+              src={imageUrl}
+              alt={row.original.article}
+              className="w-full h-full object-cover"
+              onError={(e) => {
+                e.target.style.display = 'none';
+                const parent = e.target.parentElement;
+                if (parent) {
+                  parent.innerHTML = '<div class="flex items-center justify-center w-full h-full"><svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg></div>';
+                }
+              }}
+            />
+          </div>
+        );
+      },
+    },
     {
       accessorKey: 'article',
       header: t('products.table.article'),
@@ -217,6 +349,24 @@ export default function Products() {
       cell: ({ row }) => (
         <span className="font-medium text-slate-900 dark:text-slate-100">
           {row.original.unitCost ? `₽${row.original.unitCost.toFixed(2)}` : '—'}
+        </span>
+      ),
+    },
+    {
+      accessorKey: 'purchasePrice',
+      header: t('products.table.purchasePrice'),
+      cell: ({ row }) => (
+        <span className="text-slate-600 dark:text-slate-400">
+          {row.original.purchasePrice ? `¥${row.original.purchasePrice.toFixed(2)}` : '—'}
+        </span>
+      ),
+    },
+    {
+      accessorKey: 'processingPrice',
+      header: t('products.table.processingPrice'),
+      cell: ({ row }) => (
+        <span className="text-slate-600 dark:text-slate-400">
+          {row.original.processingPrice ? `₽${row.original.processingPrice.toFixed(2)}` : '—'}
         </span>
       ),
     },
@@ -286,7 +436,7 @@ export default function Products() {
           }
         }}
       >
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               {currentProduct ? t('products.editProduct') : t('products.addProduct')}
@@ -342,6 +492,50 @@ export default function Products() {
                 />
               </div>
             </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="purchasePrice">{t('products.form.purchasePrice')} (¥)</Label>
+                <Input
+                  id="purchasePrice"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={formData.purchasePrice || ''}
+                  onChange={(e) => setFormData({ ...formData, purchasePrice: e.target.value || null })}
+                  placeholder={t('products.form.purchasePricePlaceholder')}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="processingPrice">{t('products.form.processingPrice')}</Label>
+                <Input
+                  id="processingPrice"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={formData.processingPrice || ''}
+                  onChange={(e) => setFormData({ ...formData, processingPrice: e.target.value || null })}
+                  placeholder={t('products.form.processingPricePlaceholder')}
+                />
+              </div>
+            </div>
+
+            {/* Image Upload Component */}
+            <ProductImageUpload
+              images={formData.images || []}
+              onImagesChange={(newImages) => {
+                // Handle both string paths and image objects
+                const imagePaths = newImages.map(img => 
+                  typeof img === 'string' ? img : img.filePath
+                );
+                setFormData({ 
+                  ...formData, 
+                  imagePaths,
+                  images: newImages // Keep all images (both objects and strings) for display
+                });
+              }}
+              productId={currentProduct?.productId || null}
+            />
+
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => { setDialogOpen(false); resetForm(); }}>
                 {t('common.cancel')}

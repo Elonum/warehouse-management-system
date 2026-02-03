@@ -125,6 +125,66 @@ const api = {
       });
       return { success: true };
     },
+
+    // Product images
+    getImages: async (productId) => {
+      return await request(`/products/${productId}/images`);
+    },
+
+    uploadImage: async (file) => {
+      const formData = new FormData();
+      formData.append('file', file);
+      
+      const url = `${API_BASE_URL}/products/images/upload`;
+      const token = localStorage.getItem('auth_token');
+      
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          ...(token && { Authorization: `Bearer ${token}` }),
+        },
+        body: formData,
+      });
+
+      if (!response.ok) {
+        let errorData;
+        try {
+          errorData = await response.json();
+        } catch {
+          errorData = { code: 'UNKNOWN_ERROR', message: response.statusText };
+        }
+        throw new ApiError(
+          errorData.error?.message || errorData.message || 'Failed to upload image',
+          errorData.error?.code || 'UNKNOWN_ERROR',
+          response.status
+        );
+      }
+
+      const data = await response.json();
+      return data.data !== undefined ? data.data : data;
+    },
+
+    deleteImage: async (productId, imageId) => {
+      await request(`/products/${productId}/images/${imageId}`, {
+        method: 'DELETE',
+      });
+      return { success: true };
+    },
+
+    updateImageOrder: async (productId, imageId, displayOrder) => {
+      await request(`/products/${productId}/images/${imageId}/order`, {
+        method: 'PUT',
+        body: { displayOrder },
+      });
+      return { success: true };
+    },
+
+    setImageAsMain: async (productId, imageId) => {
+      await request(`/products/${productId}/images/${imageId}/main`, {
+        method: 'PUT',
+      });
+      return { success: true };
+    },
   },
 
   warehouses: {

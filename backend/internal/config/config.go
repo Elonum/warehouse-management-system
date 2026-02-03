@@ -18,6 +18,7 @@ type Config struct {
 	DBName     string
 
 	JWTSecret string // Секретный ключ для JWT токенов
+	BaseURL   string // Base URL for serving files (e.g., "http://localhost:8080")
 }
 
 func Load() Config {
@@ -28,8 +29,9 @@ func Load() Config {
 		}
 	}
 
+	port := getEnv("PORT", "8080")
 	cfg := Config{
-		Port: getEnv("PORT", "8080"),
+		Port: port,
 		Env:  getEnv("ENV", "development"),
 
 		DBHost:     getEnv("DB_HOST", "localhost"),
@@ -39,6 +41,7 @@ func Load() Config {
 		DBName:     getEnv("DB_NAME", "warehouse"),
 
 		JWTSecret: getEnv("JWT_SECRET", "your-secret-key-change-in-production"),
+		BaseURL:   getEnv("BASE_URL", "http://localhost:"+port),
 	}
 
 	return cfg

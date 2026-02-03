@@ -25,6 +25,7 @@ func NewRouter(pg *db.Postgres, cfg config.Config) *chi.Mux {
 	userRepo := repository.NewUserRepository(pg.Pool)
 	roleRepo := repository.NewRoleRepository(pg.Pool)
 	productRepo := repository.NewProductRepository(pg.Pool)
+	productImageRepo := repository.NewProductImageRepository(pg.Pool)
 	warehouseRepo := repository.NewWarehouseRepository(pg.Pool)
 	warehouseTypeRepo := repository.NewWarehouseTypeRepository(pg.Pool)
 	storeRepo := repository.NewStoreRepository(pg.Pool)
@@ -43,7 +44,7 @@ func NewRouter(pg *db.Postgres, cfg config.Config) *chi.Mux {
 
 	stockService := service.NewStockService(stockRepo)
 	authService := service.NewAuthService(userRepo, roleRepo, jwtManager)
-	productService := service.NewProductService(productRepo)
+	productService := service.NewProductService(productRepo, productImageRepo, cfg.BaseURL)
 	warehouseService := service.NewWarehouseService(warehouseRepo, warehouseTypeRepo)
 	warehouseTypeService := service.NewWarehouseTypeService(warehouseTypeRepo)
 	storeService := service.NewStoreService(storeRepo)
@@ -101,12 +102,23 @@ func NewRouter(pg *db.Postgres, cfg config.Config) *chi.Mux {
 			r.Post("/upload", uploadHandler.Upload)
 			r.Get("/files", uploadHandler.ServeFile)
 
+			productImageUploadHandler := handlers.NewProductImageUploadHandler()
+			r.Post("/products/images/upload", productImageUploadHandler.UploadProductImage)
+
+			productImageHandler := handlers.NewProductImageHandler(productImageRepo)
+
 			r.Route("/products", func(r chi.Router) {
 				r.Get("/", productHandler.List)
 				r.Post("/", productHandler.Create)
 				r.Get("/{id}", productHandler.GetByID)
 				r.Put("/{id}", productHandler.Update)
 				r.Delete("/{id}", productHandler.Delete)
+
+				// Product images endpoints
+				r.Get("/{productId}/images", productImageHandler.GetByProductID)
+				r.Delete("/{productId}/images/{imageId}", productImageHandler.Delete)
+				r.Put("/{productId}/images/{imageId}/order", productImageHandler.UpdateDisplayOrder)
+				r.Put("/{productId}/images/{imageId}/main", productImageHandler.SetAsMain)
 			})
 
 			r.Route("/warehouses", func(r chi.Router) {

@@ -150,13 +150,24 @@ func (h *UploadHandler) ServeFile(w http.ResponseWriter, r *http.Request) {
 	// Normalize path - remove leading ./ if present
 	normalizedPath := strings.TrimPrefix(filePath, "./")
 	
+	// Determine which upload directory to use based on path
+	var targetDir string
+	if strings.HasPrefix(normalizedPath, "uploads/products/") {
+		targetDir = "./uploads/products"
+		// Extract filename from path
+		normalizedPath = filepath.Base(normalizedPath)
+	} else {
+		targetDir = uploadDir
+		normalizedPath = filepath.Base(normalizedPath)
+	}
+	
 	// Ensure file is within upload directory
-	fullPath := filepath.Join(uploadDir, filepath.Base(normalizedPath))
+	fullPath := filepath.Join(targetDir, normalizedPath)
 	
 	// Additional security check
-	absUploadDir, _ := filepath.Abs(uploadDir)
+	absTargetDir, _ := filepath.Abs(targetDir)
 	absFullPath, _ := filepath.Abs(fullPath)
-	if !strings.HasPrefix(absFullPath, absUploadDir) {
+	if !strings.HasPrefix(absFullPath, absTargetDir) {
 		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "invalid file path")
 		return
 	}

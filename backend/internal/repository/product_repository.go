@@ -17,11 +17,13 @@ var (
 )
 
 type Product struct {
-	ProductID  uuid.UUID
-	Article    string
-	Barcode    string
-	UnitWeight int
-	UnitCost   *float64
+	ProductID      uuid.UUID
+	Article        string
+	Barcode        string
+	UnitWeight     int
+	UnitCost       *float64
+	PurchasePrice  *float64
+	ProcessingPrice *float64
 }
 
 type ProductRepository struct {
@@ -34,7 +36,7 @@ func NewProductRepository(pool *pgxpool.Pool) *ProductRepository {
 
 func (r *ProductRepository) GetByID(ctx context.Context, productID uuid.UUID) (*Product, error) {
 	query := `
-		SELECT product_id, article, barcode, unit_weight, unit_cost
+		SELECT product_id, article, barcode, unit_weight, unit_cost, purchase_price, processing_price
 		FROM products
 		WHERE product_id = $1
 	`
@@ -49,6 +51,8 @@ func (r *ProductRepository) GetByID(ctx context.Context, productID uuid.UUID) (*
 		&product.Barcode,
 		&product.UnitWeight,
 		&product.UnitCost,
+		&product.PurchasePrice,
+		&product.ProcessingPrice,
 	)
 
 	if err != nil {
@@ -63,7 +67,7 @@ func (r *ProductRepository) GetByID(ctx context.Context, productID uuid.UUID) (*
 
 func (r *ProductRepository) GetByArticle(ctx context.Context, article string) (*Product, error) {
 	query := `
-		SELECT product_id, article, barcode, unit_weight, unit_cost
+		SELECT product_id, article, barcode, unit_weight, unit_cost, purchase_price, processing_price
 		FROM products
 		WHERE article = $1
 	`
@@ -78,6 +82,8 @@ func (r *ProductRepository) GetByArticle(ctx context.Context, article string) (*
 		&product.Barcode,
 		&product.UnitWeight,
 		&product.UnitCost,
+		&product.PurchasePrice,
+		&product.ProcessingPrice,
 	)
 
 	if err != nil {
@@ -92,7 +98,7 @@ func (r *ProductRepository) GetByArticle(ctx context.Context, article string) (*
 
 func (r *ProductRepository) GetByBarcode(ctx context.Context, barcode string) (*Product, error) {
 	query := `
-		SELECT product_id, article, barcode, unit_weight, unit_cost
+		SELECT product_id, article, barcode, unit_weight, unit_cost, purchase_price, processing_price
 		FROM products
 		WHERE barcode = $1
 	`
@@ -107,6 +113,8 @@ func (r *ProductRepository) GetByBarcode(ctx context.Context, barcode string) (*
 		&product.Barcode,
 		&product.UnitWeight,
 		&product.UnitCost,
+		&product.PurchasePrice,
+		&product.ProcessingPrice,
 	)
 
 	if err != nil {
@@ -121,7 +129,7 @@ func (r *ProductRepository) GetByBarcode(ctx context.Context, barcode string) (*
 
 func (r *ProductRepository) List(ctx context.Context, limit, offset int) ([]Product, error) {
 	query := `
-		SELECT product_id, article, barcode, unit_weight, unit_cost
+		SELECT product_id, article, barcode, unit_weight, unit_cost, purchase_price, processing_price
 		FROM products
 		ORDER BY product_id
 		LIMIT $1 OFFSET $2
@@ -145,6 +153,8 @@ func (r *ProductRepository) List(ctx context.Context, limit, offset int) ([]Prod
 			&product.Barcode,
 			&product.UnitWeight,
 			&product.UnitCost,
+			&product.PurchasePrice,
+			&product.ProcessingPrice,
 		); err != nil {
 			return nil, err
 		}
@@ -158,23 +168,25 @@ func (r *ProductRepository) List(ctx context.Context, limit, offset int) ([]Prod
 	return products, nil
 }
 
-func (r *ProductRepository) Create(ctx context.Context, article, barcode string, unitWeight int, unitCost *float64) (*Product, error) {
+func (r *ProductRepository) Create(ctx context.Context, article, barcode string, unitWeight int, unitCost, purchasePrice, processingPrice *float64) (*Product, error) {
 	query := `
-		INSERT INTO products (article, barcode, unit_weight, unit_cost)
-		VALUES ($1, $2, $3, $4)
-		RETURNING product_id, article, barcode, unit_weight, unit_cost
+		INSERT INTO products (article, barcode, unit_weight, unit_cost, purchase_price, processing_price)
+		VALUES ($1, $2, $3, $4, $5, $6)
+		RETURNING product_id, article, barcode, unit_weight, unit_cost, purchase_price, processing_price
 	`
 
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
 	var product Product
-	err := r.pool.QueryRow(ctx, query, article, barcode, unitWeight, unitCost).Scan(
+	err := r.pool.QueryRow(ctx, query, article, barcode, unitWeight, unitCost, purchasePrice, processingPrice).Scan(
 		&product.ProductID,
 		&product.Article,
 		&product.Barcode,
 		&product.UnitWeight,
 		&product.UnitCost,
+		&product.PurchasePrice,
+		&product.ProcessingPrice,
 	)
 
 	if err != nil {
@@ -191,24 +203,26 @@ func (r *ProductRepository) Create(ctx context.Context, article, barcode string,
 	return &product, nil
 }
 
-func (r *ProductRepository) Update(ctx context.Context, productID uuid.UUID, article, barcode string, unitWeight int, unitCost *float64) (*Product, error) {
+func (r *ProductRepository) Update(ctx context.Context, productID uuid.UUID, article, barcode string, unitWeight int, unitCost, purchasePrice, processingPrice *float64) (*Product, error) {
 	query := `
 		UPDATE products
-		SET article = $1, barcode = $2, unit_weight = $3, unit_cost = $4
-		WHERE product_id = $5
-		RETURNING product_id, article, barcode, unit_weight, unit_cost
+		SET article = $1, barcode = $2, unit_weight = $3, unit_cost = $4, purchase_price = $5, processing_price = $6
+		WHERE product_id = $7
+		RETURNING product_id, article, barcode, unit_weight, unit_cost, purchase_price, processing_price
 	`
 
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
 	var product Product
-	err := r.pool.QueryRow(ctx, query, article, barcode, unitWeight, unitCost, productID).Scan(
+	err := r.pool.QueryRow(ctx, query, article, barcode, unitWeight, unitCost, purchasePrice, processingPrice, productID).Scan(
 		&product.ProductID,
 		&product.Article,
 		&product.Barcode,
 		&product.UnitWeight,
 		&product.UnitCost,
+		&product.PurchasePrice,
+		&product.ProcessingPrice,
 	)
 
 	if err != nil {

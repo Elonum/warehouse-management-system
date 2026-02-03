@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -147,22 +148,48 @@ func (h *UploadHandler) ServeFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Decode URL-encoded path
+	decodedPath, err := url.QueryUnescape(filePath)
+	if err != nil {
+		decodedPath = filePath // Fallback to original if decode fails
+	}
+	
+	// Normalize path separators to forward slashes for cross-platform compatibility
+	decodedPath = strings.ReplaceAll(decodedPath, "\\", "/")
+	
 	// Normalize path - remove leading ./ if present
-	normalizedPath := strings.TrimPrefix(filePath, "./")
+	normalizedPath := strings.TrimPrefix(decodedPath, "./")
 	
 	// Determine which upload directory to use based on path
 	var targetDir string
+	var filename string
+	
 	if strings.HasPrefix(normalizedPath, "uploads/products/") {
 		targetDir = "./uploads/products"
-		// Extract filename from path
-		normalizedPath = filepath.Base(normalizedPath)
-	} else {
+		// Extract filename from path - handle both / and \ separators
+		parts := strings.Split(normalizedPath, "/")
+		if len(parts) > 0 {
+			filename = parts[len(parts)-1]
+		} else {
+			filename = filepath.Base(normalizedPath)
+		}
+	} else if strings.HasPrefix(normalizedPath, "uploads/") {
+		// Handle other upload directories
 		targetDir = uploadDir
-		normalizedPath = filepath.Base(normalizedPath)
+		parts := strings.Split(normalizedPath, "/")
+		if len(parts) > 0 {
+			filename = parts[len(parts)-1]
+		} else {
+			filename = filepath.Base(normalizedPath)
+		}
+	} else {
+		// If path doesn't start with "uploads/", treat as filename only
+		targetDir = "./uploads/products"
+		filename = filepath.Base(normalizedPath)
 	}
 	
 	// Ensure file is within upload directory
-	fullPath := filepath.Join(targetDir, normalizedPath)
+	fullPath := filepath.Join(targetDir, filename)
 	
 	// Additional security check
 	absTargetDir, _ := filepath.Abs(targetDir)
@@ -174,6 +201,14 @@ func (h *UploadHandler) ServeFile(w http.ResponseWriter, r *http.Request) {
 
 	// Check if file exists
 	if _, err := os.Stat(fullPath); os.IsNotExist(err) {
+		log.Warn().
+			Str("requestedPath", filePath).
+			Str("decodedPath", decodedPath).
+			Str("normalizedPath", normalizedPath).
+			Str("filename", filename).
+			Str("targetDir", targetDir).
+			Str("fullPath", fullPath).
+			Msg("File not found")
 		writeError(w, http.StatusNotFound, "FILE_NOT_FOUND", "file not found")
 		return
 	}

@@ -34,21 +34,21 @@ type ProductImageUploadHandler struct {
 func NewProductImageUploadHandler() *ProductImageUploadHandler {
 	// Create upload directory if it doesn't exist
 	if err := os.MkdirAll(productImageDir, 0755); err != nil {
-		log.Error().Err(err).Msg("Failed to create product image upload directory")
+		log.Error().Err(err).Str("dir", productImageDir).Msg("Failed to create product image upload directory")
+	} else {
+		log.Info().Str("dir", productImageDir).Msg("Product image upload directory ready")
 	}
 
 	return &ProductImageUploadHandler{}
 }
 
-// UploadProductImage handles image upload for products
 func (h *ProductImageUploadHandler) UploadProductImage(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		writeError(w, http.StatusMethodNotAllowed, "METHOD_NOT_ALLOWED", "only POST method is allowed")
 		return
 	}
 
-	// Parse multipart form
-	err := r.ParseMultipartForm(10 << 20) // 10 MB max memory
+	err := r.ParseMultipartForm(10 << 20)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to parse multipart form")
 		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "failed to parse form data")
@@ -63,25 +63,21 @@ func (h *ProductImageUploadHandler) UploadProductImage(w http.ResponseWriter, r 
 	}
 	defer file.Close()
 
-	// Validate file size
 	if header.Size > maxImageSize {
 		writeError(w, http.StatusBadRequest, "FILE_TOO_LARGE", fmt.Sprintf("file size exceeds maximum allowed size of %d MB", maxImageSize/(1024*1024)))
 		return
 	}
 
-	// Validate file extension
 	ext := strings.ToLower(filepath.Ext(header.Filename))
 	if !allowedImageExtensions[ext] {
 		writeError(w, http.StatusBadRequest, "INVALID_FILE_TYPE", fmt.Sprintf("file type %s is not allowed. Allowed types: jpg, jpeg, png, gif, webp, bmp", ext))
 		return
 	}
 
-	// Generate unique filename using UUID
 	uniqueID := uuid.New().String()
 	filename := fmt.Sprintf("%s%s", uniqueID, ext)
 	filePath := filepath.Join(productImageDir, filename)
 
-	// Create file on disk
 	dst, err := os.Create(filePath)
 	if err != nil {
 		log.Error().Err(err).Str("filePath", filePath).Msg("Failed to create file")
@@ -90,7 +86,6 @@ func (h *ProductImageUploadHandler) UploadProductImage(w http.ResponseWriter, r 
 	}
 	defer dst.Close()
 
-	// Copy file content
 	_, err = io.Copy(dst, file)
 	if err != nil {
 		log.Error().Err(err).Str("filePath", filePath).Msg("Failed to save file content")
@@ -99,8 +94,8 @@ func (h *ProductImageUploadHandler) UploadProductImage(w http.ResponseWriter, r 
 		return
 	}
 
-	// Return file path (relative path for storage in DB)
 	relativePath := strings.TrimPrefix(filePath, "./")
+	relativePath = strings.ReplaceAll(relativePath, "\\", "/")
 	response := map[string]interface{}{
 		"data": map[string]interface{}{
 			"fileName": header.Filename,

@@ -2,7 +2,9 @@ package handlers
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
+	"strings"
 
 	"warehouse-backend/internal/dto"
 	"warehouse-backend/internal/repository"
@@ -38,7 +40,6 @@ func (h *ProductImageHandler) GetByProductID(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	// Convert to DTO
 	imageResponses := make([]dto.ProductImageResponse, 0, len(images))
 	for _, img := range images {
 		imageResponses = append(imageResponses, dto.ProductImageResponse{
@@ -59,7 +60,6 @@ func (h *ProductImageHandler) GetByProductID(w http.ResponseWriter, r *http.Requ
 	json.NewEncoder(w).Encode(response)
 }
 
-// Delete removes an image from a product
 func (h *ProductImageHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	productIDStr := chi.URLParam(r, "productId")
 	productID, err := uuid.Parse(productIDStr)
@@ -75,7 +75,6 @@ func (h *ProductImageHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Verify that the image belongs to the product
 	image, err := h.imageRepo.GetByID(r.Context(), imageID)
 	if err != nil {
 		if err == repository.ErrProductImageNotFound {
@@ -106,7 +105,6 @@ func (h *ProductImageHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// UpdateDisplayOrder updates the display order of an image
 func (h *ProductImageHandler) UpdateDisplayOrder(w http.ResponseWriter, r *http.Request) {
 	productIDStr := chi.URLParam(r, "productId")
 	productID, err := uuid.Parse(productIDStr)
@@ -130,7 +128,6 @@ func (h *ProductImageHandler) UpdateDisplayOrder(w http.ResponseWriter, r *http.
 		return
 	}
 
-	// Verify that the image belongs to the product
 	image, err := h.imageRepo.GetByID(r.Context(), imageID)
 	if err != nil {
 		if err == repository.ErrProductImageNotFound {
@@ -161,7 +158,6 @@ func (h *ProductImageHandler) UpdateDisplayOrder(w http.ResponseWriter, r *http.
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// SetAsMain sets an image as the main image for a product
 func (h *ProductImageHandler) SetAsMain(w http.ResponseWriter, r *http.Request) {
 	productIDStr := chi.URLParam(r, "productId")
 	productID, err := uuid.Parse(productIDStr)
@@ -177,7 +173,6 @@ func (h *ProductImageHandler) SetAsMain(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	// Verify that the image belongs to the product
 	image, err := h.imageRepo.GetByID(r.Context(), imageID)
 	if err != nil {
 		if err == repository.ErrProductImageNotFound {
@@ -208,12 +203,11 @@ func (h *ProductImageHandler) SetAsMain(w http.ResponseWriter, r *http.Request) 
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// Helper function to build image URL
 func buildImageURL(r *http.Request, filePath string) string {
 	if filePath == "" {
 		return ""
 	}
-	// Remove leading ./ if present
+	filePath = strings.ReplaceAll(filePath, "\\", "/")
 	if len(filePath) > 2 && filePath[0:2] == "./" {
 		filePath = filePath[2:]
 	}
@@ -221,6 +215,5 @@ func buildImageURL(r *http.Request, filePath string) string {
 	if r.TLS != nil {
 		scheme = "https"
 	}
-	host := r.Host
-	return scheme + "://" + host + "/api/v1/files?path=" + filePath
+	return fmt.Sprintf("%s://%s/api/v1/files?path=%s", scheme, r.Host, filePath)
 }

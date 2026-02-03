@@ -92,15 +92,17 @@ func NewRouter(pg *db.Postgres, cfg config.Config) *chi.Mux {
 		r.Post("/auth/login", authHandler.Login)
 		r.Post("/auth/register", authHandler.Register)
 
+		// File serving endpoint - public (but secured by path validation in handler)
+		r.Get("/files", uploadHandler.ServeFile)
+
 		r.Group(func(r chi.Router) {
 			r.Use(middleware.AuthMiddleware(jwtManager))
 
 			r.Get("/auth/me", authHandler.GetMe)
 			r.Get("/stock/current", stockHandler.GetCurrentStock)
 			
-			// File upload endpoints
+			// File upload endpoints (require auth)
 			r.Post("/upload", uploadHandler.Upload)
-			r.Get("/files", uploadHandler.ServeFile)
 
 			productImageUploadHandler := handlers.NewProductImageUploadHandler()
 			r.Post("/products/images/upload", productImageUploadHandler.UploadProductImage)

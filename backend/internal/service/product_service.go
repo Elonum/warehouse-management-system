@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/google/uuid"
 	"warehouse-backend/internal/dto"
@@ -116,20 +117,8 @@ func (s *ProductService) List(ctx context.Context, limit, offset int) ([]dto.Pro
 
 	result := make([]dto.ProductResponse, 0, len(products))
 	for _, product := range products {
-		// For list view, only load main image (if exists) for performance
 		images, _ := s.imageRepo.GetByProductID(ctx, product.ProductID)
-		var mainImage *repository.ProductImage
-		for i := range images {
-			if images[i].IsMain {
-				mainImage = &images[i]
-				break
-			}
-		}
-		// If no main image, use first image
-		if mainImage == nil && len(images) > 0 {
-			mainImage = &images[0]
-		}
-
+		
 		productResponse := dto.ProductResponse{
 			ProductID:       product.ProductID.String(),
 			Article:         product.Article,
@@ -138,19 +127,7 @@ func (s *ProductService) List(ctx context.Context, limit, offset int) ([]dto.Pro
 			UnitCost:        product.UnitCost,
 			PurchasePrice:   product.PurchasePrice,
 			ProcessingPrice: product.ProcessingPrice,
-		}
-
-		// Only include main image in list view
-		if mainImage != nil {
-			productResponse.Images = []dto.ProductImageResponse{
-				{
-					ImageID:      mainImage.ImageID.String(),
-					FilePath:     mainImage.FilePath,
-					DisplayOrder: mainImage.DisplayOrder,
-					IsMain:       mainImage.IsMain,
-					ImageURL:     s.buildImageURL(mainImage.FilePath),
-				},
-			}
+			Images:          s.mapImagesToDTO(images),
 		}
 
 		result = append(result, productResponse)
@@ -203,32 +180,17 @@ func (s *ProductService) Update(ctx context.Context, productID uuid.UUID, req dt
 	}
 	log.Info().Str("productId", productID.String()).Msg("Product updated successfully")
 
-	// Handle image updates if provided
-	// Note: This is a simple implementation. In production, you might want to:
-	// - Compare existing images with new ones
-	// - Delete images that are no longer in the list
-	// - Update display order
-	if len(req.ImagePaths) > 0 {
-		// Get existing images
+	if len(req.ImagePaths) == 0 {
 		existingImages, _ := s.imageRepo.GetByProductID(ctx, productID)
-		existingPaths := make(map[string]bool)
 		for _, img := range existingImages {
-			existingPaths[img.FilePath] = true
-		}
-
-		// Add new images
-		for i, imagePath := range req.ImagePaths {
-			if !existingPaths[imagePath] {
-				isMain := i == 0 && len(existingImages) == 0 // First image is main if no images exist
-				_, err := s.imageRepo.Create(ctx, productID, imagePath, i, isMain)
-				if err != nil {
-					log.Warn().Err(err).Str("productId", productID.String()).Str("imagePath", imagePath).Msg("Failed to create product image")
-				}
+			if err := s.imageRepo.Delete(ctx, img.ImageID); err != nil {
+				log.Warn().Err(err).Str("productId", productID.String()).Str("imageId", img.ImageID.String()).Msg("Failed to delete product image")
 			}
 		}
+	} else {
+		s.syncProductImages(ctx, productID, req.ImagePaths)
 	}
 
-	// Load all images
 	images, _ := s.imageRepo.GetByProductID(ctx, productID)
 	imageResponses := s.mapImagesToDTO(images)
 
@@ -255,7 +217,61 @@ func (s *ProductService) Delete(ctx context.Context, productID uuid.UUID) error 
 	return nil
 }
 
-// Helper methods
+func (s *ProductService) syncProductImages(ctx context.Context, productID uuid.UUID, imagePaths []string) {
+	existingImages, _ := s.imageRepo.GetByProductID(ctx, productID)
+	existingPaths := make(map[string]*repository.ProductImage)
+	for i := range existingImages {
+		normalizedPath := strings.ReplaceAll(existingImages[i].FilePath, "\\", "/")
+		existingPaths[normalizedPath] = &existingImages[i]
+	}
+
+	newPaths := make(map[string]bool)
+	for _, path := range imagePaths {
+		normalizedPath := strings.ReplaceAll(path, "\\", "/")
+		newPaths[normalizedPath] = true
+	}
+
+	for normalizedPath, img := range existingPaths {
+		if !newPaths[normalizedPath] {
+			if err := s.imageRepo.Delete(ctx, img.ImageID); err != nil {
+				log.Warn().Err(err).Str("productId", productID.String()).Str("imageId", img.ImageID.String()).Msg("Failed to delete product image")
+			}
+		}
+	}
+
+	remainingImages, _ := s.imageRepo.GetByProductID(ctx, productID)
+	remainingPaths := make(map[string]*repository.ProductImage)
+	for i := range remainingImages {
+		normalizedPath := strings.ReplaceAll(remainingImages[i].FilePath, "\\", "/")
+		remainingPaths[normalizedPath] = &remainingImages[i]
+	}
+
+	for i, imagePath := range imagePaths {
+		normalizedPath := strings.ReplaceAll(imagePath, "\\", "/")
+		
+		if existingImg, exists := remainingPaths[normalizedPath]; exists {
+			needsUpdate := existingImg.DisplayOrder != i || (i == 0 && !existingImg.IsMain)
+			
+			if needsUpdate {
+				if existingImg.DisplayOrder != i {
+					if err := s.imageRepo.UpdateDisplayOrder(ctx, existingImg.ImageID, i); err != nil {
+						log.Warn().Err(err).Str("productId", productID.String()).Str("imageId", existingImg.ImageID.String()).Msg("Failed to update image display order")
+					}
+				}
+				if i == 0 && !existingImg.IsMain {
+					if err := s.imageRepo.SetAsMain(ctx, existingImg.ImageID, productID); err != nil {
+						log.Warn().Err(err).Str("productId", productID.String()).Str("imageId", existingImg.ImageID.String()).Msg("Failed to set image as main")
+					}
+				}
+			}
+		} else {
+			isMain := i == 0 && len(remainingImages) == 0
+			if _, err := s.imageRepo.Create(ctx, productID, normalizedPath, i, isMain); err != nil {
+				log.Warn().Err(err).Str("productId", productID.String()).Str("imagePath", normalizedPath).Msg("Failed to create product image")
+			}
+		}
+	}
+}
 
 func (s *ProductService) mapImagesToDTO(images []repository.ProductImage) []dto.ProductImageResponse {
 	result := make([]dto.ProductImageResponse, 0, len(images))
@@ -275,7 +291,7 @@ func (s *ProductService) buildImageURL(filePath string) string {
 	if filePath == "" {
 		return ""
 	}
-	// Remove leading ./ if present
+	filePath = strings.ReplaceAll(filePath, "\\", "/")
 	if len(filePath) > 2 && filePath[0:2] == "./" {
 		filePath = filePath[2:]
 	}

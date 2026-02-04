@@ -12,7 +12,10 @@ export function Dialog({ open, onOpenChange, children }) {
         className="fixed inset-0 bg-black/50"
         onClick={() => onOpenChange?.(false)}
       />
-      <div className="relative z-50 w-full max-w-lg mx-4">
+      <div 
+        className="relative z-50 w-full max-w-lg mx-4"
+        onClick={(e) => e.stopPropagation()}
+      >
         {children}
       </div>
     </div>

@@ -137,11 +137,15 @@ export default function DataTable({
                   className={cn(
                     "font-semibold text-slate-700 dark:text-slate-300",
                     column.sortable !== false && "cursor-pointer select-none hover:text-slate-900 dark:hover:text-slate-100",
-                    column.className
+                    column.className,
+                    column.headerClassName
                   )}
                   onClick={() => column.sortable !== false && column.accessorKey && handleSort(column.accessorKey)}
                 >
-                  <div className="flex items-center gap-2">
+                  <div className={cn(
+                    "flex items-center gap-2",
+                    (column.headerClassName?.includes('text-center') || column.headerClassName?.includes('justify-center')) && "justify-center"
+                  )}>
                     {column.header}
                     {sortConfig.key === column.accessorKey && (
                       <span className="text-indigo-500">

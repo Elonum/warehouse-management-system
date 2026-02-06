@@ -337,7 +337,7 @@ export default function Products() {
             </div>
             
             {allImages.length > 1 && (
-              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 pointer-events-none">
+              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 pointer-events-none rounded-lg">
                 <Button
                   type="button"
                   size="icon"
@@ -378,6 +378,7 @@ export default function Products() {
     {
       accessorKey: 'article',
       header: t('products.table.article'),
+      headerClassName: 'text-center',
       cell: ({ row }) => (
         <div className="flex items-center justify-center h-full">
           <span className="font-mono text-sm font-medium text-slate-900 dark:text-slate-100">
@@ -389,6 +390,7 @@ export default function Products() {
     {
       accessorKey: 'barcode',
       header: t('products.table.barcode'),
+      headerClassName: 'text-center',
       cell: ({ row }) => (
         <div className="flex items-center justify-center h-full">
           <div className="flex items-center gap-3">
@@ -405,6 +407,7 @@ export default function Products() {
     {
       accessorKey: 'unitWeight',
       header: t('products.table.weight'),
+      headerClassName: 'text-center',
       cell: ({ row }) => (
         <div className="flex items-center justify-center h-full">
           <span className="text-slate-600 dark:text-slate-400">
@@ -416,6 +419,7 @@ export default function Products() {
     {
       accessorKey: 'unitCost',
       header: t('products.table.price'),
+      headerClassName: 'text-center',
       cell: ({ row }) => (
         <div className="flex items-center justify-center h-full">
           <span className="font-medium text-slate-900 dark:text-slate-100">
@@ -427,6 +431,7 @@ export default function Products() {
     {
       accessorKey: 'purchasePrice',
       header: t('products.table.purchasePrice'),
+      headerClassName: 'text-center',
       cell: ({ row }) => (
         <div className="flex items-center justify-center h-full">
           <span className="text-slate-600 dark:text-slate-400">
@@ -438,6 +443,7 @@ export default function Products() {
     {
       accessorKey: 'processingPrice',
       header: t('products.table.processingPrice'),
+      headerClassName: 'text-center',
       cell: ({ row }) => (
         <div className="flex items-center justify-center h-full">
           <span className="text-slate-600 dark:text-slate-400">

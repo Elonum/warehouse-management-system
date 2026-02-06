@@ -2,7 +2,7 @@ import React, { useState, useCallback, useEffect } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { api, ApiError } from '@/api';
 import { useI18n } from '@/lib/i18n';
-import { Upload, X, Star, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Upload, X, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
@@ -72,34 +72,6 @@ export default function ProductImageUpload({
     },
   });
 
-  const setMainImageMutation = useMutation({
-    mutationFn: ({ productId, imageId }) => api.products.setImageAsMain(productId, imageId),
-    onSuccess: async (_, variables) => {
-      const updatedImages = images.map(img => {
-        if (typeof img === 'object' && img.imageId === variables.imageId) {
-          return { ...img, isMain: true };
-        }
-        if (typeof img === 'object' && img.isMain) {
-          return { ...img, isMain: false };
-        }
-        return img;
-      });
-      onImagesChange(updatedImages);
-      
-      if (variables.productId) {
-        try {
-          const productImages = await api.products.getImages(variables.productId);
-          onImagesChange(productImages || []);
-        } catch (err) {
-          console.error('Failed to reload images:', err);
-        }
-      }
-    },
-    onError: (err) => {
-      console.error('Failed to set main image:', err);
-      setUploadError(err instanceof ApiError ? err.message : t('products.images.setMainFailed'));
-    },
-  });
 
   const validateFile = (file) => {
     if (!ALLOWED_TYPES.includes(file.type)) {
@@ -151,11 +123,13 @@ export default function ProductImageUpload({
   }, [uploadMutation, t]);
 
   const handleDeleteImage = useCallback(async (image) => {
+    const confirmMessage = `${t('products.images.deleteConfirm')}\n\n${t('products.images.deleteWarning')}`;
+    const confirmed = window.confirm(confirmMessage);
+    if (!confirmed) {
+      return;
+    }
+
     if (!productId || !image.imageId) {
-      const confirmed = window.confirm(t('products.images.deleteConfirm'));
-      if (!confirmed) {
-        return;
-      }
       const imagePath = typeof image === 'string' ? image : image.filePath;
       onImagesChange(images.filter(img => {
         const imgPath = typeof img === 'string' ? img : img.filePath;
@@ -163,19 +137,10 @@ export default function ProductImageUpload({
       }));
       return;
     }
-
-    const confirmed = window.confirm(t('products.images.deleteConfirm'));
-    if (!confirmed) {
-      return;
-    }
     
     deleteImageMutation.mutate({ productId, imageId: image.imageId });
   }, [productId, images, onImagesChange, deleteImageMutation, t]);
 
-  const handleSetMain = useCallback(async (image) => {
-    if (!productId || !image.imageId) return;
-    setMainImageMutation.mutate({ productId, imageId: image.imageId });
-  }, [productId, setMainImageMutation]);
 
   const getImageUrl = (image) => {
     if (typeof image === 'string') {
@@ -275,7 +240,6 @@ export default function ProductImageUpload({
           {images.map((image, index) => {
             const imageUrl = getImageUrl(image);
             const imagePath = getImagePath(image);
-            const isMain = typeof image === 'object' && image.isMain;
             const imageId = typeof image === 'object' ? image.imageId : null;
 
             return (
@@ -304,22 +268,7 @@ export default function ProductImageUpload({
                   }}
                 />
                 
-                <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                  {productId && imageId && !isMain && (
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="secondary"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleSetMain(image);
-                      }}
-                      className="h-8 w-8 p-0 flex items-center justify-center"
-                      title={t('products.images.setAsMain')}
-                    >
-                      <Star className="w-3 h-3" />
-                    </Button>
-                  )}
+                <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 rounded-lg">
                   <Button
                     type="button"
                     size="sm"
@@ -334,12 +283,6 @@ export default function ProductImageUpload({
                     <X className="w-3 h-3" />
                   </Button>
                 </div>
-
-                {isMain && (
-                  <div className="absolute top-2 left-2 bg-amber-500 text-white rounded-full p-1">
-                    <Star className="w-3 h-3 fill-current" />
-                  </div>
-                )}
               </div>
             );
           })}

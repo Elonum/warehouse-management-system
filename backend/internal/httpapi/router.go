@@ -120,7 +120,6 @@ func NewRouter(pg *db.Postgres, cfg config.Config) *chi.Mux {
 				r.Get("/{productId}/images", productImageHandler.GetByProductID)
 				r.Delete("/{productId}/images/{imageId}", productImageHandler.Delete)
 				r.Put("/{productId}/images/{imageId}/order", productImageHandler.UpdateDisplayOrder)
-				r.Put("/{productId}/images/{imageId}/main", productImageHandler.SetAsMain)
 			})
 
 			r.Route("/warehouses", func(r chi.Router) {

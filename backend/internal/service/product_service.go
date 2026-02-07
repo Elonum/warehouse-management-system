@@ -147,8 +147,7 @@ func (s *ProductService) Create(ctx context.Context, req dto.ProductCreateReques
 	// Create product images if provided
 	if len(req.ImagePaths) > 0 {
 		for i, imagePath := range req.ImagePaths {
-			isMain := i == 0 // First image is main by default
-			_, err := s.imageRepo.Create(ctx, product.ProductID, imagePath, i, isMain)
+			_, err := s.imageRepo.Create(ctx, product.ProductID, imagePath, i)
 			if err != nil {
 				log.Warn().Err(err).Str("productId", product.ProductID.String()).Str("imagePath", imagePath).Msg("Failed to create product image")
 				// Continue with other images
@@ -250,23 +249,13 @@ func (s *ProductService) syncProductImages(ctx context.Context, productID uuid.U
 		normalizedPath := strings.ReplaceAll(imagePath, "\\", "/")
 		
 		if existingImg, exists := remainingPaths[normalizedPath]; exists {
-			needsUpdate := existingImg.DisplayOrder != i || (i == 0 && !existingImg.IsMain)
-			
-			if needsUpdate {
-				if existingImg.DisplayOrder != i {
-					if err := s.imageRepo.UpdateDisplayOrder(ctx, existingImg.ImageID, i); err != nil {
-						log.Warn().Err(err).Str("productId", productID.String()).Str("imageId", existingImg.ImageID.String()).Msg("Failed to update image display order")
-					}
-				}
-				if i == 0 && !existingImg.IsMain {
-					if err := s.imageRepo.SetAsMain(ctx, existingImg.ImageID, productID); err != nil {
-						log.Warn().Err(err).Str("productId", productID.String()).Str("imageId", existingImg.ImageID.String()).Msg("Failed to set image as main")
-					}
+			if existingImg.DisplayOrder != i {
+				if err := s.imageRepo.UpdateDisplayOrder(ctx, existingImg.ImageID, i); err != nil {
+					log.Warn().Err(err).Str("productId", productID.String()).Str("imageId", existingImg.ImageID.String()).Msg("Failed to update image display order")
 				}
 			}
 		} else {
-			isMain := i == 0 && len(remainingImages) == 0
-			if _, err := s.imageRepo.Create(ctx, productID, normalizedPath, i, isMain); err != nil {
+			if _, err := s.imageRepo.Create(ctx, productID, normalizedPath, i); err != nil {
 				log.Warn().Err(err).Str("productId", productID.String()).Str("imagePath", normalizedPath).Msg("Failed to create product image")
 			}
 		}
@@ -280,7 +269,6 @@ func (s *ProductService) mapImagesToDTO(images []repository.ProductImage) []dto.
 			ImageID:      img.ImageID.String(),
 			FilePath:     img.FilePath,
 			DisplayOrder: img.DisplayOrder,
-			IsMain:       img.IsMain,
 			ImageURL:     s.buildImageURL(img.FilePath),
 		})
 	}

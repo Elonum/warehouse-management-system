@@ -179,12 +179,6 @@ const api = {
       return { success: true };
     },
 
-    setImageAsMain: async (productId, imageId) => {
-      await request(`/products/${productId}/images/${imageId}/main`, {
-        method: 'PUT',
-      });
-      return { success: true };
-    },
   },
 
   warehouses: {

@@ -46,7 +46,6 @@ func (h *ProductImageHandler) GetByProductID(w http.ResponseWriter, r *http.Requ
 			ImageID:      img.ImageID.String(),
 			FilePath:     img.FilePath,
 			DisplayOrder: img.DisplayOrder,
-			IsMain:       img.IsMain,
 			ImageURL:     buildImageURL(r, img.FilePath),
 		})
 	}
@@ -158,50 +157,6 @@ func (h *ProductImageHandler) UpdateDisplayOrder(w http.ResponseWriter, r *http.
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func (h *ProductImageHandler) SetAsMain(w http.ResponseWriter, r *http.Request) {
-	productIDStr := chi.URLParam(r, "productId")
-	productID, err := uuid.Parse(productIDStr)
-	if err != nil {
-		writeError(w, http.StatusBadRequest, "INVALID_PRODUCT_ID", "invalid product id")
-		return
-	}
-
-	imageIDStr := chi.URLParam(r, "imageId")
-	imageID, err := uuid.Parse(imageIDStr)
-	if err != nil {
-		writeError(w, http.StatusBadRequest, "INVALID_IMAGE_ID", "invalid image id")
-		return
-	}
-
-	image, err := h.imageRepo.GetByID(r.Context(), imageID)
-	if err != nil {
-		if err == repository.ErrProductImageNotFound {
-			writeError(w, http.StatusNotFound, "IMAGE_NOT_FOUND", "image not found")
-			return
-		}
-		log.Error().Err(err).Str("imageId", imageID.String()).Msg("Failed to get image")
-		writeError(w, http.StatusInternalServerError, "IMAGE_LOAD_FAILED", "failed to load image")
-		return
-	}
-
-	if image.ProductID != productID {
-		writeError(w, http.StatusBadRequest, "IMAGE_MISMATCH", "image does not belong to this product")
-		return
-	}
-
-	err = h.imageRepo.SetAsMain(r.Context(), imageID, productID)
-	if err != nil {
-		if err == repository.ErrProductImageNotFound {
-			writeError(w, http.StatusNotFound, "IMAGE_NOT_FOUND", "image not found")
-			return
-		}
-		log.Error().Err(err).Str("imageId", imageID.String()).Msg("Failed to set image as main")
-		writeError(w, http.StatusInternalServerError, "SET_MAIN_FAILED", "failed to set image as main")
-		return
-	}
-
-	w.WriteHeader(http.StatusNoContent)
-}
 
 func buildImageURL(r *http.Request, filePath string) string {
 	if filePath == "" {

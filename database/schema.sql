@@ -62,19 +62,21 @@ CREATE TABLE IF NOT EXISTS products (
 -- =====================================================
 
 CREATE TABLE IF NOT EXISTS product_images (
-    image_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    image_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     product_id UUID NOT NULL REFERENCES products(product_id) ON DELETE CASCADE,
     file_path VARCHAR(500) NOT NULL,
     display_order INTEGER NOT NULL DEFAULT 0,
-    is_main BOOLEAN NOT NULL DEFAULT FALSE,
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    
+    CONSTRAINT product_images_product_id_fkey FOREIGN KEY (product_id) 
+        REFERENCES products(product_id) ON DELETE CASCADE
 );
 
-CREATE INDEX IF NOT EXISTS idx_product_images_product
-    ON product_images(product_id);
+-- Index for faster queries by product_id
+CREATE INDEX IF NOT EXISTS idx_product_images_product_id ON product_images(product_id);
 
-CREATE INDEX IF NOT EXISTS idx_product_images_order
-    ON product_images(product_id, display_order);
+-- Index for ordering images by display_order
+CREATE INDEX IF NOT EXISTS idx_product_images_display_order ON product_images(product_id, display_order);
 
 -- =====================================================
 -- Статусы заказов поставщиков

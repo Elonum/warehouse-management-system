@@ -15,7 +15,6 @@ type ProductImageResponse struct {
 	ImageID     string `json:"imageId"`
 	FilePath    string `json:"filePath"`
 	DisplayOrder int   `json:"displayOrder"`
-	IsMain      bool   `json:"isMain"`
 	ImageURL    string `json:"imageUrl"` // Full URL for accessing the image
 }
 

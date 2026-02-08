@@ -21,7 +21,7 @@ func main() {
 	fmt.Printf("Password: %s\n", password)
 	fmt.Printf("Bcrypt Hash: %s\n", hash)
 
-	// Проверяем, что хеш работает
+	// Verify that the hash works correctly
 	if auth.CheckPassword(password, hash) {
 		fmt.Println("Hash verification: SUCCESS")
 	} else {

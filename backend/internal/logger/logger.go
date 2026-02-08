@@ -25,13 +25,3 @@ func Init(env string) {
 	// Устанавливаем временную зону UTC для логов
 	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
 }
-
-// Get возвращает глобальный логгер
-func Get() zerolog.Logger {
-	return log.Logger
-}
-
-// WithContext создает логгер с контекстом
-func WithContext(ctx interface{}) zerolog.Logger {
-	return log.With().Interface("context", ctx).Logger()
-}

@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"crypto/subtle"
 	"errors"
 	"time"
 
@@ -90,12 +89,6 @@ func (s *AuthService) Login(ctx context.Context, email, password string) (string
 
 	log.Info().Str("userId", user.UserID.String()).Str("email", email).Msg("User logged in successfully")
 	return token, user, nil
-}
-
-// constantTimeCompare performs a constant-time comparison of two strings
-// This prevents timing attacks when comparing sensitive values
-func constantTimeCompare(a, b string) bool {
-	return subtle.ConstantTimeCompare([]byte(a), []byte(b)) == 1
 }
 
 func (s *AuthService) Register(ctx context.Context, email, password string, roleIDStr string, name, surname, patronymic *string) (*repository.User, error) {

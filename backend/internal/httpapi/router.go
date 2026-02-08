@@ -95,8 +95,8 @@ func NewRouter(pg *db.Postgres, cfg config.Config) *chi.Mux {
 	loginLimiter := middleware.NewRateLimiter(5, 15*time.Minute)
 	// Register: 3 attempts per hour (prevents spam account creation)
 	registerLimiter := middleware.NewRateLimiter(3, 1*time.Hour)
-	// General API: 100 requests per minute (prevents DoS)
-	apiLimiter := middleware.NewRateLimiter(100, 1*time.Minute)
+	// Note: General API rate limiting can be added later if needed
+	// apiLimiter := middleware.NewRateLimiter(100, 1*time.Minute)
 
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Get("/health", healthHandler.DBHealth)

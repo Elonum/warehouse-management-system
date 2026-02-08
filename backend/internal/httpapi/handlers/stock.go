@@ -80,15 +80,3 @@ func parseInt(v string, def int) int {
 func parseUUID(v string) (uuid.UUID, error) {
 	return uuid.Parse(v)
 }
-
-func writeError(w http.ResponseWriter, status int, code, message string) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-
-	json.NewEncoder(w).Encode(dto.APIResponse[any]{
-		Error: &dto.Error{
-			Code:    code,
-			Message: message,
-		},
-	})
-}

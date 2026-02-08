@@ -41,13 +41,16 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 
 	token, user, err := h.service.Login(r.Context(), req.Email, req.Password)
 	if err != nil {
+		// Always return the same error message to prevent information leakage
+		// Don't reveal whether email exists or password is wrong
 		if err == service.ErrInvalidCredentials {
-			log.Warn().Str("email", req.Email).Msg("Login failed: invalid credentials")
+			// Use generic error message - don't reveal which field is wrong
 			writeError(w, http.StatusUnauthorized, "INVALID_CREDENTIALS", "invalid email or password")
 			return
 		}
-		log.Error().Err(err).Str("email", req.Email).Msg("Login failed")
-		writeError(w, http.StatusInternalServerError, "LOGIN_FAILED", "failed to login")
+		// For other errors, log but don't expose details to client
+		log.Error().Err(err).Msg("Login failed")
+		writeError(w, http.StatusInternalServerError, "LOGIN_FAILED", "an error occurred during login")
 		return
 	}
 
@@ -87,15 +90,10 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if len(req.Password) < 6 {
-		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "password must be at least 6 characters")
-		return
-	}
-
 	user, err := h.service.Register(r.Context(), req.Email, req.Password, req.RoleID, req.Name, req.Surname, req.Patronymic)
 	if err != nil {
-		log.Error().Err(err).Str("email", req.Email).Str("roleId", req.RoleID).Msg("Failed to register user")
-
+		// Handle different error types with appropriate responses
+		// But don't leak sensitive information
 		if err == repository.ErrUserExists {
 			writeError(w, http.StatusConflict, "USER_EXISTS", "user with this email already exists")
 			return
@@ -105,16 +103,25 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		// Check for validation errors
+		if strings.Contains(err.Error(), "invalid email") {
+			writeError(w, http.StatusBadRequest, "INVALID_EMAIL", "invalid email format")
+			return
+		}
+		if strings.Contains(err.Error(), "password") || strings.Contains(err.Error(), "weak") {
+			writeError(w, http.StatusBadRequest, "WEAK_PASSWORD", "password does not meet security requirements")
+			return
+		}
+
+		// For database errors, don't expose internal details
 		errMsg := err.Error()
 		if strings.Contains(errMsg, "foreign key") || strings.Contains(errMsg, "roleId") {
 			writeError(w, http.StatusBadRequest, "INVALID_ROLE", "specified role does not exist")
 			return
 		}
-		if strings.Contains(errMsg, "does not exist") {
-			writeError(w, http.StatusInternalServerError, "DATABASE_ERROR", "database table not found. Please check database schema")
-			return
-		}
 
+		// Log error but don't expose details to client
+		log.Error().Err(err).Msg("Registration failed")
 		writeError(w, http.StatusInternalServerError, "REGISTER_FAILED", "failed to register user")
 		return
 	}

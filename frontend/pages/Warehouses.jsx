@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError } from '@/api';
 import { useI18n } from '@/lib/i18n';
-import { Plus, Edit2, Trash2, Warehouse, Store, MoreHorizontal } from 'lucide-react';
+import { Plus, Edit2, Trash2, Warehouse, Store, MoreHorizontal, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -15,6 +15,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
@@ -39,6 +40,8 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import PageHeader from '@/components/ui/PageHeader';
 import DataTable from '@/components/ui/DataTable';
+import { Link } from 'react-router-dom';
+import { createPageUrl } from '@/utils';
 
 const emptyWarehouse = {
   name: '',
@@ -355,6 +358,13 @@ export default function Warehouses() {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
+            <DropdownMenuItem asChild>
+              <Link to={`${createPageUrl('Stock')}?warehouse=${row.original.warehouseId}`}>
+                <Eye className="w-4 h-4 mr-2" />
+                {t('warehouses.table.stock')}
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
             <DropdownMenuItem onClick={() => handleEditWarehouse(row.original)}>
               <Edit2 className="w-4 h-4 mr-2" />
               {t('common.edit')}

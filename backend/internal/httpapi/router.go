@@ -1,6 +1,8 @@
 package httpapi
 
 import (
+	"time"
+
 	"warehouse-backend/internal/auth"
 	"warehouse-backend/internal/config"
 	"warehouse-backend/internal/db"
@@ -15,6 +17,8 @@ import (
 func NewRouter(pg *db.Postgres, cfg config.Config) *chi.Mux {
 	r := chi.NewRouter()
 
+	// Security headers should be applied first to all responses
+	r.Use(middleware.SecurityHeaders)
 	r.Use(middleware.CORS)
 	r.Use(middleware.Recovery)
 	r.Use(middleware.Logger)
@@ -86,11 +90,20 @@ func NewRouter(pg *db.Postgres, cfg config.Config) *chi.Mux {
 	stockSnapshotHandler := handlers.NewStockSnapshotHandler(stockSnapshotService)
 	uploadHandler := handlers.NewUploadHandler()
 
+	// Rate limiters for auth endpoints
+	// Login: 5 attempts per 15 minutes (prevents brute-force)
+	loginLimiter := middleware.NewRateLimiter(5, 15*time.Minute)
+	// Register: 3 attempts per hour (prevents spam account creation)
+	registerLimiter := middleware.NewRateLimiter(3, 1*time.Hour)
+	// General API: 100 requests per minute (prevents DoS)
+	apiLimiter := middleware.NewRateLimiter(100, 1*time.Minute)
+
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Get("/health", healthHandler.DBHealth)
 
-		r.Post("/auth/login", authHandler.Login)
-		r.Post("/auth/register", authHandler.Register)
+		// Auth endpoints with strict rate limiting
+		r.With(middleware.RateLimitMiddleware(loginLimiter)).Post("/auth/login", authHandler.Login)
+		r.With(middleware.RateLimitMiddleware(registerLimiter)).Post("/auth/register", authHandler.Register)
 
 		// File serving endpoint - public (but secured by path validation in handler)
 		r.Get("/files", uploadHandler.ServeFile)

@@ -297,6 +297,7 @@ const translations = {
         name: 'Название склада',
         type: 'Тип',
         location: 'Адрес',
+        stock: 'Остатки',
       },
       form: {
         name: 'Название',
@@ -319,16 +320,20 @@ const translations = {
     stock: {
       title: 'Остатки товаров',
       description: 'Текущие остатки товаров на складах',
+      descriptionWarehouse: 'Остатки товаров на складе "{warehouse}"',
       searchPlaceholder: 'Поиск остатков...',
       emptyMessage: 'Остатки не найдены',
       stats: {
         totalProducts: 'Всего товаров',
-        positions: 'Позиций на складах',
+        positions: 'Позиций с остатками',
+        warehouse: 'Склад',
       },
       filters: {
         title: 'Фильтры:',
         product: 'Товар',
         warehouse: 'Склад',
+        allProducts: 'Все товары',
+        allWarehouses: 'Все склады',
         clear: 'Очистить фильтры',
       },
       table: {
@@ -818,6 +823,7 @@ const translations = {
         name: 'Warehouse Name',
         type: 'Type',
         location: 'Address',
+        stock: 'Stock',
       },
       form: {
         name: 'Name',
@@ -840,16 +846,20 @@ const translations = {
     stock: {
       title: 'Stock',
       description: 'Current stock levels across warehouses',
+      descriptionWarehouse: 'Stock levels at warehouse "{warehouse}"',
       searchPlaceholder: 'Search stock...',
       emptyMessage: 'No stock found',
       stats: {
         totalProducts: 'Total Products',
-        positions: 'Warehouse Positions',
+        positions: 'Positions with Stock',
+        warehouse: 'Warehouse',
       },
       filters: {
         title: 'Filters:',
         product: 'Product',
         warehouse: 'Warehouse',
+        allProducts: 'All Products',
+        allWarehouses: 'All Warehouses',
         clear: 'Clear Filters',
       },
       table: {

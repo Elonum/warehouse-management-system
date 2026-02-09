@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strings"
 
@@ -10,6 +11,7 @@ import (
 	"warehouse-backend/internal/dto"
 	"warehouse-backend/internal/repository"
 	"warehouse-backend/internal/service"
+	"warehouse-backend/internal/validation"
 
 	"github.com/rs/zerolog/log"
 )
@@ -195,23 +197,16 @@ func (h *AuthHandler) RequestPasswordReset(w http.ResponseWriter, r *http.Reques
 	}
 
 	// Request password reset (always returns success to prevent email enumeration)
-	token, err := h.service.RequestPasswordReset(r.Context(), req.Email)
+	err := h.service.RequestPasswordReset(r.Context(), req.Email)
 	if err != nil {
 		log.Error().Err(err).Str("email", req.Email).Msg("Failed to request password reset")
 		// Still return success to prevent email enumeration
 	}
 
-	// In development mode, return token in response for testing
-	// In production, token is sent via email only
 	response := dto.APIResponse[map[string]interface{}]{
 		Data: map[string]interface{}{
 			"message": "Если указанный email существует в системе, на него отправлена инструкция по сбросу пароля",
 		},
-	}
-
-	// Add token in dev mode (for testing)
-	if token != "" {
-		response.Data["token"] = token // Only in dev mode
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -250,8 +245,10 @@ func (h *AuthHandler) ResetPassword(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusBadRequest, "TOKEN_USED", "токен сброса пароля уже был использован")
 			return
 		}
-		// Check if it's a validation error
-		if strings.Contains(err.Error(), "password") || strings.Contains(err.Error(), "weak") {
+		// Password validation errors (do not leak detailed policy from backend; frontend can show richer hints)
+		if errors.Is(err, validation.ErrWeakPassword) ||
+			errors.Is(err, validation.ErrPasswordTooShort) ||
+			errors.Is(err, validation.ErrPasswordTooLong) {
 			writeError(w, http.StatusBadRequest, "WEAK_PASSWORD", "пароль не соответствует требованиям безопасности")
 			return
 		}

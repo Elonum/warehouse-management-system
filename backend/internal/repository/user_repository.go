@@ -230,6 +230,28 @@ func (r *UserRepository) Update(ctx context.Context, userID uuid.UUID, email str
 	return &user, nil
 }
 
+// UpdatePasswordHash updates only the password hash for a user.
+// This is safer than using Update() with partial/empty fields.
+func (r *UserRepository) UpdatePasswordHash(ctx context.Context, userID uuid.UUID, passwordHash string) error {
+	query := `
+		UPDATE users
+		SET password_hash = $1
+		WHERE user_id = $2
+	`
+
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	result, err := r.pool.Exec(ctx, query, passwordHash, userID)
+	if err != nil {
+		return err
+	}
+	if result.RowsAffected() == 0 {
+		return ErrUserNotFound
+	}
+	return nil
+}
+
 func (r *UserRepository) Delete(ctx context.Context, userID uuid.UUID) error {
 	query := `
 		DELETE FROM users

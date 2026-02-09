@@ -165,14 +165,14 @@ func (s *AuthService) GetCurrentUser(ctx context.Context, userID uuid.UUID) (*re
 }
 
 // RequestPasswordReset requests a password reset for the given email
-// Returns the reset token (for dev mode) and error
-// In production, token is sent via email and not returned
-func (s *AuthService) RequestPasswordReset(ctx context.Context, email string) (string, error) {
+// Always returns nil to prevent email enumeration (even if email doesn't exist).
+// Token is never returned to the caller; in development it is printed to backend logs.
+func (s *AuthService) RequestPasswordReset(ctx context.Context, email string) error {
 	// Validate email format
 	if err := validation.ValidateEmail(email); err != nil {
 		// Don't reveal if email exists - always return success
-		log.Warn().Str("email", email).Msg("Password reset requested with invalid email format")
-		return "", nil // Return success to prevent email enumeration
+		log.Warn().Msg("Password reset requested with invalid email format")
+		return nil // Return success to prevent email enumeration
 	}
 
 	// Get user by email
@@ -180,8 +180,8 @@ func (s *AuthService) RequestPasswordReset(ctx context.Context, email string) (s
 	if err != nil {
 		// Don't reveal if email exists - always return success
 		// This prevents attackers from determining if an email exists
-		log.Warn().Str("email", email).Msg("Password reset requested for non-existent email")
-		return "", nil // Return success to prevent email enumeration
+		log.Info().Msg("Password reset requested")
+		return nil // Return success to prevent email enumeration
 	}
 
 	// Invalidate any existing active tokens for this user
@@ -194,14 +194,16 @@ func (s *AuthService) RequestPasswordReset(ctx context.Context, email string) (s
 	tokenBytes := make([]byte, 32)
 	if _, err := rand.Read(tokenBytes); err != nil {
 		log.Error().Err(err).Msg("Failed to generate password reset token")
-		return "", fmt.Errorf("failed to generate reset token")
+		// Still don't reveal anything to caller
+		return nil
 	}
-	token := base64.URLEncoding.EncodeToString(tokenBytes)
+	// Use RawURLEncoding (no padding) to keep tokens URL-friendly
+	token := base64.RawURLEncoding.EncodeToString(tokenBytes)
 
 	// Hash token with SHA256 for database lookup (one-way hash for security)
 	// We store the hash, not the token itself
 	tokenHashBytes := sha256.Sum256([]byte(token))
-	tokenHash := base64.URLEncoding.EncodeToString(tokenHashBytes[:])
+	tokenHash := base64.RawURLEncoding.EncodeToString(tokenHashBytes[:])
 
 	// Set expiration time
 	expiresAt := time.Now().Add(s.passwordResetTokenTTL)
@@ -210,18 +212,17 @@ func (s *AuthService) RequestPasswordReset(ctx context.Context, email string) (s
 	_, err = s.passwordResetRepo.Create(ctx, user.UserID, tokenHash, expiresAt)
 	if err != nil {
 		log.Error().Err(err).Str("userId", user.UserID.String()).Msg("Failed to create password reset token")
-		return "", fmt.Errorf("failed to create reset token")
+		// Still don't reveal anything to caller
+		return nil
 	}
 
 	// Send email with reset link
 	if err := s.emailService.SendPasswordResetEmail(user.Email, token); err != nil {
 		log.Error().Err(err).Str("email", user.Email).Msg("Failed to send password reset email")
-		// In dev mode, return token even if email fails
-		// In production, you might want to return error here
 	}
 
-	log.Info().Str("userId", user.UserID.String()).Str("email", email).Msg("Password reset requested")
-	return token, nil // Return token for dev mode
+	log.Info().Str("userId", user.UserID.String()).Msg("Password reset requested")
+	return nil
 }
 
 // ResetPassword resets the user's password using a valid reset token
@@ -235,7 +236,7 @@ func (s *AuthService) ResetPassword(ctx context.Context, token, newPassword stri
 
 	// Hash the provided token with SHA256 to look it up in database
 	tokenHashBytes := sha256.Sum256([]byte(token))
-	tokenHash := base64.URLEncoding.EncodeToString(tokenHashBytes[:])
+	tokenHash := base64.RawURLEncoding.EncodeToString(tokenHashBytes[:])
 
 	// Get token from database
 	resetToken, err := s.passwordResetRepo.GetByTokenHash(ctx, tokenHash)
@@ -263,8 +264,8 @@ func (s *AuthService) ResetPassword(ctx context.Context, token, newPassword stri
 		return fmt.Errorf("failed to hash password")
 	}
 
-	// Update user password
-	_, err = s.userRepo.Update(ctx, resetToken.UserID, "", uuid.Nil, nil, nil, nil, &passwordHash)
+	// Update only password hash (do not touch email/role/profile fields)
+	err = s.userRepo.UpdatePasswordHash(ctx, resetToken.UserID, passwordHash)
 	if err != nil {
 		log.Error().Err(err).Str("userId", resetToken.UserID.String()).Msg("Failed to update user password")
 		return fmt.Errorf("failed to update password")

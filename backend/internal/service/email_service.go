@@ -23,6 +23,7 @@ func NewEmailService(baseURL, env string) *EmailService {
 
 // SendPasswordResetEmail sends a password reset email to the user
 func (s *EmailService) SendPasswordResetEmail(email, resetToken string) error {
+	// baseURL is already the frontend URL from config
 	resetURL := fmt.Sprintf("%s/reset-password?token=%s", s.baseURL, resetToken)
 
 	// In development, log to console

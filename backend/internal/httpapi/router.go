@@ -50,7 +50,7 @@ func NewRouter(pg *db.Postgres, cfg config.Config) *chi.Mux {
 	
 	// Password reset and email services
 	passwordResetRepo := repository.NewPasswordResetRepository(pg.Pool)
-	emailService := service.NewEmailService(cfg.BaseURL, cfg.Env)
+	emailService := service.NewEmailService(cfg.FrontendURL, cfg.Env)
 	authService := service.NewAuthService(userRepo, roleRepo, passwordResetRepo, emailService, jwtManager)
 	productService := service.NewProductService(productRepo, productImageRepo, cfg.BaseURL)
 	warehouseService := service.NewWarehouseService(warehouseRepo, warehouseTypeRepo)

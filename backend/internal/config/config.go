@@ -17,8 +17,9 @@ type Config struct {
 	DBPassword string
 	DBName     string
 
-	JWTSecret string // Секретный ключ для JWT токенов
-	BaseURL   string // Base URL for serving files (e.g., "http://localhost:8080")
+	JWTSecret   string // Секретный ключ для JWT токенов
+	BaseURL     string // Base URL for serving files (e.g., "http://localhost:8080")
+	FrontendURL string // Frontend URL for password reset links (e.g., "http://localhost:5173")
 }
 
 func Load() Config {
@@ -40,8 +41,9 @@ func Load() Config {
 		DBPassword: getEnv("DB_PASSWORD", ""),
 		DBName:     getEnv("DB_NAME", "warehouse"),
 
-		JWTSecret: getEnv("JWT_SECRET", "your-secret-key-change-in-production"),
-		BaseURL:   getEnv("BASE_URL", "http://localhost:"+port),
+		JWTSecret:   getEnv("JWT_SECRET", "your-secret-key-change-in-production"),
+		BaseURL:     getEnv("BASE_URL", "http://localhost:"+port),
+		FrontendURL: getEnv("FRONTEND_URL", "http://localhost:5173"), // Default to Vite dev server
 	}
 
 	return cfg

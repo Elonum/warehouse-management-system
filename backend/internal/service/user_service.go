@@ -7,6 +7,7 @@ import (
 	"warehouse-backend/internal/auth"
 	"warehouse-backend/internal/dto"
 	"warehouse-backend/internal/repository"
+	"warehouse-backend/internal/validation"
 
 	"github.com/rs/zerolog/log"
 )
@@ -63,6 +64,39 @@ func (s *UserService) List(ctx context.Context, limit, offset int) ([]dto.UserRe
 }
 
 func (s *UserService) Create(ctx context.Context, req dto.UserCreateRequest) (*dto.UserResponse, error) {
+	// Validate email
+	if err := validation.ValidateEmail(req.Email); err != nil {
+		log.Warn().Str("email", req.Email).Err(err).Msg("Invalid email format")
+		return nil, err
+	}
+
+	// Validate password
+	passwordReq := validation.DefaultPasswordRequirements()
+	if err := validation.ValidatePassword(req.Password, passwordReq); err != nil {
+		log.Warn().Err(err).Msg("Weak password")
+		return nil, err
+	}
+
+	// Validate name (required)
+	if err := validation.ValidatePersonName(req.Name, true, false); err != nil {
+		log.Warn().Str("name", req.Name).Err(err).Msg("Invalid name")
+		return nil, err
+	}
+
+	// Validate surname (required)
+	if err := validation.ValidatePersonName(req.Surname, true, true); err != nil {
+		log.Warn().Str("surname", req.Surname).Err(err).Msg("Invalid surname")
+		return nil, err
+	}
+
+	// Validate patronymic (optional)
+	if req.Patronymic != nil && *req.Patronymic != "" {
+		if err := validation.ValidateName(*req.Patronymic, false); err != nil {
+			log.Warn().Str("patronymic", *req.Patronymic).Err(err).Msg("Invalid patronymic")
+			return nil, err
+		}
+	}
+
 	roleID, err := uuid.Parse(req.RoleID)
 	if err != nil {
 		log.Warn().Str("roleId", req.RoleID).Msg("Invalid role ID format")
@@ -103,6 +137,41 @@ func (s *UserService) Create(ctx context.Context, req dto.UserCreateRequest) (*d
 }
 
 func (s *UserService) Update(ctx context.Context, userID uuid.UUID, req dto.UserUpdateRequest) (*dto.UserResponse, error) {
+	// Validate email
+	if err := validation.ValidateEmail(req.Email); err != nil {
+		log.Warn().Str("email", req.Email).Err(err).Msg("Invalid email format")
+		return nil, err
+	}
+
+	// Validate password if provided
+	if req.Password != nil && *req.Password != "" {
+		passwordReq := validation.DefaultPasswordRequirements()
+		if err := validation.ValidatePassword(*req.Password, passwordReq); err != nil {
+			log.Warn().Err(err).Msg("Weak password")
+			return nil, err
+		}
+	}
+
+	// Validate name (required)
+	if err := validation.ValidatePersonName(req.Name, true, false); err != nil {
+		log.Warn().Str("name", req.Name).Err(err).Msg("Invalid name")
+		return nil, err
+	}
+
+	// Validate surname (required)
+	if err := validation.ValidatePersonName(req.Surname, true, true); err != nil {
+		log.Warn().Str("surname", req.Surname).Err(err).Msg("Invalid surname")
+		return nil, err
+	}
+
+	// Validate patronymic (optional)
+	if req.Patronymic != nil && *req.Patronymic != "" {
+		if err := validation.ValidateName(*req.Patronymic, false); err != nil {
+			log.Warn().Str("patronymic", *req.Patronymic).Err(err).Msg("Invalid patronymic")
+			return nil, err
+		}
+	}
+
 	roleID, err := uuid.Parse(req.RoleID)
 	if err != nil {
 		log.Warn().Str("roleId", req.RoleID).Msg("Invalid role ID format")

@@ -106,12 +106,20 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Check for validation errors
-		if strings.Contains(err.Error(), "invalid email") {
+		if err == validation.ErrInvalidEmail {
 			writeError(w, http.StatusBadRequest, "INVALID_EMAIL", "invalid email format")
 			return
 		}
-		if strings.Contains(err.Error(), "password") || strings.Contains(err.Error(), "weak") {
-			writeError(w, http.StatusBadRequest, "WEAK_PASSWORD", "password does not meet security requirements")
+		if err == validation.ErrWeakPassword || err == validation.ErrPasswordTooShort || err == validation.ErrPasswordTooLong {
+			writeError(w, http.StatusBadRequest, "WEAK_PASSWORD", err.Error())
+			return
+		}
+		if err == validation.ErrNameRequired || err == validation.ErrSurnameRequired {
+			writeError(w, http.StatusBadRequest, "NAME_REQUIRED", err.Error())
+			return
+		}
+		if err == validation.ErrInvalidName || err == validation.ErrNameTooShort || err == validation.ErrNameTooLong {
+			writeError(w, http.StatusBadRequest, "INVALID_NAME", err.Error())
 			return
 		}
 

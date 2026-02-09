@@ -137,7 +137,7 @@ func (r *UserRepository) List(ctx context.Context, limit, offset int) ([]User, e
 	return users, nil
 }
 
-func (r *UserRepository) Create(ctx context.Context, email, passwordHash string, roleID uuid.UUID, name, surname, patronymic *string) (*User, error) {
+func (r *UserRepository) Create(ctx context.Context, email, passwordHash string, roleID uuid.UUID, name, surname string, patronymic *string) (*User, error) {
 	query := `
 		INSERT INTO users (email, password_hash, role_id, name, surname, patronymic)
 		VALUES ($1, $2, $3, $4, $5, $6)
@@ -172,7 +172,7 @@ func (r *UserRepository) Create(ctx context.Context, email, passwordHash string,
 	return &user, nil
 }
 
-func (r *UserRepository) Update(ctx context.Context, userID uuid.UUID, email string, roleID uuid.UUID, name, surname, patronymic *string, passwordHash *string) (*User, error) {
+func (r *UserRepository) Update(ctx context.Context, userID uuid.UUID, email string, roleID uuid.UUID, name, surname string, patronymic *string, passwordHash *string) (*User, error) {
 	var query string
 	var err error
 	var user User

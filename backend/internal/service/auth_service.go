@@ -107,7 +107,7 @@ func (s *AuthService) Login(ctx context.Context, email, password string) (string
 	return token, user, nil
 }
 
-func (s *AuthService) Register(ctx context.Context, email, password string, roleIDStr string, name, surname, patronymic *string) (*repository.User, error) {
+func (s *AuthService) Register(ctx context.Context, email, password string, roleIDStr string, name, surname string, patronymic *string) (*repository.User, error) {
 	// Validate email format
 	if err := validation.ValidateEmail(email); err != nil {
 		log.Warn().Str("email", email).Err(err).Msg("Registration failed: invalid email format")
@@ -119,6 +119,26 @@ func (s *AuthService) Register(ctx context.Context, email, password string, role
 	if err := validation.ValidatePassword(password, passwordReq); err != nil {
 		log.Warn().Str("email", email).Err(err).Msg("Registration failed: weak password")
 		return nil, err
+	}
+
+	// Validate name (required)
+	if err := validation.ValidatePersonName(name, true, false); err != nil {
+		log.Warn().Str("name", name).Err(err).Msg("Registration failed: invalid name")
+		return nil, err
+	}
+
+	// Validate surname (required)
+	if err := validation.ValidatePersonName(surname, true, true); err != nil {
+		log.Warn().Str("surname", surname).Err(err).Msg("Registration failed: invalid surname")
+		return nil, err
+	}
+
+	// Validate patronymic (optional)
+	if patronymic != nil && *patronymic != "" {
+		if err := validation.ValidateName(*patronymic, false); err != nil {
+			log.Warn().Str("patronymic", *patronymic).Err(err).Msg("Registration failed: invalid patronymic")
+			return nil, err
+		}
 	}
 
 	// Validate role ID

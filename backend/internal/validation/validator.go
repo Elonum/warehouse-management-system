@@ -17,7 +17,15 @@ var (
 // Email validation regex pattern
 // This is a comprehensive pattern that covers most valid email formats
 // It's not perfect (RFC 5322 is extremely complex), but it's a good balance
+// Security: Prevents injection attacks by restricting allowed characters
 var emailRegex = regexp.MustCompile(`^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$`)
+
+// Email length constants for database protection
+const (
+	EmailMaxLength     = 254 // RFC 5321 maximum email length
+	EmailLocalMaxLength = 64  // RFC 5321 maximum local part length
+	EmailDomainMaxLength = 253 // RFC 5321 maximum domain length
+)
 
 // ValidateEmail validates email format
 // Returns error if email is invalid
@@ -30,7 +38,8 @@ func ValidateEmail(email string) error {
 	email = strings.TrimSpace(email)
 
 	// Check length (RFC 5321: max 254 characters for email address)
-	if len(email) > 254 {
+	// This prevents database overflow and DoS attacks
+	if len(email) > EmailMaxLength {
 		return ErrInvalidEmail
 	}
 
@@ -66,12 +75,14 @@ func ValidateEmail(email string) error {
 	domainPart := parts[1]
 
 	// Local part validation (before @)
-	if len(localPart) == 0 || len(localPart) > 64 {
+	// Security: Prevent buffer overflow attacks
+	if len(localPart) == 0 || len(localPart) > EmailLocalMaxLength {
 		return ErrInvalidEmail
 	}
 
 	// Domain part validation (after @)
-	if len(domainPart) == 0 || len(domainPart) > 253 {
+	// Security: Prevent buffer overflow attacks
+	if len(domainPart) == 0 || len(domainPart) > EmailDomainMaxLength {
 		return ErrInvalidEmail
 	}
 
@@ -269,6 +280,81 @@ func GetPasswordStrength(password string) int {
 	}
 
 	return score
+}
+
+var (
+	ErrInvalidName      = errors.New("name contains invalid characters (only letters allowed, no spaces, digits, or special characters)")
+	ErrNameTooShort     = errors.New("name must be at least 2 characters long")
+	ErrNameTooLong      = errors.New("name must be no more than 50 characters long")
+	ErrNameRequired     = errors.New("name is required")
+	ErrSurnameRequired  = errors.New("surname is required")
+)
+
+// ValidateName validates a person's name (first name, surname, patronymic)
+// Rules:
+// - Only letters (Cyrillic and Latin alphabets)
+// - No spaces, digits, or special characters
+// - Length: 2-50 characters
+// - Optional (for patronymic)
+func ValidateName(name string, required bool) error {
+	if name == "" {
+		if required {
+			return ErrNameRequired
+		}
+		return nil // Optional field can be empty
+	}
+
+	// Trim whitespace
+	name = strings.TrimSpace(name)
+
+	// Check length
+	if len(name) < 2 {
+		return ErrNameTooShort
+	}
+	if len(name) > 50 {
+		return ErrNameTooLong
+	}
+
+	// Check for spaces
+	if strings.Contains(name, " ") {
+		return ErrInvalidName
+	}
+
+	// Check for digits
+	for _, char := range name {
+		if unicode.IsDigit(char) {
+			return ErrInvalidName
+		}
+	}
+
+	// Check for special characters (allow only letters)
+	// Allow Cyrillic (А-Я, а-я, Ё, ё) and Latin (A-Z, a-z) letters
+	for _, char := range name {
+		if !unicode.IsLetter(char) {
+			return ErrInvalidName
+		}
+		// Additional check: ensure it's a valid letter (not punctuation/symbols)
+		if !((char >= 'А' && char <= 'Я') || (char >= 'а' && char <= 'я') || char == 'Ё' || char == 'ё' ||
+			(char >= 'A' && char <= 'Z') || (char >= 'a' && char <= 'z')) {
+			return ErrInvalidName
+		}
+	}
+
+	return nil
+}
+
+// ValidatePersonName validates a person's name with specific error for surname
+func ValidatePersonName(name string, required bool, isSurname bool) error {
+	if name == "" {
+		if required {
+			if isSurname {
+				return ErrSurnameRequired
+			}
+			return ErrNameRequired
+		}
+		return nil
+	}
+	return ValidateName(name, false) // Don't check required again, already checked above
 }
 
 

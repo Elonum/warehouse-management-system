@@ -7,6 +7,7 @@ import (
 	"warehouse-backend/internal/dto"
 	"warehouse-backend/internal/repository"
 	"warehouse-backend/internal/service"
+	"warehouse-backend/internal/validation"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/rs/zerolog/log"
@@ -97,8 +98,12 @@ func (h *UserHandler) Create(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "password is required")
 		return
 	}
-	if len(req.Password) < 6 {
-		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "password must be at least 6 characters")
+	if req.Name == "" {
+		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "name is required")
+		return
+	}
+	if req.Surname == "" {
+		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "surname is required")
 		return
 	}
 	if req.RoleID == "" {
@@ -116,6 +121,23 @@ func (h *UserHandler) Create(w http.ResponseWriter, r *http.Request) {
 		if err == repository.ErrRoleNotFound {
 			log.Warn().Str("roleId", req.RoleID).Msg("Role not found")
 			writeError(w, http.StatusBadRequest, "ROLE_NOT_FOUND", "specified role does not exist")
+			return
+		}
+		// Check for validation errors
+		if err == validation.ErrInvalidEmail {
+			writeError(w, http.StatusBadRequest, "INVALID_EMAIL", "invalid email format")
+			return
+		}
+		if err == validation.ErrWeakPassword || err == validation.ErrPasswordTooShort || err == validation.ErrPasswordTooLong {
+			writeError(w, http.StatusBadRequest, "WEAK_PASSWORD", err.Error())
+			return
+		}
+		if err == validation.ErrNameRequired || err == validation.ErrSurnameRequired {
+			writeError(w, http.StatusBadRequest, "NAME_REQUIRED", err.Error())
+			return
+		}
+		if err == validation.ErrInvalidName || err == validation.ErrNameTooShort || err == validation.ErrNameTooLong {
+			writeError(w, http.StatusBadRequest, "INVALID_NAME", err.Error())
 			return
 		}
 		log.Error().Err(err).Str("email", req.Email).Str("roleId", req.RoleID).Msg("Failed to create user")
@@ -150,6 +172,14 @@ func (h *UserHandler) Update(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "email is required")
 		return
 	}
+	if req.Name == "" {
+		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "name is required")
+		return
+	}
+	if req.Surname == "" {
+		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "surname is required")
+		return
+	}
 	if req.RoleID == "" {
 		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "roleId is required")
 		return
@@ -170,6 +200,23 @@ func (h *UserHandler) Update(w http.ResponseWriter, r *http.Request) {
 		if err == repository.ErrRoleNotFound {
 			log.Warn().Str("roleId", req.RoleID).Msg("Role not found")
 			writeError(w, http.StatusBadRequest, "ROLE_NOT_FOUND", "specified role does not exist")
+			return
+		}
+		// Check for validation errors
+		if err == validation.ErrInvalidEmail {
+			writeError(w, http.StatusBadRequest, "INVALID_EMAIL", "invalid email format")
+			return
+		}
+		if err == validation.ErrWeakPassword || err == validation.ErrPasswordTooShort || err == validation.ErrPasswordTooLong {
+			writeError(w, http.StatusBadRequest, "WEAK_PASSWORD", err.Error())
+			return
+		}
+		if err == validation.ErrNameRequired || err == validation.ErrSurnameRequired {
+			writeError(w, http.StatusBadRequest, "NAME_REQUIRED", err.Error())
+			return
+		}
+		if err == validation.ErrInvalidName || err == validation.ErrNameTooShort || err == validation.ErrNameTooLong {
+			writeError(w, http.StatusBadRequest, "INVALID_NAME", err.Error())
 			return
 		}
 		log.Error().Err(err).Str("userId", userID.String()).Msg("Failed to update user")

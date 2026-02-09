@@ -11,12 +11,12 @@ type LoginResponse struct {
 }
 
 type RegisterRequest struct {
-	Email      string  `json:"email"`
-	Password   string  `json:"password"`
-	RoleID     string  `json:"roleId"`
-	Name       *string `json:"name,omitempty"`
-	Surname    *string `json:"surname,omitempty"`
-	Patronymic *string `json:"patronymic,omitempty"`
+	Email      string  `json:"email"`      // Required
+	Password   string  `json:"password"`    // Required
+	RoleID     string  `json:"roleId"`     // Required
+	Name       string  `json:"name"`       // Required
+	Surname    string  `json:"surname"`    // Required
+	Patronymic *string `json:"patronymic,omitempty"` // Optional
 }
 
 type PasswordResetRequest struct {

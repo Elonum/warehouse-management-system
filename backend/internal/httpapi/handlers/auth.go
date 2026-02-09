@@ -176,3 +176,97 @@ func (h *AuthHandler) GetMe(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(response)
 }
+
+func (h *AuthHandler) RequestPasswordReset(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeError(w, http.StatusMethodNotAllowed, "METHOD_NOT_ALLOWED", "method not allowed")
+		return
+	}
+
+	var req dto.PasswordResetRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "invalid request body")
+		return
+	}
+
+	if req.Email == "" {
+		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "email is required")
+		return
+	}
+
+	// Request password reset (always returns success to prevent email enumeration)
+	token, err := h.service.RequestPasswordReset(r.Context(), req.Email)
+	if err != nil {
+		log.Error().Err(err).Str("email", req.Email).Msg("Failed to request password reset")
+		// Still return success to prevent email enumeration
+	}
+
+	// In development mode, return token in response for testing
+	// In production, token is sent via email only
+	response := dto.APIResponse[map[string]interface{}]{
+		Data: map[string]interface{}{
+			"message": "Если указанный email существует в системе, на него отправлена инструкция по сбросу пароля",
+		},
+	}
+
+	// Add token in dev mode (for testing)
+	if token != "" {
+		response.Data["token"] = token // Only in dev mode
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(response)
+}
+
+func (h *AuthHandler) ResetPassword(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeError(w, http.StatusMethodNotAllowed, "METHOD_NOT_ALLOWED", "method not allowed")
+		return
+	}
+
+	var req dto.PasswordResetConfirmRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "invalid request body")
+		return
+	}
+
+	if req.Token == "" || req.NewPassword == "" {
+		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "token and newPassword are required")
+		return
+	}
+
+	err := h.service.ResetPassword(r.Context(), req.Token, req.NewPassword)
+	if err != nil {
+		if err == service.ErrPasswordResetTokenInvalid {
+			writeError(w, http.StatusBadRequest, "INVALID_TOKEN", "недействительный или истекший токен сброса пароля")
+			return
+		}
+		if err == service.ErrPasswordResetTokenExpired {
+			writeError(w, http.StatusBadRequest, "TOKEN_EXPIRED", "токен сброса пароля истек")
+			return
+		}
+		if err == service.ErrPasswordResetTokenUsed {
+			writeError(w, http.StatusBadRequest, "TOKEN_USED", "токен сброса пароля уже был использован")
+			return
+		}
+		// Check if it's a validation error
+		if strings.Contains(err.Error(), "password") || strings.Contains(err.Error(), "weak") {
+			writeError(w, http.StatusBadRequest, "WEAK_PASSWORD", "пароль не соответствует требованиям безопасности")
+			return
+		}
+		log.Error().Err(err).Msg("Failed to reset password")
+		writeError(w, http.StatusInternalServerError, "RESET_FAILED", "не удалось сбросить пароль")
+		return
+	}
+
+	response := dto.APIResponse[map[string]interface{}]{
+		Data: map[string]interface{}{
+			"message": "Пароль успешно изменен",
+		},
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(response)
+}

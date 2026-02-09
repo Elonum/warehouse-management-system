@@ -47,7 +47,11 @@ func NewRouter(pg *db.Postgres, cfg config.Config) *chi.Mux {
 	stockSnapshotRepo := repository.NewStockSnapshotRepository(pg.Pool)
 
 	stockService := service.NewStockService(stockRepo)
-	authService := service.NewAuthService(userRepo, roleRepo, jwtManager)
+	
+	// Password reset and email services
+	passwordResetRepo := repository.NewPasswordResetRepository(pg.Pool)
+	emailService := service.NewEmailService(cfg.BaseURL, cfg.Env)
+	authService := service.NewAuthService(userRepo, roleRepo, passwordResetRepo, emailService, jwtManager)
 	productService := service.NewProductService(productRepo, productImageRepo, cfg.BaseURL)
 	warehouseService := service.NewWarehouseService(warehouseRepo, warehouseTypeRepo)
 	warehouseTypeService := service.NewWarehouseTypeService(warehouseTypeRepo)
@@ -104,6 +108,10 @@ func NewRouter(pg *db.Postgres, cfg config.Config) *chi.Mux {
 		// Auth endpoints with strict rate limiting
 		r.With(middleware.RateLimitMiddleware(loginLimiter)).Post("/auth/login", authHandler.Login)
 		r.With(middleware.RateLimitMiddleware(registerLimiter)).Post("/auth/register", authHandler.Register)
+		// Password reset endpoints (with rate limiting to prevent abuse)
+		passwordResetLimiter := middleware.NewRateLimiter(5, 1*time.Hour) // 5 requests per hour
+		r.With(middleware.RateLimitMiddleware(passwordResetLimiter)).Post("/auth/password-reset/request", authHandler.RequestPasswordReset)
+		r.With(middleware.RateLimitMiddleware(passwordResetLimiter)).Post("/auth/password-reset/confirm", authHandler.ResetPassword)
 
 		// File serving endpoint - public (but secured by path validation in handler)
 		r.Get("/files", uploadHandler.ServeFile)

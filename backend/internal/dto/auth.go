@@ -18,3 +18,12 @@ type RegisterRequest struct {
 	Surname    *string `json:"surname,omitempty"`
 	Patronymic *string `json:"patronymic,omitempty"`
 }
+
+type PasswordResetRequest struct {
+	Email string `json:"email"`
+}
+
+type PasswordResetConfirmRequest struct {
+	Token       string `json:"token"`
+	NewPassword string `json:"newPassword"`
+}

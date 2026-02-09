@@ -120,6 +120,50 @@ func (rl *RateLimiter) GetRemainingRequests(ip string) int {
 	return rl.maxRequests - validCount
 }
 
+// GetRetryAfterSeconds returns the number of seconds until the rate limit resets for an IP
+// Returns 0 if the IP is not rate limited
+func (rl *RateLimiter) GetRetryAfterSeconds(ip string) int {
+	rl.mu.RLock()
+	defer rl.mu.RUnlock()
+
+	timestamps, exists := rl.requests[ip]
+	if !exists {
+		return 0
+	}
+
+	now := time.Now()
+	validTimestamps := []time.Time{}
+	for _, ts := range timestamps {
+		if now.Sub(ts) < rl.windowDuration {
+			validTimestamps = append(validTimestamps, ts)
+		}
+	}
+
+	// If not rate limited, return 0
+	if len(validTimestamps) < rl.maxRequests {
+		return 0
+	}
+
+	// Find the oldest timestamp in the window
+	oldestTimestamp := validTimestamps[0]
+	for _, ts := range validTimestamps {
+		if ts.Before(oldestTimestamp) {
+			oldestTimestamp = ts
+		}
+	}
+
+	// Calculate when the oldest request will expire (when it will be outside the window)
+	expiresAt := oldestTimestamp.Add(rl.windowDuration)
+	remainingSeconds := int(time.Until(expiresAt).Seconds())
+	
+	// Ensure non-negative
+	if remainingSeconds < 0 {
+		return 0
+	}
+	
+	return remainingSeconds
+}
+
 // Stop stops the cleanup goroutine (call this on shutdown)
 func (rl *RateLimiter) Stop() {
 	if rl.cleanupTicker != nil {
@@ -210,7 +254,15 @@ func RateLimitMiddleware(limiter *RateLimiter) func(http.Handler) http.Handler {
 			if !limiter.Allow(ip) {
 				w.Header().Set("X-RateLimit-Limit", strconv.Itoa(limiter.maxRequests))
 				w.Header().Set("X-RateLimit-Remaining", "0")
-				w.Header().Set("Retry-After", strconv.Itoa(int(limiter.windowDuration.Seconds())))
+				
+				// Calculate actual remaining time until unlock
+				retryAfter := limiter.GetRetryAfterSeconds(ip)
+				if retryAfter > 0 {
+					w.Header().Set("Retry-After", strconv.Itoa(retryAfter))
+				} else {
+					// Fallback to full window duration if calculation fails
+					w.Header().Set("Retry-After", strconv.Itoa(int(limiter.windowDuration.Seconds())))
+				}
 				
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusTooManyRequests)

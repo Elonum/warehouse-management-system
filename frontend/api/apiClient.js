@@ -1,11 +1,14 @@
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080/api/v1';
 
 class ApiError extends Error {
-  constructor(message, code, status) {
+  constructor(message, code, status, rateLimit = null) {
     super(message);
     this.name = 'ApiError';
     this.code = code;
     this.status = status;
+    // Optional rate limit metadata for better UX on auth screens
+    // { limit: number | null, remaining: number | null, retryAfterSeconds: number | null }
+    this.rateLimit = rateLimit;
   }
 }
 
@@ -29,6 +32,29 @@ async function request(endpoint, options = {}) {
   try {
     const response = await fetch(url, config);
 
+    // Extract rate limit headers (if present) for both success and error cases
+    const rateLimit = {
+      limit: null,
+      remaining: null,
+      retryAfterSeconds: null,
+    };
+    const limitHeader = response.headers.get('x-ratelimit-limit');
+    const remainingHeader = response.headers.get('x-ratelimit-remaining');
+    const retryAfterHeader = response.headers.get('retry-after');
+
+    if (limitHeader != null) {
+      const parsed = Number(limitHeader);
+      rateLimit.limit = Number.isNaN(parsed) ? null : parsed;
+    }
+    if (remainingHeader != null) {
+      const parsed = Number(remainingHeader);
+      rateLimit.remaining = Number.isNaN(parsed) ? null : parsed;
+    }
+    if (retryAfterHeader != null) {
+      const parsed = Number(retryAfterHeader);
+      rateLimit.retryAfterSeconds = Number.isNaN(parsed) ? null : parsed;
+    }
+
     if (!response.ok) {
       let errorData;
       try {
@@ -40,7 +66,8 @@ async function request(endpoint, options = {}) {
       throw new ApiError(
         errorData.error?.message || errorData.message || 'An error occurred',
         errorData.error?.code || 'UNKNOWN_ERROR',
-        response.status
+        response.status,
+        rateLimit
       );
     }
 
@@ -54,7 +81,15 @@ async function request(endpoint, options = {}) {
     if (error instanceof ApiError) {
       throw error;
     }
-    throw new ApiError(error.message || 'Network error', 'NETWORK_ERROR', 0);
+    // Handle network errors (server unreachable, CORS, etc.)
+    const isNetworkError = error.name === 'TypeError' && 
+      (error.message.includes('fetch') || error.message.includes('Failed to fetch') || error.message.includes('NetworkError'));
+    
+    if (isNetworkError) {
+      throw new ApiError('Не удалось подключиться к серверу. Проверьте подключение к интернету и убедитесь, что сервер запущен.', 'NETWORK_ERROR', 0);
+    }
+    
+    throw new ApiError(error.message || 'Ошибка сети', 'NETWORK_ERROR', 0);
   }
 }
 

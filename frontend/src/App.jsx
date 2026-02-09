@@ -4,6 +4,8 @@ import { useQuery } from '@tanstack/react-query'
 import { I18nProvider, useI18n } from '@/lib/i18n'
 import Layout from '../layout.jsx'
 import Login from '../pages/Login'
+import ForgotPassword from '../pages/ForgotPassword'
+import ResetPassword from '../pages/ResetPassword'
 import Dashboard from '../pages/Dashboard'
 import Products from '../pages/Products'
 import Warehouses from '../pages/Warehouses'
@@ -75,6 +77,8 @@ function App() {
     <I18nProvider>
       <Routes>
         <Route path="/login" element={<Login />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
         <Route
           path="/*"
           element={

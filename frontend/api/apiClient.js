@@ -125,6 +125,20 @@ const api = {
       localStorage.removeItem('auth_token');
       window.location.href = '/';
     },
+
+    requestPasswordReset: async (email) => {
+      return await request('/auth/password-reset/request', {
+        method: 'POST',
+        body: { email },
+      });
+    },
+
+    resetPassword: async (token, newPassword) => {
+      return await request('/auth/password-reset/confirm', {
+        method: 'POST',
+        body: { token, newPassword },
+      });
+    },
   },
 
   products: {

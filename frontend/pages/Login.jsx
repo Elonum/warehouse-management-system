@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useMutation } from '@tanstack/react-query';
 import { api, ApiError } from '@/api';
 import { Button } from '@/components/ui/button';
@@ -244,6 +244,14 @@ export default function Login() {
             >
               {loginMutation.isPending ? 'Вход...' : 'Войти'}
             </Button>
+            
+            <div className="text-center">
+              <Button asChild variant="link" className="text-sm text-slate-600 dark:text-slate-400 h-auto p-0">
+                <Link to="/forgot-password">
+                  Забыли пароль?
+                </Link>
+              </Button>
+            </div>
           </form>
         </CardContent>
       </Card>

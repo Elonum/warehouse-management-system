@@ -176,6 +176,11 @@ func (h *InventoryHandler) Update(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusConflict, "INVENTORY_EXISTS", "inventory already exists")
 			return
 		}
+		if err == service.ErrInventoryCompleted {
+			log.Warn().Str("inventoryId", inventoryID.String()).Msg("Attempt to update completed inventory")
+			writeError(w, http.StatusBadRequest, "INVENTORY_COMPLETED", "завершённую инвентаризацию нельзя изменять")
+			return
+		}
 		if err == repository.ErrInventoryStatusNotFound {
 			log.Warn().Str("statusId", req.StatusID).Msg("Inventory status not found")
 			writeError(w, http.StatusBadRequest, "INVENTORY_STATUS_NOT_FOUND", "specified inventory status does not exist")
@@ -208,6 +213,11 @@ func (h *InventoryHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		if err == repository.ErrInventoryNotFound {
 			log.Warn().Str("inventoryId", inventoryID.String()).Msg("Inventory not found for deletion")
 			writeError(w, http.StatusNotFound, "INVENTORY_NOT_FOUND", "inventory not found")
+			return
+		}
+		if err == service.ErrInventoryCompleted {
+			log.Warn().Str("inventoryId", inventoryID.String()).Msg("Attempt to delete completed inventory")
+			writeError(w, http.StatusBadRequest, "INVENTORY_COMPLETED", "завершённую инвентаризацию нельзя изменять")
 			return
 		}
 		log.Error().Err(err).Str("inventoryId", inventoryID.String()).Msg("Failed to delete inventory")

@@ -99,6 +99,11 @@ func (h *InventoryItemHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	item, err := h.service.Create(r.Context(), req)
 	if err != nil {
+		if err == service.ErrInventoryCompleted {
+			log.Warn().Str("inventoryId", req.InventoryID).Msg("Attempt to create inventory item for completed inventory")
+			writeError(w, http.StatusBadRequest, "INVENTORY_COMPLETED", "завершённую инвентаризацию нельзя изменять")
+			return
+		}
 		if err == repository.ErrInventoryItemExists {
 			log.Warn().Str("inventoryId", req.InventoryID).Str("warehouseId", req.WarehouseID).Msg("Inventory item already exists")
 			writeError(w, http.StatusConflict, "ITEM_EXISTS", "inventory item already exists")
@@ -173,6 +178,11 @@ func (h *InventoryItemHandler) Update(w http.ResponseWriter, r *http.Request) {
 
 	item, err := h.service.Update(r.Context(), itemID, req)
 	if err != nil {
+		if err == service.ErrInventoryCompleted {
+			log.Warn().Str("inventoryId", req.InventoryID).Str("itemId", itemID.String()).Msg("Attempt to update item of completed inventory")
+			writeError(w, http.StatusBadRequest, "INVENTORY_COMPLETED", "завершённую инвентаризацию нельзя изменять")
+			return
+		}
 		if err == repository.ErrInventoryItemNotFound {
 			log.Warn().Str("itemId", itemID.String()).Msg("Inventory item not found for update")
 			writeError(w, http.StatusNotFound, "ITEM_NOT_FOUND", "inventory item not found")
@@ -229,6 +239,11 @@ func (h *InventoryItemHandler) Delete(w http.ResponseWriter, r *http.Request) {
 
 	err = h.service.Delete(r.Context(), itemID)
 	if err != nil {
+		if err == service.ErrInventoryCompleted {
+			log.Warn().Str("itemId", itemID.String()).Msg("Attempt to delete item of completed inventory")
+			writeError(w, http.StatusBadRequest, "INVENTORY_COMPLETED", "завершённую инвентаризацию нельзя изменять")
+			return
+		}
 		if err == repository.ErrInventoryItemNotFound {
 			log.Warn().Str("itemId", itemID.String()).Msg("Inventory item not found for deletion")
 			writeError(w, http.StatusNotFound, "ITEM_NOT_FOUND", "inventory item not found")

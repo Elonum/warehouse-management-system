@@ -11,21 +11,46 @@ import (
 )
 
 type InventoryItemService struct {
-	repo          *repository.InventoryItemRepository
-	inventoryRepo *repository.InventoryRepository
-	productRepo   *repository.ProductRepository
-	warehouseRepo *repository.WarehouseRepository
-	stockRepo     *repository.StockRepository
+	repo               *repository.InventoryItemRepository
+	inventoryRepo      *repository.InventoryRepository
+	inventoryStatusRepo *repository.InventoryStatusRepository
+	productRepo        *repository.ProductRepository
+	warehouseRepo      *repository.WarehouseRepository
+	stockRepo          *repository.StockRepository
 }
 
-func NewInventoryItemService(repo *repository.InventoryItemRepository, inventoryRepo *repository.InventoryRepository, productRepo *repository.ProductRepository, warehouseRepo *repository.WarehouseRepository, stockRepo *repository.StockRepository) *InventoryItemService {
+func NewInventoryItemService(
+	repo *repository.InventoryItemRepository,
+	inventoryRepo *repository.InventoryRepository,
+	inventoryStatusRepo *repository.InventoryStatusRepository,
+	productRepo *repository.ProductRepository,
+	warehouseRepo *repository.WarehouseRepository,
+	stockRepo *repository.StockRepository,
+) *InventoryItemService {
 	return &InventoryItemService{
-		repo:          repo,
-		inventoryRepo: inventoryRepo,
-		productRepo:   productRepo,
-		warehouseRepo: warehouseRepo,
-		stockRepo:     stockRepo,
+		repo:               repo,
+		inventoryRepo:      inventoryRepo,
+		inventoryStatusRepo: inventoryStatusRepo,
+		productRepo:        productRepo,
+		warehouseRepo:      warehouseRepo,
+		stockRepo:          stockRepo,
 	}
+}
+
+func (s *InventoryItemService) isInventoryFinal(ctx context.Context, inventoryID uuid.UUID) bool {
+	inventory, err := s.inventoryRepo.GetByID(ctx, inventoryID)
+	if err != nil {
+		log.Error().Err(err).Str("inventoryId", inventoryID.String()).Msg("Failed to load inventory for completion check")
+		return false
+	}
+
+	status, err := s.inventoryStatusRepo.GetByID(ctx, inventory.StatusID)
+	if err != nil {
+		log.Error().Err(err).Str("statusId", inventory.StatusID.String()).Msg("Failed to load inventory status for completion check")
+		return false
+	}
+
+	return status.IsFinal
 }
 
 func (s *InventoryItemService) GetByID(ctx context.Context, itemID uuid.UUID) (*dto.InventoryItemResponse, error) {
@@ -95,6 +120,12 @@ func (s *InventoryItemService) Create(ctx context.Context, req dto.InventoryItem
 		}
 		log.Error().Err(err).Str("inventoryId", req.InventoryID).Msg("Failed to validate inventory")
 		return nil, err
+	}
+
+	// Prevent modifications for completed inventories
+	if s.isInventoryFinal(ctx, inventoryID) {
+		log.Warn().Str("inventoryId", req.InventoryID).Msg("Attempt to modify completed inventory (create item)")
+		return nil, ErrInventoryCompleted
 	}
 
 	var productID *uuid.UUID
@@ -190,6 +221,12 @@ func (s *InventoryItemService) Update(ctx context.Context, itemID uuid.UUID, req
 		return nil, err
 	}
 
+	// Prevent modifications for completed inventories
+	if s.isInventoryFinal(ctx, inventoryID) {
+		log.Warn().Str("inventoryId", req.InventoryID).Str("itemId", itemID.String()).Msg("Attempt to modify completed inventory (update item)")
+		return nil, ErrInventoryCompleted
+	}
+
 	var productID *uuid.UUID
 	if req.ProductID != nil && *req.ProductID != "" {
 		id, err := uuid.Parse(*req.ProductID)
@@ -276,6 +313,12 @@ func (s *InventoryItemService) Delete(ctx context.Context, itemID uuid.UUID) err
 	if err != nil {
 		log.Error().Err(err).Str("itemId", itemID.String()).Msg("Failed to get inventory item for deletion")
 		return err
+	}
+
+	// Prevent modifications for completed inventories
+	if s.isInventoryFinal(ctx, item.InventoryID) {
+		log.Warn().Str("inventoryId", item.InventoryID.String()).Str("itemId", itemID.String()).Msg("Attempt to modify completed inventory (delete item)")
+		return ErrInventoryCompleted
 	}
 
 	err = s.repo.Delete(ctx, itemID)

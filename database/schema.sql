@@ -202,7 +202,8 @@ CREATE TABLE IF NOT EXISTS mp_shipment_items (
 
 CREATE TABLE IF NOT EXISTS inventory_statuses (
     inventory_status_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    name VARCHAR(50) UNIQUE NOT NULL
+    name VARCHAR(50) UNIQUE NOT NULL,
+	is_final BOOLEAN NOT NULL DEFAULT FALSE;
 );
 
 CREATE TABLE IF NOT EXISTS inventories (

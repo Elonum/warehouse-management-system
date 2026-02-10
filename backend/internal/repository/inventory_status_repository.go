@@ -20,6 +20,7 @@ var (
 type InventoryStatus struct {
 	InventoryStatusID uuid.UUID
 	Name              string
+	IsFinal           bool
 }
 
 type InventoryStatusRepository struct {
@@ -32,7 +33,7 @@ func NewInventoryStatusRepository(pool *pgxpool.Pool) *InventoryStatusRepository
 
 func (r *InventoryStatusRepository) GetByID(ctx context.Context, statusID uuid.UUID) (*InventoryStatus, error) {
 	query := `
-		SELECT inventory_status_id, name
+		SELECT inventory_status_id, name, is_final
 		FROM inventory_statuses
 		WHERE inventory_status_id = $1
 	`
@@ -44,6 +45,7 @@ func (r *InventoryStatusRepository) GetByID(ctx context.Context, statusID uuid.U
 	err := r.pool.QueryRow(ctx, query, statusID).Scan(
 		&status.InventoryStatusID,
 		&status.Name,
+		&status.IsFinal,
 	)
 
 	if err != nil {
@@ -58,7 +60,7 @@ func (r *InventoryStatusRepository) GetByID(ctx context.Context, statusID uuid.U
 
 func (r *InventoryStatusRepository) List(ctx context.Context, limit, offset int) ([]InventoryStatus, error) {
 	query := fmt.Sprintf(`
-		SELECT inventory_status_id, name
+		SELECT inventory_status_id, name, is_final
 		FROM inventory_statuses
 		ORDER BY inventory_status_id
 		LIMIT $1 OFFSET $2
@@ -79,6 +81,7 @@ func (r *InventoryStatusRepository) List(ctx context.Context, limit, offset int)
 		if err := rows.Scan(
 			&status.InventoryStatusID,
 			&status.Name,
+			&status.IsFinal,
 		); err != nil {
 			return nil, err
 		}
@@ -94,9 +97,9 @@ func (r *InventoryStatusRepository) List(ctx context.Context, limit, offset int)
 
 func (r *InventoryStatusRepository) Create(ctx context.Context, name string) (*InventoryStatus, error) {
 	query := `
-		INSERT INTO inventory_statuses (name)
-		VALUES ($1)
-		RETURNING inventory_status_id, name
+		INSERT INTO inventory_statuses (name, is_final)
+		VALUES ($1, FALSE)
+		RETURNING inventory_status_id, name, is_final
 	`
 
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
@@ -106,6 +109,7 @@ func (r *InventoryStatusRepository) Create(ctx context.Context, name string) (*I
 	err := r.pool.QueryRow(ctx, query, name).Scan(
 		&status.InventoryStatusID,
 		&status.Name,
+		&status.IsFinal,
 	)
 
 	if err != nil {
@@ -121,21 +125,22 @@ func (r *InventoryStatusRepository) Create(ctx context.Context, name string) (*I
 	return &status, nil
 }
 
-func (r *InventoryStatusRepository) Update(ctx context.Context, statusID uuid.UUID, name string) (*InventoryStatus, error) {
+func (r *InventoryStatusRepository) Update(ctx context.Context, statusID uuid.UUID, name string, isFinal bool) (*InventoryStatus, error) {
 	query := `
 		UPDATE inventory_statuses
-		SET name = $1
-		WHERE inventory_status_id = $2
-		RETURNING inventory_status_id, name
+		SET name = $1, is_final = $2
+		WHERE inventory_status_id = $3
+		RETURNING inventory_status_id, name, is_final
 	`
 
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
 	var status InventoryStatus
-	err := r.pool.QueryRow(ctx, query, name, statusID).Scan(
+	err := r.pool.QueryRow(ctx, query, name, isFinal, statusID).Scan(
 		&status.InventoryStatusID,
 		&status.Name,
+		&status.IsFinal,
 	)
 
 	if err != nil {

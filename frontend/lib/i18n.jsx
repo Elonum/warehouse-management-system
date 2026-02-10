@@ -459,6 +459,12 @@ const translations = {
         updateFailed: 'Ошибка обновления инвентаризации',
         deleteFailed: 'Ошибка удаления инвентаризации',
       },
+      details: {
+        title: 'Инвентаризация',
+        noDate: 'Дата не указана',
+        completeButton: 'Завершить инвентаризацию',
+        completing: 'Завершение...',
+      },
     },
     settings: {
       title: 'Настройки',

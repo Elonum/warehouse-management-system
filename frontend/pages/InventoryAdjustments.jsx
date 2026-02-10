@@ -88,14 +88,18 @@ export default function InventoryAdjustments() {
   const inventoryStatuses = Array.isArray(inventoryStatusesData) ? inventoryStatusesData : [];
 
   const enrichedInventories = useMemo(() => {
-    const statusMap = new Map(inventoryStatuses.map(s => [s.inventoryStatusId, s.name]));
+    const statusMap = new Map(inventoryStatuses.map(s => [s.inventoryStatusId, s]));
 
-    return inventories.map((inventory, index) => ({
-      ...inventory,
-      statusName: statusMap.get(inventory.statusId) || 'Не указан',
-      rowNumber: index + 1,
-    }));
-  }, [inventories, inventoryStatuses]);
+    return inventories.map((inventory, index) => {
+      const status = statusMap.get(inventory.statusId);
+      return {
+        ...inventory,
+        statusName: status?.name || t('common.notSpecified'),
+        statusIsFinal: !!status?.isFinal,
+        rowNumber: index + 1,
+      };
+    });
+  }, [inventories, inventoryStatuses, t]);
 
   const createMutation = useMutation({
     mutationFn: (data) => api.inventories.create(data),
@@ -241,7 +245,12 @@ export default function InventoryAdjustments() {
     {
       accessorKey: 'statusName',
       header: t('inventoryAdjustments.table.status'),
-      cell: ({ row }) => <StatusBadge status={row.original.statusName || t('common.notSpecified')} />,
+      cell: ({ row }) => (
+        <StatusBadge
+          status={row.original.statusName || t('common.notSpecified')}
+          className={row.original.statusIsFinal ? 'border-emerald-300 bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400' : ''}
+        />
+      ),
     },
     {
       accessorKey: 'totalReceiptQty',

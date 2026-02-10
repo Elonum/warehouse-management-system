@@ -28,6 +28,7 @@ func (s *InventoryStatusService) GetByID(ctx context.Context, statusID uuid.UUID
 	return &dto.InventoryStatusResponse{
 		InventoryStatusID: status.InventoryStatusID.String(),
 		Name:              status.Name,
+		IsFinal:           status.IsFinal,
 	}, nil
 }
 
@@ -43,6 +44,7 @@ func (s *InventoryStatusService) List(ctx context.Context, limit, offset int) ([
 		result = append(result, dto.InventoryStatusResponse{
 			InventoryStatusID: status.InventoryStatusID.String(),
 			Name:              status.Name,
+			IsFinal:           status.IsFinal,
 		})
 	}
 
@@ -60,11 +62,12 @@ func (s *InventoryStatusService) Create(ctx context.Context, req dto.InventorySt
 	return &dto.InventoryStatusResponse{
 		InventoryStatusID: status.InventoryStatusID.String(),
 		Name:              status.Name,
+		IsFinal:           status.IsFinal,
 	}, nil
 }
 
 func (s *InventoryStatusService) Update(ctx context.Context, statusID uuid.UUID, req dto.InventoryStatusUpdateRequest) (*dto.InventoryStatusResponse, error) {
-	status, err := s.repo.Update(ctx, statusID, req.Name)
+	status, err := s.repo.Update(ctx, statusID, req.Name, req.IsFinal)
 	if err != nil {
 		log.Error().Err(err).Str("statusId", statusID.String()).Msg("Failed to update inventory status")
 		return nil, err
@@ -74,6 +77,7 @@ func (s *InventoryStatusService) Update(ctx context.Context, statusID uuid.UUID,
 	return &dto.InventoryStatusResponse{
 		InventoryStatusID: status.InventoryStatusID.String(),
 		Name:              status.Name,
+		IsFinal:           status.IsFinal,
 	}, nil
 }
 

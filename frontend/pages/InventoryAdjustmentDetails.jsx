@@ -8,7 +8,8 @@ import {
   Trash2, 
   Package,
   MoreHorizontal,
-  Warehouse
+  Warehouse,
+  CheckCircle2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -53,6 +54,7 @@ import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
+import { useI18n } from '@/lib/i18n';
 
 const emptyItem = {
   productId: null,
@@ -63,6 +65,7 @@ const emptyItem = {
 };
 
 export default function InventoryAdjustmentDetails() {
+  const { t } = useI18n();
   const urlParams = new URLSearchParams(window.location.search);
   const adjustmentIdParam = urlParams.get('id');
   const adjustmentId = adjustmentIdParam || null;
@@ -110,7 +113,7 @@ export default function InventoryAdjustmentDetails() {
     return {
       productMap: new Map(products.map(p => [p.productId, p])),
       warehouseMap: new Map(warehouses.map(w => [w.warehouseId, w])),
-      statusMap: new Map(inventoryStatuses.map(s => [s.inventoryStatusId, s.name])),
+      statusMap: new Map(inventoryStatuses.map(s => [s.inventoryStatusId, s])),
     };
   }, [products, warehouses, inventoryStatuses]);
 
@@ -129,6 +132,37 @@ export default function InventoryAdjustmentDetails() {
       writeoff: acc.writeoff + (item.writeOffQty || 0),
     }), { receipt: 0, writeoff: 0 });
   }, [adjustmentItems]);
+
+  const isFinalStatus = useMemo(() => {
+    if (!adjustment?.statusId) return false;
+    const status = maps.statusMap.get(adjustment.statusId);
+    return !!status?.isFinal;
+  }, [adjustment, maps]);
+
+  const finalStatus = useMemo(() => {
+    return inventoryStatuses.find(s => s.isFinal) || null;
+  }, [inventoryStatuses]);
+
+  const completeMutation = useMutation({
+    mutationFn: async () => {
+      if (!adjustment || !finalStatus) return;
+      await api.inventories.update(adjustment.inventoryId, {
+        adjustmentDate: adjustment.adjustmentDate,
+        statusId: finalStatus.inventoryStatusId,
+        notes: adjustment.notes || null,
+      });
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['inventory', adjustmentId] });
+    },
+    onError: (err) => {
+      if (err instanceof ApiError) {
+        setError(err.message || t('inventoryAdjustments.errors.updateFailed'));
+      } else {
+        setError(t('inventoryAdjustments.errors.updateFailed'));
+      }
+    },
+  });
 
   const createItemMutation = useMutation({
     mutationFn: (data) => api.inventoryItems.create(data),
@@ -234,7 +268,8 @@ export default function InventoryAdjustmentDetails() {
 
   const getStatusName = () => {
     if (!adjustment?.statusId) return '—';
-    return maps.statusMap.get(adjustment.statusId) || '—';
+    const status = maps.statusMap.get(adjustment.statusId);
+    return status?.name || '—';
   };
 
   const itemColumns = [
@@ -347,10 +382,30 @@ export default function InventoryAdjustmentDetails() {
           </Link>
         </Button>
         <PageHeader 
-          title="Инвентаризация" 
-          description={adjustment?.adjustmentDate ? format(new Date(adjustment.adjustmentDate), 'dd.MM.yyyy', { locale: ru }) : 'Дата не указана'}
+          title={t('inventoryAdjustments.details.title')} 
+          description={adjustment?.adjustmentDate ? format(new Date(adjustment.adjustmentDate), 'dd.MM.yyyy', { locale: ru }) : t('inventoryAdjustments.details.noDate')}
         >
-          <StatusBadge status={getStatusName()} />
+          <div className="flex items-center gap-3">
+            <StatusBadge
+              status={getStatusName()}
+              className={isFinalStatus ? 'border-emerald-300 bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400' : ''}
+            />
+            {!isFinalStatus && finalStatus && (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="inline-flex items-center gap-2"
+                onClick={() => completeMutation.mutate()}
+                disabled={completeMutation.isPending}
+              >
+                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                {completeMutation.isPending
+                  ? t('inventoryAdjustments.details.completing')
+                  : t('inventoryAdjustments.details.completeButton')}
+              </Button>
+            )}
+          </div>
         </PageHeader>
       </div>
 
@@ -402,10 +457,12 @@ export default function InventoryAdjustmentDetails() {
           <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
             Позиции инвентаризации ({enrichedItems.length})
           </h2>
-          <Button onClick={() => { setCurrentItem(null); setItemForm({ ...emptyItem, warehouseId: adjustment?.warehouseId || null }); setError(''); setItemDialogOpen(true); }}>
-            <Plus className="w-4 h-4 mr-2" />
-            Добавить позицию
-          </Button>
+          {!isFinalStatus && (
+            <Button onClick={() => { setCurrentItem(null); setItemForm({ ...emptyItem, warehouseId: adjustment?.warehouseId || null }); setError(''); setItemDialogOpen(true); }}>
+              <Plus className="w-4 h-4 mr-2" />
+              Добавить позицию
+            </Button>
+          )}
         </div>
         <DataTable
           columns={itemColumns}

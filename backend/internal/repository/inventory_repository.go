@@ -82,7 +82,8 @@ func (r *InventoryRepository) List(ctx context.Context, limit, offset int, statu
 		argPos++
 	}
 
-	query += fmt.Sprintf(" ORDER BY inventory_id LIMIT $%d OFFSET $%d", argPos, argPos+1)
+	// Show most recent inventories first; fall back to inventory_id for deterministic order
+	query += fmt.Sprintf(" ORDER BY adjustment_date DESC NULLS LAST, inventory_id DESC LIMIT $%d OFFSET $%d", argPos, argPos+1)
 	args = append(args, limit, offset)
 
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)

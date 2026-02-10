@@ -645,6 +645,7 @@ const api = {
     getItems: async (inventoryId) => {
       return await request(`/inventories/${inventoryId}/items`);
     },
+
   },
 
   inventoryItems: {

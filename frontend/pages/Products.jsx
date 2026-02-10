@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError } from '@/api';
 import { useI18n } from '@/lib/i18n';
@@ -32,7 +32,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import PageHeader from '@/components/ui/PageHeader';
 import DataTable from '@/components/ui/DataTable';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import ProductImageUpload from '@/components/ProductImageUpload';
 import { Image as ImageIcon, X } from 'lucide-react';
@@ -50,6 +50,7 @@ const emptyProduct = {
 
 export default function Products() {
   const { t } = useI18n();
+  const location = useLocation();
   const queryClient = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);

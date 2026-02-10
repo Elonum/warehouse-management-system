@@ -67,6 +67,9 @@ export default function InventoryAdjustments() {
   const [currentAdjustment, setCurrentAdjustment] = useState(null);
   const [formData, setFormData] = useState(emptyAdjustment);
   const [error, setError] = useState('');
+  const [deleteError, setDeleteError] = useState('');
+  const [deleteErrorDialogOpen, setDeleteErrorDialogOpen] = useState(false);
+  const [statusFilter, setStatusFilter] = useState('all'); // all | final | nonFinal
 
   const { data: inventoriesData, isLoading, refetch } = useQuery({
     queryKey: ['inventories'],
@@ -100,6 +103,16 @@ export default function InventoryAdjustments() {
       };
     });
   }, [inventories, inventoryStatuses, t]);
+
+  const filteredInventories = useMemo(() => {
+    if (statusFilter === 'final') {
+      return enrichedInventories.filter(inv => inv.statusIsFinal);
+    }
+    if (statusFilter === 'nonFinal') {
+      return enrichedInventories.filter(inv => !inv.statusIsFinal);
+    }
+    return enrichedInventories;
+  }, [enrichedInventories, statusFilter]);
 
   const createMutation = useMutation({
     mutationFn: (data) => api.inventories.create(data),
@@ -152,6 +165,7 @@ export default function InventoryAdjustments() {
       setDeleteDialogOpen(false);
       setCurrentAdjustment(null);
       setError('');
+      setDeleteError('');
       await refetch();
     },
     onError: (err, deletedId, context) => {
@@ -312,7 +326,16 @@ export default function InventoryAdjustments() {
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem 
-              onClick={() => { setCurrentAdjustment(row.original); setDeleteDialogOpen(true); }}
+              onClick={() => {
+                if (row.original.statusIsFinal) {
+                  setDeleteError(t('inventoryAdjustments.errors.cannotDeleteCompleted'));
+                  setDeleteErrorDialogOpen(true);
+                  return;
+                }
+                setCurrentAdjustment(row.original);
+                setDeleteError('');
+                setDeleteDialogOpen(true);
+              }}
               className="text-red-600"
             >
               <Trash2 className="w-4 h-4 mr-2" />
@@ -336,13 +359,55 @@ export default function InventoryAdjustments() {
         </Button>
       </PageHeader>
 
+      <div className="flex items-center gap-3 text-sm text-slate-700 dark:text-slate-300">
+        <span>{t('inventoryAdjustments.filters.status')}</span>
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger className="w-56">
+            <SelectValue>
+              {statusFilter === 'all'
+                ? t('inventoryAdjustments.filters.all')
+                : statusFilter === 'final'
+                ? t('inventoryAdjustments.filters.final')
+                : t('inventoryAdjustments.filters.nonFinal')}
+            </SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">{t('inventoryAdjustments.filters.all')}</SelectItem>
+            <SelectItem value="final">{t('inventoryAdjustments.filters.final')}</SelectItem>
+            <SelectItem value="nonFinal">{t('inventoryAdjustments.filters.nonFinal')}</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
       <DataTable
         columns={columns}
-        data={enrichedInventories}
+        data={filteredInventories}
         isLoading={isLoading}
         searchPlaceholder={t('inventoryAdjustments.searchPlaceholder')}
         emptyMessage={t('inventoryAdjustments.emptyMessage')}
       />
+
+      <AlertDialog open={deleteErrorDialogOpen} onOpenChange={setDeleteErrorDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t('inventoryAdjustments.deleteConfirm.title')}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {deleteError}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setDeleteErrorDialogOpen(false);
+              }}
+            >
+              {t('common.ok') ?? 'OK'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Create/Edit Dialog */}
       <Dialog 
@@ -402,6 +467,7 @@ export default function InventoryAdjustments() {
                 value={formData.notes || ''}
                 onChange={(e) => setFormData({ ...formData, notes: e.target.value || null })}
                 rows={3}
+                maxLength={255}
                 placeholder={t('inventoryAdjustments.form.notes')}
               />
             </div>

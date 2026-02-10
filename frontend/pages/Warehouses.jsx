@@ -40,7 +40,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import PageHeader from '@/components/ui/PageHeader';
 import DataTable from '@/components/ui/DataTable';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 
 const emptyWarehouse = {
@@ -55,6 +55,7 @@ const emptyStore = {
 
 export default function Warehouses() {
   const { t } = useI18n();
+  const location = useLocation();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState('warehouses');
   const [warehouseDialogOpen, setWarehouseDialogOpen] = useState(false);

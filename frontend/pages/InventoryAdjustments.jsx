@@ -69,7 +69,10 @@ export default function InventoryAdjustments() {
   const [error, setError] = useState('');
   const [deleteError, setDeleteError] = useState('');
   const [deleteErrorDialogOpen, setDeleteErrorDialogOpen] = useState(false);
+<<<<<<< HEAD
   const [statusFilter, setStatusFilter] = useState('all'); // all | final | nonFinal
+=======
+>>>>>>> e0d8cf38ecfc3f07caf75f87f170a7e4ebb60ac6
 
   const { data: inventoriesData, isLoading, refetch } = useQuery({
     queryKey: ['inventories'],

@@ -464,12 +464,15 @@ const translations = {
         updateFailed: 'Ошибка обновления инвентаризации',
         deleteFailed: 'Ошибка удаления инвентаризации',
         cannotDeleteCompleted: 'Завершённую инвентаризацию нельзя удалить, так как она уже применена к остаткам склада',
+<<<<<<< HEAD
       },
       filters: {
         status: 'Статус инвентаризации',
         all: 'Все инвентаризации',
         final: 'Только завершённые',
         nonFinal: 'Только незавершённые',
+=======
+>>>>>>> e0d8cf38ecfc3f07caf75f87f170a7e4ebb60ac6
       },
       details: {
         title: 'Инвентаризация',
@@ -1056,12 +1059,15 @@ const translations = {
         deleteFailed: 'Failed to delete adjustment',
         cannotDeleteCompleted: 'Cannot delete a completed adjustment because it has already been applied to stock levels',
       },
+<<<<<<< HEAD
       filters: {
         status: 'Inventory status',
         all: 'All adjustments',
         final: 'Completed only',
         nonFinal: 'Not completed',
       },
+=======
+>>>>>>> e0d8cf38ecfc3f07caf75f87f170a7e4ebb60ac6
       details: {
         title: 'Inventory Adjustment',
         noDate: 'Date not specified',

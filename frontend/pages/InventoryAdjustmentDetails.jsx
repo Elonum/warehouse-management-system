@@ -147,10 +147,13 @@ export default function InventoryAdjustmentDetails() {
     return warehouse?.name || '';
   };
 
+<<<<<<< HEAD
   // completionEvent больше не используется после удаления аудита, но можно
   // вычислять информацию о последнем изменении из полей createdAt/updatedAt,
   // если потребуется в будущем.
 
+=======
+>>>>>>> e0d8cf38ecfc3f07caf75f87f170a7e4ebb60ac6
   const isFinalStatus = useMemo(() => {
     if (!adjustment?.statusId) return false;
     const status = maps.statusMap.get(adjustment.statusId);
@@ -300,12 +303,18 @@ export default function InventoryAdjustmentDetails() {
             <Package className="w-4 h-4 text-slate-500" />
           </div>
           <div className="flex flex-col">
+<<<<<<< HEAD
             <Link
               to={`/products/details?id=${row.original.productId ?? ''}`}
               className="font-medium text-slate-900 dark:text-slate-100 hover:text-indigo-600 dark:hover:text-indigo-400"
             >
               {row.original.productArticle || row.original.productName || t('common.notSpecified')}
             </Link>
+=======
+            <span className="font-medium text-slate-900 dark:text-slate-100">
+              {row.original.productArticle || row.original.productName || '—'}
+            </span>
+>>>>>>> e0d8cf38ecfc3f07caf75f87f170a7e4ebb60ac6
           </div>
         </div>
       ),
@@ -604,6 +613,7 @@ export default function InventoryAdjustmentDetails() {
               />
             </div>
             <DialogFooter>
+<<<<<<< HEAD
               <Button
                 type="button"
                 variant="outline"
@@ -615,6 +625,15 @@ export default function InventoryAdjustmentDetails() {
                 }}
               >
                 {t('common.cancel')}
+=======
+              <Button type="button" variant="outline" onClick={() => {
+                setItemDialogOpen(false);
+                setItemForm(emptyItem);
+                setCurrentItem(null);
+                setError('');
+              }}>
+                t('common.cancel')
+>>>>>>> e0d8cf38ecfc3f07caf75f87f170a7e4ebb60ac6
               </Button>
               <Button type="submit" disabled={createItemMutation.isPending || updateItemMutation.isPending}>
                 {currentItem

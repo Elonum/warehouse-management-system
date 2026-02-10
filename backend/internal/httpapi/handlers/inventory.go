@@ -178,7 +178,7 @@ func (h *InventoryHandler) Update(w http.ResponseWriter, r *http.Request) {
 		}
 		if err == service.ErrInventoryCompleted {
 			log.Warn().Str("inventoryId", inventoryID.String()).Msg("Attempt to update completed inventory")
-			writeError(w, http.StatusBadRequest, "INVENTORY_COMPLETED", "завершённую инвентаризацию нельзя изменять")
+			writeError(w, http.StatusBadRequest, "INVENTORY_COMPLETED", "Завершённую инвентаризацию нельзя изменять, так как она уже применена к остаткам склада")
 			return
 		}
 		if err == repository.ErrInventoryStatusNotFound {
@@ -217,7 +217,7 @@ func (h *InventoryHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		}
 		if err == service.ErrInventoryCompleted {
 			log.Warn().Str("inventoryId", inventoryID.String()).Msg("Attempt to delete completed inventory")
-			writeError(w, http.StatusBadRequest, "INVENTORY_COMPLETED", "завершённую инвентаризацию нельзя изменять")
+			writeError(w, http.StatusBadRequest, "INVENTORY_COMPLETED", "Завершённую инвентаризацию нельзя удалить, так как она уже применена к остаткам склада")
 			return
 		}
 		log.Error().Err(err).Str("inventoryId", inventoryID.String()).Msg("Failed to delete inventory")

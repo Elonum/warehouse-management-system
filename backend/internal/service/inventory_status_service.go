@@ -52,7 +52,7 @@ func (s *InventoryStatusService) List(ctx context.Context, limit, offset int) ([
 }
 
 func (s *InventoryStatusService) Create(ctx context.Context, req dto.InventoryStatusCreateRequest) (*dto.InventoryStatusResponse, error) {
-	status, err := s.repo.Create(ctx, req.Name)
+	status, err := s.repo.Create(ctx, req.Name, req.IsFinal)
 	if err != nil {
 		log.Error().Err(err).Str("name", req.Name).Msg("Failed to create inventory status")
 		return nil, err

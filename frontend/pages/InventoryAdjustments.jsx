@@ -67,6 +67,8 @@ export default function InventoryAdjustments() {
   const [currentAdjustment, setCurrentAdjustment] = useState(null);
   const [formData, setFormData] = useState(emptyAdjustment);
   const [error, setError] = useState('');
+  const [deleteError, setDeleteError] = useState('');
+  const [deleteErrorDialogOpen, setDeleteErrorDialogOpen] = useState(false);
 
   const { data: inventoriesData, isLoading, refetch } = useQuery({
     queryKey: ['inventories'],
@@ -152,6 +154,7 @@ export default function InventoryAdjustments() {
       setDeleteDialogOpen(false);
       setCurrentAdjustment(null);
       setError('');
+      setDeleteError('');
       await refetch();
     },
     onError: (err, deletedId, context) => {
@@ -312,7 +315,16 @@ export default function InventoryAdjustments() {
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem 
-              onClick={() => { setCurrentAdjustment(row.original); setDeleteDialogOpen(true); }}
+              onClick={() => {
+                if (row.original.statusIsFinal) {
+                  setDeleteError(t('inventoryAdjustments.errors.cannotDeleteCompleted'));
+                  setDeleteErrorDialogOpen(true);
+                  return;
+                }
+                setCurrentAdjustment(row.original);
+                setDeleteError('');
+                setDeleteDialogOpen(true);
+              }}
               className="text-red-600"
             >
               <Trash2 className="w-4 h-4 mr-2" />
@@ -343,6 +355,28 @@ export default function InventoryAdjustments() {
         searchPlaceholder={t('inventoryAdjustments.searchPlaceholder')}
         emptyMessage={t('inventoryAdjustments.emptyMessage')}
       />
+
+      <AlertDialog open={deleteErrorDialogOpen} onOpenChange={setDeleteErrorDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t('inventoryAdjustments.deleteConfirm.title')}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {deleteError}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setDeleteErrorDialogOpen(false);
+              }}
+            >
+              {t('common.ok') ?? 'OK'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Create/Edit Dialog */}
       <Dialog 
@@ -402,6 +436,7 @@ export default function InventoryAdjustments() {
                 value={formData.notes || ''}
                 onChange={(e) => setFormData({ ...formData, notes: e.target.value || null })}
                 rows={3}
+                maxLength={255}
                 placeholder={t('inventoryAdjustments.form.notes')}
               />
             </div>

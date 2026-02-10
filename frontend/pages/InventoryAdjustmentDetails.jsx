@@ -133,6 +133,18 @@ export default function InventoryAdjustmentDetails() {
     }), { receipt: 0, writeoff: 0 });
   }, [adjustmentItems]);
 
+  const getSelectedProductLabel = () => {
+    if (!itemForm.productId) return '';
+    const product = products.find(p => p.productId === itemForm.productId);
+    return product?.article || product?.name || '';
+  };
+
+  const getSelectedWarehouseLabel = () => {
+    if (!itemForm.warehouseId) return '';
+    const warehouse = warehouses.find(w => w.warehouseId === itemForm.warehouseId);
+    return warehouse?.name || '';
+  };
+
   const isFinalStatus = useMemo(() => {
     if (!adjustment?.statusId) return false;
     const status = maps.statusMap.get(adjustment.statusId);
@@ -283,11 +295,8 @@ export default function InventoryAdjustmentDetails() {
           </div>
           <div className="flex flex-col">
             <span className="font-medium text-slate-900 dark:text-slate-100">
-              {row.original.productName || '—'}
+              {row.original.productArticle || row.original.productName || '—'}
             </span>
-            {row.original.productArticle && (
-              <span className="text-xs text-slate-500 dark:text-slate-400">Арт: {row.original.productArticle}</span>
-            )}
           </div>
         </div>
       ),
@@ -362,11 +371,11 @@ export default function InventoryAdjustmentDetails() {
   if (!adjustmentId) {
     return (
       <div className="p-8 text-center">
-        <p className="text-slate-500">Не передан ID инвентаризации</p>
+        <p className="text-slate-500">{t('inventoryAdjustments.details.noId')}</p>
         <Button asChild className="mt-4">
           <Link to={createPageUrl('InventoryAdjustments')}>
             <ArrowLeft className="w-4 h-4 mr-2" />
-            Назад к инвентаризациям
+            {t('inventoryAdjustments.details.backToList')}
           </Link>
         </Button>
       </div>
@@ -411,7 +420,7 @@ export default function InventoryAdjustmentDetails() {
 
       {adjustmentError && (
         <div className="p-3 text-sm text-red-600 bg-red-50 dark:bg-red-900/20 dark:text-red-400 rounded-lg">
-          Ошибка загрузки инвентаризации: {adjustmentError.message}
+          {t('inventoryAdjustments.details.loadError')}: {adjustmentError.message}
         </div>
       )}
 
@@ -419,7 +428,7 @@ export default function InventoryAdjustmentDetails() {
       <div className="grid grid-cols-4 gap-4">
         <Card className="dark:bg-slate-900 dark:border-slate-800">
           <CardContent className="pt-6">
-            <p className="text-sm text-slate-500">Дата инвентаризации</p>
+            <p className="text-sm text-slate-500">{t('inventoryAdjustments.details.summaryDate')}</p>
             <p className="mt-1 text-lg font-semibold text-slate-900 dark:text-slate-100">
               {adjustment?.adjustmentDate ? format(new Date(adjustment.adjustmentDate), 'dd.MM.yyyy', { locale: ru }) : '—'}
             </p>
@@ -427,7 +436,7 @@ export default function InventoryAdjustmentDetails() {
         </Card>
         <Card className="dark:bg-slate-900 dark:border-slate-800">
           <CardContent className="pt-6">
-            <p className="text-sm text-slate-500">Поступление</p>
+            <p className="text-sm text-slate-500">{t('inventoryAdjustments.details.summaryReceipt')}</p>
             <p className="mt-1 text-lg font-semibold text-emerald-600 dark:text-emerald-400">
               +{totals.receipt.toLocaleString()}
             </p>
@@ -435,7 +444,7 @@ export default function InventoryAdjustmentDetails() {
         </Card>
         <Card className="dark:bg-slate-900 dark:border-slate-800">
           <CardContent className="pt-6">
-            <p className="text-sm text-slate-500">Списание</p>
+            <p className="text-sm text-slate-500">{t('inventoryAdjustments.details.summaryWriteOff')}</p>
             <p className="mt-1 text-lg font-semibold text-rose-600 dark:text-rose-400">
               -{totals.writeoff.toLocaleString()}
             </p>
@@ -443,7 +452,7 @@ export default function InventoryAdjustmentDetails() {
         </Card>
         <Card className="dark:bg-slate-900 dark:border-slate-800">
           <CardContent className="pt-6">
-            <p className="text-sm text-slate-500">Примечания</p>
+            <p className="text-sm text-slate-500">{t('inventoryAdjustments.details.summaryNotes')}</p>
             <p className="mt-1 text-sm text-slate-700 dark:text-slate-300 line-clamp-2">
               {adjustment?.notes || '—'}
             </p>
@@ -455,12 +464,12 @@ export default function InventoryAdjustmentDetails() {
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-            Позиции инвентаризации ({enrichedItems.length})
+            {t('inventoryAdjustments.details.itemsTitle')} ({enrichedItems.length})
           </h2>
           {!isFinalStatus && (
-            <Button onClick={() => { setCurrentItem(null); setItemForm({ ...emptyItem, warehouseId: adjustment?.warehouseId || null }); setError(''); setItemDialogOpen(true); }}>
+          <Button onClick={() => { setCurrentItem(null); setItemForm({ ...emptyItem, warehouseId: adjustment?.warehouseId || null }); setError(''); setItemDialogOpen(true); }}>
               <Plus className="w-4 h-4 mr-2" />
-              Добавить позицию
+            {t('inventoryAdjustments.details.addItem')}
             </Button>
           )}
         </div>
@@ -469,7 +478,7 @@ export default function InventoryAdjustmentDetails() {
           data={enrichedItems}
           isLoading={loadingItems || loadingAdjustment}
           searchable={false}
-          emptyMessage="В инвентаризации пока нет позиций"
+          emptyMessage={t('inventoryAdjustments.details.emptyItems')}
         />
       </div>
 
@@ -488,7 +497,7 @@ export default function InventoryAdjustmentDetails() {
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>
-              {currentItem ? 'Редактировать позицию' : 'Добавить позицию'}
+              {currentItem ? t('inventoryAdjustments.details.editItem') : t('inventoryAdjustments.details.addItem')}
             </DialogTitle>
           </DialogHeader>
           <form onSubmit={handleItemSubmit} className="space-y-4">
@@ -498,31 +507,35 @@ export default function InventoryAdjustmentDetails() {
               </div>
             )}
             <div className="space-y-2">
-              <Label htmlFor="productId">Товар</Label>
+              <Label htmlFor="productId">{t('inventoryAdjustments.details.productLabel')}</Label>
               <Select
                 value={itemForm.productId?.toString() || ''}
                 onValueChange={(value) => setItemForm({ ...itemForm, productId: value || null })}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Выберите товар" />
+                  <SelectValue placeholder="Выберите товар">
+                    {getSelectedProductLabel()}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {products.map(product => (
                     <SelectItem key={product.productId} value={product.productId.toString()}>
-                      {product.name || product.article || 'Товар'}{product.name && product.article ? ` (${product.article})` : product.article ? ` - ${product.article}` : ''}
+                      {product.article || product.name || 'Товар'}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="warehouseId">Склад *</Label>
+              <Label htmlFor="warehouseId">{t('inventoryAdjustments.details.warehouseLabel')} *</Label>
               <Select
                 value={itemForm.warehouseId?.toString() || ''}
                 onValueChange={(value) => setItemForm({ ...itemForm, warehouseId: value || null })}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Выберите склад" />
+                  <SelectValue placeholder="Выберите склад">
+                    {getSelectedWarehouseLabel()}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {warehouses.map(warehouse => (
@@ -535,34 +548,45 @@ export default function InventoryAdjustmentDetails() {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="receiptQty">Поступление</Label>
+                <Label htmlFor="receiptQty">{t('inventoryAdjustments.details.receiptLabel')}</Label>
                 <Input
                   id="receiptQty"
                   type="number"
                   min="0"
+                max="1000000000"
                   value={itemForm.receiptQty ?? 0}
-                  onChange={(e) => setItemForm({ ...itemForm, receiptQty: e.target.value })}
+                onChange={(e) => {
+                  const raw = e.target.value.replace(/[^\d]/g, '');
+                  const num = raw === '' ? 0 : Math.min(parseInt(raw, 10) || 0, 1000000000);
+                  setItemForm({ ...itemForm, receiptQty: num });
+                }}
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="writeOffQty">Списание</Label>
+                <Label htmlFor="writeOffQty">{t('inventoryAdjustments.details.writeOffLabel')}</Label>
                 <Input
                   id="writeOffQty"
                   type="number"
                   min="0"
+                max="1000000000"
                   value={itemForm.writeOffQty ?? 0}
-                  onChange={(e) => setItemForm({ ...itemForm, writeOffQty: e.target.value })}
+                onChange={(e) => {
+                  const raw = e.target.value.replace(/[^\d]/g, '');
+                  const num = raw === '' ? 0 : Math.min(parseInt(raw, 10) || 0, 1000000000);
+                  setItemForm({ ...itemForm, writeOffQty: num });
+                }}
                 />
               </div>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="reason">Примечания</Label>
+              <Label htmlFor="reason">{t('inventoryAdjustments.details.reasonLabel')}</Label>
               <Textarea
                 id="reason"
                 value={itemForm.reason || ''}
                 onChange={(e) => setItemForm({ ...itemForm, reason: e.target.value || null })}
                 rows={3}
-                placeholder="Введите примечания к позиции инвентаризации"
+              maxLength={255}
+                placeholder={t('inventoryAdjustments.details.reasonPlaceholder')}
               />
             </div>
             <DialogFooter>
@@ -572,10 +596,12 @@ export default function InventoryAdjustmentDetails() {
                 setCurrentItem(null);
                 setError('');
               }}>
-                Отмена
+                t('common.cancel')
               </Button>
               <Button type="submit" disabled={createItemMutation.isPending || updateItemMutation.isPending}>
-                {currentItem ? (updateItemMutation.isPending ? 'Сохранение...' : 'Сохранить') : (createItemMutation.isPending ? 'Создание...' : 'Создать')}
+                {currentItem
+                  ? (updateItemMutation.isPending ? t('common.loading') : t('common.save'))
+                  : (createItemMutation.isPending ? t('common.loading') : t('common.create'))}
               </Button>
             </DialogFooter>
           </form>
@@ -586,17 +612,17 @@ export default function InventoryAdjustmentDetails() {
       <AlertDialog open={deleteItemDialogOpen} onOpenChange={setDeleteItemDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Удалить позицию</AlertDialogTitle>
+            <AlertDialogTitle>{t('inventoryAdjustments.details.deleteItemTitle')}</AlertDialogTitle>
             <AlertDialogDescription>
-              Вы уверены, что хотите удалить эту позицию из инвентаризации? Это действие нельзя отменить.
+              {t('inventoryAdjustments.details.deleteItemDescription')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel onClick={() => {
               setDeleteItemDialogOpen(false);
               setCurrentItem(null);
-            }}>
-              Отмена
+              }}>
+                {t('common.cancel')}
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={(e) => {
@@ -608,8 +634,8 @@ export default function InventoryAdjustmentDetails() {
               }}
               className="bg-red-600 hover:bg-red-700"
               disabled={deleteItemMutation.isPending}
-            >
-              {deleteItemMutation.isPending ? 'Удаление...' : 'Удалить'}
+              >
+                {deleteItemMutation.isPending ? t('common.deleting') : t('common.delete')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

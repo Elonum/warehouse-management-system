@@ -101,7 +101,7 @@ func (h *InventoryItemHandler) Create(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		if err == service.ErrInventoryCompleted {
 			log.Warn().Str("inventoryId", req.InventoryID).Msg("Attempt to create inventory item for completed inventory")
-			writeError(w, http.StatusBadRequest, "INVENTORY_COMPLETED", "завершённую инвентаризацию нельзя изменять")
+			writeError(w, http.StatusBadRequest, "INVENTORY_COMPLETED", "Завершённую инвентаризацию нельзя изменять")
 			return
 		}
 		if err == repository.ErrInventoryItemExists {
@@ -180,7 +180,7 @@ func (h *InventoryItemHandler) Update(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		if err == service.ErrInventoryCompleted {
 			log.Warn().Str("inventoryId", req.InventoryID).Str("itemId", itemID.String()).Msg("Attempt to update item of completed inventory")
-			writeError(w, http.StatusBadRequest, "INVENTORY_COMPLETED", "завершённую инвентаризацию нельзя изменять")
+			writeError(w, http.StatusBadRequest, "INVENTORY_COMPLETED", "Завершённую инвентаризацию нельзя изменять")
 			return
 		}
 		if err == repository.ErrInventoryItemNotFound {
@@ -241,7 +241,7 @@ func (h *InventoryItemHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		if err == service.ErrInventoryCompleted {
 			log.Warn().Str("itemId", itemID.String()).Msg("Attempt to delete item of completed inventory")
-			writeError(w, http.StatusBadRequest, "INVENTORY_COMPLETED", "завершённую инвентаризацию нельзя изменять")
+			writeError(w, http.StatusBadRequest, "INVENTORY_COMPLETED", "Завершённую инвентаризацию нельзя изменять")
 			return
 		}
 		if err == repository.ErrInventoryItemNotFound {

@@ -95,10 +95,10 @@ func (r *InventoryStatusRepository) List(ctx context.Context, limit, offset int)
 	return statuses, nil
 }
 
-func (r *InventoryStatusRepository) Create(ctx context.Context, name string) (*InventoryStatus, error) {
+func (r *InventoryStatusRepository) Create(ctx context.Context, name string, isFinal bool) (*InventoryStatus, error) {
 	query := `
 		INSERT INTO inventory_statuses (name, is_final)
-		VALUES ($1, FALSE)
+		VALUES ($1, $2)
 		RETURNING inventory_status_id, name, is_final
 	`
 
@@ -106,7 +106,7 @@ func (r *InventoryStatusRepository) Create(ctx context.Context, name string) (*I
 	defer cancel()
 
 	var status InventoryStatus
-	err := r.pool.QueryRow(ctx, query, name).Scan(
+	err := r.pool.QueryRow(ctx, query, name, isFinal).Scan(
 		&status.InventoryStatusID,
 		&status.Name,
 		&status.IsFinal,

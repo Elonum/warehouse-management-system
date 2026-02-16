@@ -1,3 +1,6 @@
+-- Fix vw_current_stock to only consider final inventory adjustments
+-- This ensures that only completed inventories affect stock calculations
+
 CREATE OR REPLACE VIEW vw_current_stock AS
 WITH last_snapshot AS (
     SELECT
@@ -60,10 +63,13 @@ inventory_adjustments AS (
     FROM inventory_items ii
     JOIN inventories i
         ON i.inventory_id = ii.inventory_id
+    JOIN inventory_statuses ist
+        ON ist.inventory_status_id = i.status_id
     JOIN base_stock bs
         ON bs.product_id = ii.product_id
        AND bs.warehouse_id = ii.warehouse_id
     WHERE i.adjustment_date > bs.snapshot_date
+      AND ist.is_final = true  -- Only consider final/completed inventories
     GROUP BY ii.product_id, ii.warehouse_id
 )
 

@@ -61,7 +61,7 @@ const emptyItem = {
   warehouseId: null,
   receiptQty: 0,
   writeOffQty: 0,
-  reason: null, // Примечания сохраняются в поле reason
+  reason: null,
 };
 
 export default function InventoryAdjustmentDetails() {
@@ -122,11 +122,11 @@ export default function InventoryAdjustmentDetails() {
   const enrichedItems = useMemo(() => {
     return adjustmentItems.map(item => ({
       ...item,
-      productName: item.productId ? maps.productMap.get(item.productId)?.name || 'Неизвестный товар' : '—',
+      productName: item.productId ? maps.productMap.get(item.productId)?.name || t('common.notSpecified') : t('common.notSpecified'),
       productArticle: item.productId ? maps.productMap.get(item.productId)?.article || '' : '',
-      warehouseName: maps.warehouseMap.get(item.warehouseId)?.name || 'Не указан',
+      warehouseName: maps.warehouseMap.get(item.warehouseId)?.name || t('common.notSpecified'),
     }));
-  }, [adjustmentItems, maps]);
+  }, [adjustmentItems, maps, t]);
 
   const totals = useMemo(() => {
     return adjustmentItems.reduce((acc, item) => ({
@@ -147,13 +147,6 @@ export default function InventoryAdjustmentDetails() {
     return warehouse?.name || '';
   };
 
-<<<<<<< HEAD
-  // completionEvent больше не используется после удаления аудита, но можно
-  // вычислять информацию о последнем изменении из полей createdAt/updatedAt,
-  // если потребуется в будущем.
-
-=======
->>>>>>> e0d8cf38ecfc3f07caf75f87f170a7e4ebb60ac6
   const isFinalStatus = useMemo(() => {
     if (!adjustment?.statusId) return false;
     const status = maps.statusMap.get(adjustment.statusId);
@@ -196,9 +189,9 @@ export default function InventoryAdjustmentDetails() {
     },
     onError: (err) => {
       if (err instanceof ApiError) {
-        setError(err.message || 'Ошибка добавления позиции');
+        setError(err.message || t('inventoryAdjustments.errors.createFailed'));
       } else {
-        setError('Ошибка добавления позиции');
+        setError(t('inventoryAdjustments.errors.createFailed'));
       }
     },
   });
@@ -214,9 +207,9 @@ export default function InventoryAdjustmentDetails() {
     },
     onError: (err) => {
       if (err instanceof ApiError) {
-        setError(err.message || 'Ошибка обновления позиции');
+        setError(err.message || t('inventoryAdjustments.errors.updateFailed'));
       } else {
-        setError('Ошибка обновления позиции');
+        setError(t('inventoryAdjustments.errors.updateFailed'));
       }
     },
   });
@@ -245,9 +238,9 @@ export default function InventoryAdjustmentDetails() {
         queryClient.setQueryData(['inventoryItems', adjustmentId], context.previousData);
       }
       if (err instanceof ApiError) {
-        setError(err.message || 'Ошибка удаления позиции');
+        setError(err.message || t('inventoryAdjustments.errors.deleteFailed'));
       } else {
-        setError('Ошибка удаления позиции');
+        setError(t('inventoryAdjustments.errors.deleteFailed'));
       }
       setDeleteItemDialogOpen(false);
     },
@@ -260,7 +253,7 @@ export default function InventoryAdjustmentDetails() {
       warehouseId: item.warehouseId || adjustment?.warehouseId || null,
       receiptQty: item.receiptQty ?? 0,
       writeOffQty: item.writeOffQty ?? 0,
-      reason: item.reason || null, // Примечания из поля reason
+      reason: item.reason || null,
     });
     setError('');
     setItemDialogOpen(true);
@@ -277,7 +270,7 @@ export default function InventoryAdjustmentDetails() {
       warehouseId: itemForm.warehouseId || null,
       receiptQty: itemForm.receiptQty ? parseInt(itemForm.receiptQty, 10) : 0,
       writeOffQty: itemForm.writeOffQty ? parseInt(itemForm.writeOffQty, 10) : 0,
-      reason: itemForm.reason || null, // Примечания сохраняются в поле reason
+      reason: itemForm.reason || null,
     };
 
     if (currentItem) {
@@ -288,9 +281,9 @@ export default function InventoryAdjustmentDetails() {
   };
 
   const getStatusName = () => {
-    if (!adjustment?.statusId) return '—';
+    if (!adjustment?.statusId) return t('common.notSpecified');
     const status = maps.statusMap.get(adjustment.statusId);
-    return status?.name || '—';
+    return status?.name || t('common.notSpecified');
   };
 
   const itemColumns = [
@@ -303,18 +296,18 @@ export default function InventoryAdjustmentDetails() {
             <Package className="w-4 h-4 text-slate-500" />
           </div>
           <div className="flex flex-col">
-<<<<<<< HEAD
-            <Link
-              to={`/products/details?id=${row.original.productId ?? ''}`}
-              className="font-medium text-slate-900 dark:text-slate-100 hover:text-indigo-600 dark:hover:text-indigo-400"
-            >
-              {row.original.productArticle || row.original.productName || t('common.notSpecified')}
-            </Link>
-=======
-            <span className="font-medium text-slate-900 dark:text-slate-100">
-              {row.original.productArticle || row.original.productName || '—'}
-            </span>
->>>>>>> e0d8cf38ecfc3f07caf75f87f170a7e4ebb60ac6
+            {row.original.productId ? (
+              <Link
+                to={`/products/details?id=${row.original.productId}`}
+                className="font-medium text-slate-900 dark:text-slate-100 hover:text-indigo-600 dark:hover:text-indigo-400"
+              >
+                {row.original.productArticle || row.original.productName || t('common.notSpecified')}
+              </Link>
+            ) : (
+              <span className="font-medium text-slate-900 dark:text-slate-100">
+                {t('common.notSpecified')}
+              </span>
+            )}
           </div>
         </div>
       ),
@@ -339,7 +332,7 @@ export default function InventoryAdjustmentDetails() {
       header: t('inventoryAdjustments.details.receiptLabel'),
       cell: ({ row }) => (
         <span className={`font-medium ${row.original.receiptQty > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400'}`}>
-          {row.original.receiptQty > 0 ? `+${row.original.receiptQty.toLocaleString()}` : '—'}
+          {row.original.receiptQty > 0 ? `+${row.original.receiptQty.toLocaleString()}` : t('common.notSpecified')}
         </span>
       ),
     },
@@ -348,7 +341,7 @@ export default function InventoryAdjustmentDetails() {
       header: t('inventoryAdjustments.details.writeOffLabel'),
       cell: ({ row }) => (
         <span className={`font-medium ${row.original.writeOffQty > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-slate-400'}`}>
-          {row.original.writeOffQty > 0 ? `-${row.original.writeOffQty.toLocaleString()}` : '—'}
+          {row.original.writeOffQty > 0 ? `-${row.original.writeOffQty.toLocaleString()}` : t('common.notSpecified')}
         </span>
       ),
     },
@@ -357,7 +350,7 @@ export default function InventoryAdjustmentDetails() {
       header: t('inventoryAdjustments.details.reasonLabel'),
       cell: ({ row }) => (
         <span className="block max-w-xs text-sm truncate text-slate-500 dark:text-slate-400">
-          {row.original.reason || '—'}
+          {row.original.reason || t('common.notSpecified')}
         </span>
       ),
     },
@@ -442,7 +435,7 @@ export default function InventoryAdjustmentDetails() {
       </div>
 
       {adjustmentError && (
-        <div className="p-3 text-sm text-red-600 bg-red-50 dark:bg-red-900/20 dark:text-red-400 rounded-lg">
+        <div className="p-3 text-sm text-red-600 rounded-lg bg-red-50 dark:bg-red-900/20 dark:text-red-400">
           {t('inventoryAdjustments.details.loadError')}: {adjustmentError.message}
         </div>
       )}
@@ -453,7 +446,7 @@ export default function InventoryAdjustmentDetails() {
           <CardContent className="pt-6">
             <p className="text-sm text-slate-500">{t('inventoryAdjustments.details.summaryDate')}</p>
             <p className="mt-1 text-lg font-semibold text-slate-900 dark:text-slate-100">
-              {adjustment?.adjustmentDate ? format(new Date(adjustment.adjustmentDate), 'dd.MM.yyyy', { locale: ru }) : '—'}
+              {adjustment?.adjustmentDate ? format(new Date(adjustment.adjustmentDate), 'dd.MM.yyyy', { locale: ru }) : t('common.notSpecified')}
             </p>
           </CardContent>
         </Card>
@@ -477,7 +470,7 @@ export default function InventoryAdjustmentDetails() {
           <CardContent className="pt-6">
             <p className="text-sm text-slate-500">{t('inventoryAdjustments.details.summaryNotes')}</p>
             <p className="mt-1 text-sm text-slate-700 dark:text-slate-300 line-clamp-2">
-              {adjustment?.notes || '—'}
+              {adjustment?.notes || t('common.notSpecified')}
             </p>
           </CardContent>
         </Card>
@@ -525,7 +518,7 @@ export default function InventoryAdjustmentDetails() {
           </DialogHeader>
           <form onSubmit={handleItemSubmit} className="space-y-4">
             {error && (
-              <div className="p-3 text-sm text-red-600 bg-red-50 dark:bg-red-900/20 dark:text-red-400 rounded-lg">
+              <div className="p-3 text-sm text-red-600 rounded-lg bg-red-50 dark:bg-red-900/20 dark:text-red-400">
                 {error}
               </div>
             )}
@@ -536,14 +529,14 @@ export default function InventoryAdjustmentDetails() {
                 onValueChange={(value) => setItemForm({ ...itemForm, productId: value || null })}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Выберите товар">
+                  <SelectValue placeholder={t('inventoryAdjustments.details.productLabel')}>
                     {getSelectedProductLabel()}
                   </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {products.map(product => (
                     <SelectItem key={product.productId} value={product.productId.toString()}>
-                      {product.article || product.name || 'Товар'}
+                      {product.article || product.name || t('common.notSpecified')}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -556,14 +549,14 @@ export default function InventoryAdjustmentDetails() {
                 onValueChange={(value) => setItemForm({ ...itemForm, warehouseId: value || null })}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Выберите склад">
+                  <SelectValue placeholder={t('inventoryAdjustments.details.warehouseLabel')}>
                     {getSelectedWarehouseLabel()}
                   </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {warehouses.map(warehouse => (
                     <SelectItem key={warehouse.warehouseId} value={warehouse.warehouseId.toString()}>
-                      {warehouse.name || 'Склад'}
+                      {warehouse.name || t('common.notSpecified')}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -613,7 +606,6 @@ export default function InventoryAdjustmentDetails() {
               />
             </div>
             <DialogFooter>
-<<<<<<< HEAD
               <Button
                 type="button"
                 variant="outline"
@@ -625,15 +617,6 @@ export default function InventoryAdjustmentDetails() {
                 }}
               >
                 {t('common.cancel')}
-=======
-              <Button type="button" variant="outline" onClick={() => {
-                setItemDialogOpen(false);
-                setItemForm(emptyItem);
-                setCurrentItem(null);
-                setError('');
-              }}>
-                t('common.cancel')
->>>>>>> e0d8cf38ecfc3f07caf75f87f170a7e4ebb60ac6
               </Button>
               <Button type="submit" disabled={createItemMutation.isPending || updateItemMutation.isPending}>
                 {currentItem

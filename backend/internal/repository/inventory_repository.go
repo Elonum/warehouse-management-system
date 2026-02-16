@@ -18,14 +18,16 @@ var (
 )
 
 type Inventory struct {
-	InventoryID    uuid.UUID
-	AdjustmentDate *time.Time
-	StatusID       uuid.UUID
-	Notes          *string
-	CreatedBy      uuid.UUID
-	CreatedAt      time.Time
-	UpdatedBy      *uuid.UUID
-	UpdatedAt      time.Time
+	InventoryID     uuid.UUID
+	AdjustmentDate  *time.Time
+	StatusID        uuid.UUID
+	Notes           *string
+	CreatedBy       uuid.UUID
+	CreatedAt       time.Time
+	UpdatedBy       *uuid.UUID
+	UpdatedAt       time.Time
+	TotalReceiptQty int // Pre-aggregated from inventory_items
+	TotalWriteOffQty int // Pre-aggregated from inventory_items
 }
 
 type InventoryRepository struct {
@@ -37,10 +39,23 @@ func NewInventoryRepository(pool *pgxpool.Pool) *InventoryRepository {
 }
 
 func (r *InventoryRepository) GetByID(ctx context.Context, inventoryID uuid.UUID) (*Inventory, error) {
+	// Optimized query with pre-aggregated totals
 	query := `
-		SELECT inventory_id, adjustment_date, status_id, notes, created_by, created_at, updated_by, updated_at
-		FROM inventories
-		WHERE inventory_id = $1
+		SELECT 
+			i.inventory_id,
+			i.adjustment_date,
+			i.status_id,
+			i.notes,
+			i.created_by,
+			i.created_at,
+			i.updated_by,
+			i.updated_at,
+			COALESCE(SUM(ii.receipt_qty), 0) AS total_receipt_qty,
+			COALESCE(SUM(ii.write_off_qty), 0) AS total_write_off_qty
+		FROM inventories i
+		LEFT JOIN inventory_items ii ON ii.inventory_id = i.inventory_id
+		WHERE i.inventory_id = $1
+		GROUP BY i.inventory_id, i.adjustment_date, i.status_id, i.notes, i.created_by, i.created_at, i.updated_by, i.updated_at
 	`
 
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
@@ -56,6 +71,8 @@ func (r *InventoryRepository) GetByID(ctx context.Context, inventoryID uuid.UUID
 		&inventory.CreatedAt,
 		&inventory.UpdatedBy,
 		&inventory.UpdatedAt,
+		&inventory.TotalReceiptQty,
+		&inventory.TotalWriteOffQty,
 	)
 
 	if err != nil {
@@ -69,21 +86,33 @@ func (r *InventoryRepository) GetByID(ctx context.Context, inventoryID uuid.UUID
 }
 
 func (r *InventoryRepository) List(ctx context.Context, limit, offset int, statusID *uuid.UUID) ([]Inventory, error) {
+	// Optimized query with pre-aggregated totals to avoid N+1 queries
 	query := `
-		SELECT inventory_id, adjustment_date, status_id, notes, created_by, created_at, updated_by, updated_at
-		FROM inventories
+		SELECT 
+			i.inventory_id,
+			i.adjustment_date,
+			i.status_id,
+			i.notes,
+			i.created_by,
+			i.created_at,
+			i.updated_by,
+			i.updated_at,
+			COALESCE(SUM(ii.receipt_qty), 0) AS total_receipt_qty,
+			COALESCE(SUM(ii.write_off_qty), 0) AS total_write_off_qty
+		FROM inventories i
+		LEFT JOIN inventory_items ii ON ii.inventory_id = i.inventory_id
 	`
 	args := []interface{}{}
 	argPos := 1
 
 	if statusID != nil {
-		query += fmt.Sprintf(" WHERE status_id = $%d", argPos)
+		query += fmt.Sprintf(" WHERE i.status_id = $%d", argPos)
 		args = append(args, *statusID)
 		argPos++
 	}
 
-	// Show most recent inventories first; fall back to inventory_id for deterministic order
-	query += fmt.Sprintf(" ORDER BY adjustment_date DESC NULLS LAST, inventory_id DESC LIMIT $%d OFFSET $%d", argPos, argPos+1)
+	query += " GROUP BY i.inventory_id, i.adjustment_date, i.status_id, i.notes, i.created_by, i.created_at, i.updated_by, i.updated_at"
+	query += fmt.Sprintf(" ORDER BY i.adjustment_date DESC NULLS LAST, i.inventory_id DESC LIMIT $%d OFFSET $%d", argPos, argPos+1)
 	args = append(args, limit, offset)
 
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
@@ -98,6 +127,7 @@ func (r *InventoryRepository) List(ctx context.Context, limit, offset int, statu
 	var inventories []Inventory
 	for rows.Next() {
 		var inventory Inventory
+		var totalReceiptQty, totalWriteOffQty int
 		if err := rows.Scan(
 			&inventory.InventoryID,
 			&inventory.AdjustmentDate,
@@ -107,9 +137,13 @@ func (r *InventoryRepository) List(ctx context.Context, limit, offset int, statu
 			&inventory.CreatedAt,
 			&inventory.UpdatedBy,
 			&inventory.UpdatedAt,
+			&totalReceiptQty,
+			&totalWriteOffQty,
 		); err != nil {
 			return nil, err
 		}
+		inventory.TotalReceiptQty = totalReceiptQty
+		inventory.TotalWriteOffQty = totalWriteOffQty
 		inventories = append(inventories, inventory)
 	}
 
@@ -151,36 +185,26 @@ func (r *InventoryRepository) Create(ctx context.Context, adjustmentDate *time.T
 		return nil, err
 	}
 
+	// Initialize totals to zero for new inventory (no items yet)
+	inventory.TotalReceiptQty = 0
+	inventory.TotalWriteOffQty = 0
+
 	return &inventory, nil
 }
 
 func (r *InventoryRepository) Update(ctx context.Context, inventoryID uuid.UUID, adjustmentDate *time.Time, statusID uuid.UUID, notes *string, updatedBy *uuid.UUID) (*Inventory, error) {
-	query := `
+	// First update the inventory
+	updateQuery := `
 		UPDATE inventories
 		SET adjustment_date = $1, status_id = $2, notes = $3, updated_by = $4, updated_at = NOW()
 		WHERE inventory_id = $5
-		RETURNING inventory_id, adjustment_date, status_id, notes, created_by, created_at, updated_by, updated_at
 	`
 
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
-	var inventory Inventory
-	err := r.pool.QueryRow(ctx, query, adjustmentDate, statusID, notes, updatedBy, inventoryID).Scan(
-		&inventory.InventoryID,
-		&inventory.AdjustmentDate,
-		&inventory.StatusID,
-		&inventory.Notes,
-		&inventory.CreatedBy,
-		&inventory.CreatedAt,
-		&inventory.UpdatedBy,
-		&inventory.UpdatedAt,
-	)
-
+	result, err := r.pool.Exec(ctx, updateQuery, adjustmentDate, statusID, notes, updatedBy, inventoryID)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, ErrInventoryNotFound
-		}
 		errMsg := err.Error()
 		if strings.Contains(errMsg, "duplicate key") ||
 			strings.Contains(errMsg, "unique constraint") {
@@ -189,7 +213,12 @@ func (r *InventoryRepository) Update(ctx context.Context, inventoryID uuid.UUID,
 		return nil, err
 	}
 
-	return &inventory, nil
+	if result.RowsAffected() == 0 {
+		return nil, ErrInventoryNotFound
+	}
+
+	// Then fetch with aggregated totals
+	return r.GetByID(ctx, inventoryID)
 }
 
 func (r *InventoryRepository) Delete(ctx context.Context, inventoryID uuid.UUID) error {

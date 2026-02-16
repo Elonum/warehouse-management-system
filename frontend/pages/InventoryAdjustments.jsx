@@ -69,10 +69,7 @@ export default function InventoryAdjustments() {
   const [error, setError] = useState('');
   const [deleteError, setDeleteError] = useState('');
   const [deleteErrorDialogOpen, setDeleteErrorDialogOpen] = useState(false);
-<<<<<<< HEAD
-  const [statusFilter, setStatusFilter] = useState('all'); // all | final | nonFinal
-=======
->>>>>>> e0d8cf38ecfc3f07caf75f87f170a7e4ebb60ac6
+  const [statusFilter, setStatusFilter] = useState('all');
 
   const { data: inventoriesData, isLoading, refetch } = useQuery({
     queryKey: ['inventories'],
@@ -185,7 +182,11 @@ export default function InventoryAdjustments() {
   });
 
   const resetForm = () => {
-    setFormData(emptyAdjustment);
+    const today = new Date().toISOString().split('T')[0];
+    setFormData({
+      ...emptyAdjustment,
+      adjustmentDate: today,
+    });
     setCurrentAdjustment(null);
     setError('');
   };
@@ -211,13 +212,8 @@ export default function InventoryAdjustments() {
       notes: formData.notes || null,
     };
 
-    // StatusId is required for create, but can be null for draft
     if (!currentAdjustment && !data.statusId) {
-      // Find draft status or use first available status
-      const draftStatus = inventoryStatuses.find(s => s.name.toLowerCase().includes('черновик') || s.name.toLowerCase().includes('draft'));
-      if (draftStatus) {
-        data.statusId = draftStatus.inventoryStatusId;
-      } else if (inventoryStatuses.length > 0) {
+      if (inventoryStatuses.length > 0) {
         data.statusId = inventoryStatuses[0].inventoryStatusId;
       }
     }

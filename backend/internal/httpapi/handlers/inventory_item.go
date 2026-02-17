@@ -84,6 +84,10 @@ func (h *InventoryItemHandler) Create(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "inventoryId is required")
 		return
 	}
+	if req.ProductID == nil || *req.ProductID == "" {
+		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "productId is required")
+		return
+	}
 	if req.WarehouseID == "" {
 		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "warehouseId is required")
 		return
@@ -167,6 +171,10 @@ func (h *InventoryItemHandler) Update(w http.ResponseWriter, r *http.Request) {
 
 	if req.InventoryID == "" {
 		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "inventoryId is required")
+		return
+	}
+	if req.ProductID == nil || *req.ProductID == "" {
+		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "productId is required")
 		return
 	}
 	if req.WarehouseID == "" {

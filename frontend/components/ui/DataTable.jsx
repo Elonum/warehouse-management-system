@@ -33,6 +33,7 @@ export default function DataTable({
   searchPlaceholder = "Поиск...",
   pageSize = 10,
   onRowClick,
+  onRowDoubleClick,
   emptyMessage = "Нет данных",
   isLoading = false,
   className
@@ -182,9 +183,10 @@ export default function DataTable({
                   key={row.id || rowIndex}
                   className={cn(
                     "transition-colors",
-                    onRowClick && "cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50"
+                  (onRowClick || onRowDoubleClick) && "cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50"
                   )}
-                  onClick={() => onRowClick?.(row)}
+                onClick={() => onRowClick?.(row)}
+                onDoubleClick={() => onRowDoubleClick?.(row)}
                 >
                   {columns.map((column) => (
                     <TableCell 

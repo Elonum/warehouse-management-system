@@ -9,6 +9,7 @@ import {
   ClipboardList, 
   MoreHorizontal, 
   Eye,
+  HelpCircle,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -50,7 +51,7 @@ import DataTable from '@/components/ui/DataTable';
 import StatusBadge from '@/components/ui/StatusBadge';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 
 const emptyAdjustment = {
@@ -62,6 +63,7 @@ const emptyAdjustment = {
 export default function InventoryAdjustments() {
   const { t } = useI18n();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [currentAdjustment, setCurrentAdjustment] = useState(null);
@@ -90,19 +92,58 @@ export default function InventoryAdjustments() {
   const inventories = Array.isArray(inventoriesData) ? inventoriesData : [];
   const inventoryStatuses = Array.isArray(inventoryStatusesData) ? inventoryStatusesData : [];
 
+  const { data: usersData } = useQuery({
+    queryKey: ['users'],
+    queryFn: async () => {
+      const response = await api.users.list({ limit: 1000, offset: 0 });
+      return Array.isArray(response) ? response : [];
+    },
+  });
+
+  const users = Array.isArray(usersData) ? usersData : [];
+
+  const userMap = useMemo(() => {
+    return new Map(users.map((u) => [u.userId, u]));
+  }, [users]);
+
+  const getUserDisplayName = (user) => {
+    if (!user) return t('common.notSpecified');
+    const parts = [user.name, user.surname, user.patronymic].filter(Boolean);
+    if (parts.length > 0) {
+      return parts.join(' ');
+    }
+    return user.email || t('common.notSpecified');
+  };
+
   const enrichedInventories = useMemo(() => {
-    const statusMap = new Map(inventoryStatuses.map(s => [s.inventoryStatusId, s]));
+    const statusMap = new Map(inventoryStatuses.map((s) => [s.inventoryStatusId, s]));
 
     return inventories.map((inventory, index) => {
       const status = statusMap.get(inventory.statusId);
+      const createdByUser = inventory.createdBy ? userMap.get(inventory.createdBy) : null;
+      const updatedByUser = inventory.updatedBy ? userMap.get(inventory.updatedBy) : null;
+      const statusIsFinal = !!status?.isFinal;
+
+      const createdByName = getUserDisplayName(createdByUser);
+
+      let completedByName = null;
+      let completedAt = null;
+      if (statusIsFinal && inventory.updatedBy && inventory.updatedAt) {
+        completedByName = getUserDisplayName(updatedByUser || createdByUser);
+        completedAt = inventory.updatedAt;
+      }
+
       return {
         ...inventory,
         statusName: status?.name || t('common.notSpecified'),
-        statusIsFinal: !!status?.isFinal,
+        statusIsFinal,
         rowNumber: index + 1,
+        createdByName,
+        completedByName,
+        completedAt,
       };
     });
-  }, [inventories, inventoryStatuses, t]);
+  }, [inventories, inventoryStatuses, userMap, t]);
 
   const filteredInventories = useMemo(() => {
     if (statusFilter === 'final') {
@@ -124,9 +165,22 @@ export default function InventoryAdjustments() {
     },
     onError: (err) => {
       if (err instanceof ApiError) {
-        setError(err.message || 'Ошибка создания инвентаризации');
+        let message = err.message || t('inventoryAdjustments.errors.createFailed');
+        if (err.code === 'INVALID_REQUEST') {
+          // Бэкенд может вернуть "statusId is required" и подобные текстовые сообщения
+          if (err.message?.includes('statusId is required')) {
+            message = t('inventoryAdjustments.errors.statusRequired');
+          }
+        }
+        if (err.code === 'INVENTORY_STATUS_NOT_FOUND') {
+          message = t('inventoryAdjustments.errors.statusNotFound');
+        }
+        if (err.code === 'INVENTORY_EXISTS') {
+          message = t('inventoryAdjustments.errors.alreadyExists');
+        }
+        setError(message);
       } else {
-        setError('Ошибка создания инвентаризации');
+        setError(t('inventoryAdjustments.errors.createFailed'));
       }
     },
   });
@@ -141,9 +195,21 @@ export default function InventoryAdjustments() {
     },
     onError: (err) => {
       if (err instanceof ApiError) {
-        setError(err.message || 'Ошибка обновления инвентаризации');
+        let message = err.message || t('inventoryAdjustments.errors.updateFailed');
+        if (err.code === 'INVALID_REQUEST') {
+          if (err.message?.includes('statusId is required')) {
+            message = t('inventoryAdjustments.errors.statusRequired');
+          }
+        }
+        if (err.code === 'INVENTORY_STATUS_NOT_FOUND') {
+          message = t('inventoryAdjustments.errors.statusNotFound');
+        }
+        if (err.code === 'INVENTORY_COMPLETED') {
+          message = t('inventoryAdjustments.errors.cannotUpdateCompleted');
+        }
+        setError(message);
       } else {
-        setError('Ошибка обновления инвентаризации');
+        setError(t('inventoryAdjustments.errors.updateFailed'));
       }
     },
   });
@@ -173,9 +239,13 @@ export default function InventoryAdjustments() {
         queryClient.setQueryData(['inventories'], context.previousData);
       }
       if (err instanceof ApiError) {
-        setError(err.message || 'Ошибка удаления инвентаризации');
+        let message = err.message || t('inventoryAdjustments.errors.deleteFailed');
+        if (err.code === 'INVENTORY_COMPLETED') {
+          message = t('inventoryAdjustments.errors.cannotDeleteCompleted');
+        }
+        setError(message);
       } else {
-        setError('Ошибка удаления инвентаризации');
+        setError(t('inventoryAdjustments.errors.deleteFailed'));
       }
       setDeleteDialogOpen(false);
     },
@@ -294,9 +364,41 @@ export default function InventoryAdjustments() {
     },
     {
       accessorKey: 'createdAt',
-      header: t('inventoryAdjustments.table.createdAt'),
+      header: (
+        <div className="flex items-center gap-1">
+          <span>{t('inventoryAdjustments.table.createdAt')}</span>
+          <span
+            className="relative inline-flex items-center group"
+            onClick={(e) => e.stopPropagation()}
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            <HelpCircle className="w-3 h-3 text-slate-400" />
+            <span className="pointer-events-none absolute left-1/2 top-full z-20 mt-2 w-72 -translate-x-1/2 rounded-md border bg-white px-2 py-1 text-xs font-normal text-slate-700 opacity-0 shadow-sm transition-opacity group-hover:opacity-100 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200">
+              {t('inventoryAdjustments.table.createdAtHint')}
+            </span>
+          </span>
+        </div>
+      ),
       cell: ({ row }) => (
-        <span className="text-slate-600 dark:text-slate-400">
+        <span
+          className="text-slate-600 dark:text-slate-400"
+          title={[
+            t('inventoryAdjustments.meta.createdByAt', {
+              user: row.original.createdByName || t('common.notSpecified'),
+              datetime: format(new Date(row.original.createdAt), 'dd.MM.yyyy HH:mm', { locale: ru }),
+            }),
+            row.original.statusIsFinal &&
+            row.original.completedByName &&
+            row.original.completedAt
+              ? t('inventoryAdjustments.meta.completedByAt', {
+                  user: row.original.completedByName,
+                  datetime: format(new Date(row.original.completedAt), 'dd.MM.yyyy HH:mm', { locale: ru }),
+                })
+              : null,
+          ]
+            .filter(Boolean)
+            .join('\n')}
+        >
           {format(new Date(row.original.createdAt), 'dd.MM.yyyy HH:mm', { locale: ru })}
         </span>
       ),
@@ -384,6 +486,10 @@ export default function InventoryAdjustments() {
         isLoading={isLoading}
         searchPlaceholder={t('inventoryAdjustments.searchPlaceholder')}
         emptyMessage={t('inventoryAdjustments.emptyMessage')}
+        onRowDoubleClick={(row) => {
+          if (!row.inventoryId) return;
+          navigate(`${createPageUrl('InventoryAdjustmentDetails')}?id=${row.inventoryId}`);
+        }}
       />
 
       <AlertDialog open={deleteErrorDialogOpen} onOpenChange={setDeleteErrorDialogOpen}>

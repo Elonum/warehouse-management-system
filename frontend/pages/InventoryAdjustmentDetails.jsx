@@ -59,8 +59,8 @@ import { useI18n } from '@/lib/i18n';
 const emptyItem = {
   productId: null,
   warehouseId: null,
-  receiptQty: 0,
-  writeOffQty: 0,
+  receiptQty: '',
+  writeOffQty: '',
   reason: null,
 };
 
@@ -110,6 +110,26 @@ export default function InventoryAdjustmentDetails() {
   const inventoryStatuses = Array.isArray(inventoryStatusesData) ? inventoryStatusesData : [];
   const adjustmentItems = Array.isArray(adjustmentItemsData) ? adjustmentItemsData : [];
 
+  const { data: usersData = [] } = useQuery({
+    queryKey: ['users'],
+    queryFn: () => api.users.list({ limit: 1000, offset: 0 }),
+  });
+
+  const users = Array.isArray(usersData) ? usersData : [];
+
+  const userMap = useMemo(() => {
+    return new Map(users.map((u) => [u.userId, u]));
+  }, [users]);
+
+  const getUserDisplayName = (user) => {
+    if (!user) return t('common.notSpecified');
+    const parts = [user.name, user.surname, user.patronymic].filter(Boolean);
+    if (parts.length > 0) {
+      return parts.join(' ');
+    }
+    return user.email || t('common.notSpecified');
+  };
+
 
   const maps = useMemo(() => {
     return {
@@ -141,12 +161,6 @@ export default function InventoryAdjustmentDetails() {
     return product?.article || product?.name || '';
   };
 
-  const getSelectedWarehouseLabel = () => {
-    if (!itemForm.warehouseId) return '';
-    const warehouse = warehouses.find(w => w.warehouseId === itemForm.warehouseId);
-    return warehouse?.name || '';
-  };
-
   const isFinalStatus = useMemo(() => {
     if (!adjustment?.statusId) return false;
     const status = maps.statusMap.get(adjustment.statusId);
@@ -156,6 +170,20 @@ export default function InventoryAdjustmentDetails() {
   const finalStatus = useMemo(() => {
     return inventoryStatuses.find(s => s.isFinal) || null;
   }, [inventoryStatuses]);
+
+  const createdByUser = adjustment?.createdBy ? userMap.get(adjustment.createdBy) : null;
+  const updatedByUser = adjustment?.updatedBy ? userMap.get(adjustment.updatedBy) : null;
+
+  const createdByName = getUserDisplayName(createdByUser);
+  const completedByName = isFinalStatus
+    ? getUserDisplayName(updatedByUser || createdByUser)
+    : null;
+
+  const getSelectedWarehouseLabel = () => {
+    if (!itemForm.warehouseId) return '';
+    const warehouse = warehouses.find(w => w.warehouseId === itemForm.warehouseId);
+    return warehouse?.name || '';
+  };
 
   const completeMutation = useMutation({
     mutationFn: async () => {
@@ -171,7 +199,11 @@ export default function InventoryAdjustmentDetails() {
     },
     onError: (err) => {
       if (err instanceof ApiError) {
-        setError(err.message || t('inventoryAdjustments.errors.updateFailed'));
+        let message = err.message || t('inventoryAdjustments.errors.updateFailed');
+        if (err.code === 'INVENTORY_COMPLETED') {
+          message = t('inventoryAdjustments.errors.cannotUpdateCompleted');
+        }
+        setError(message);
       } else {
         setError(t('inventoryAdjustments.errors.updateFailed'));
       }
@@ -189,7 +221,36 @@ export default function InventoryAdjustmentDetails() {
     },
     onError: (err) => {
       if (err instanceof ApiError) {
-        setError(err.message || t('inventoryAdjustments.errors.createFailed'));
+        let message = err.message || t('inventoryAdjustments.errors.createFailed');
+        if (err.code === 'INVALID_REQUEST') {
+          if (err.message?.includes('inventoryId is required')) {
+            message = t('inventoryAdjustments.details.errors.inventoryRequired');
+          } else if (err.message?.includes('productId is required')) {
+            message = t('inventoryAdjustments.details.errors.productRequired');
+          } else if (err.message?.includes('warehouseId is required')) {
+            message = t('inventoryAdjustments.details.errors.warehouseRequired');
+          } else if (err.message?.includes('receiptQty must be non-negative') || err.message?.includes('writeOffQty must be non-negative')) {
+            message = t('inventoryAdjustments.details.errors.quantityNonNegative');
+          } else if (err.message?.includes('reason must be at most 255 characters')) {
+            message = t('inventoryAdjustments.details.errors.reasonTooLong');
+          }
+        }
+        if (err.code === 'INVENTORY_COMPLETED') {
+          message = t('inventoryAdjustments.errors.cannotUpdateCompleted');
+        }
+        if (err.code === 'INVENTORY_NOT_FOUND') {
+          message = t('inventoryAdjustments.details.errors.inventoryNotFound');
+        }
+        if (err.code === 'PRODUCT_NOT_FOUND') {
+          message = t('inventoryAdjustments.details.errors.productNotFound');
+        }
+        if (err.code === 'WAREHOUSE_NOT_FOUND') {
+          message = t('inventoryAdjustments.details.errors.warehouseNotFound');
+        }
+        if (err.code === 'INVALID_QUANTITY') {
+          message = t('inventoryAdjustments.details.errors.quantityNonNegative');
+        }
+        setError(message);
       } else {
         setError(t('inventoryAdjustments.errors.createFailed'));
       }
@@ -207,7 +268,39 @@ export default function InventoryAdjustmentDetails() {
     },
     onError: (err) => {
       if (err instanceof ApiError) {
-        setError(err.message || t('inventoryAdjustments.errors.updateFailed'));
+        let message = err.message || t('inventoryAdjustments.errors.updateFailed');
+        if (err.code === 'INVALID_REQUEST') {
+          if (err.message?.includes('inventoryId is required')) {
+            message = t('inventoryAdjustments.details.errors.inventoryRequired');
+          } else if (err.message?.includes('productId is required')) {
+            message = t('inventoryAdjustments.details.errors.productRequired');
+          } else if (err.message?.includes('warehouseId is required')) {
+            message = t('inventoryAdjustments.details.errors.warehouseRequired');
+          } else if (err.message?.includes('receiptQty must be non-negative') || err.message?.includes('writeOffQty must be non-negative')) {
+            message = t('inventoryAdjustments.details.errors.quantityNonNegative');
+          } else if (err.message?.includes('reason must be at most 255 characters')) {
+            message = t('inventoryAdjustments.details.errors.reasonTooLong');
+          }
+        }
+        if (err.code === 'INVENTORY_COMPLETED') {
+          message = t('inventoryAdjustments.errors.cannotUpdateCompleted');
+        }
+        if (err.code === 'INVENTORY_NOT_FOUND') {
+          message = t('inventoryAdjustments.details.errors.inventoryNotFound');
+        }
+        if (err.code === 'PRODUCT_NOT_FOUND') {
+          message = t('inventoryAdjustments.details.errors.productNotFound');
+        }
+        if (err.code === 'WAREHOUSE_NOT_FOUND') {
+          message = t('inventoryAdjustments.details.errors.warehouseNotFound');
+        }
+        if (err.code === 'INVALID_QUANTITY') {
+          message = t('inventoryAdjustments.details.errors.quantityNonNegative');
+        }
+        if (err.code === 'ITEM_NOT_FOUND') {
+          message = t('inventoryAdjustments.details.errors.itemNotFound');
+        }
+        setError(message);
       } else {
         setError(t('inventoryAdjustments.errors.updateFailed'));
       }
@@ -238,7 +331,14 @@ export default function InventoryAdjustmentDetails() {
         queryClient.setQueryData(['inventoryItems', adjustmentId], context.previousData);
       }
       if (err instanceof ApiError) {
-        setError(err.message || t('inventoryAdjustments.errors.deleteFailed'));
+        let message = err.message || t('inventoryAdjustments.errors.deleteFailed');
+        if (err.code === 'INVENTORY_COMPLETED') {
+          message = t('inventoryAdjustments.errors.cannotUpdateCompleted');
+        }
+        if (err.code === 'ITEM_NOT_FOUND') {
+          message = t('inventoryAdjustments.details.errors.itemNotFound');
+        }
+        setError(message);
       } else {
         setError(t('inventoryAdjustments.errors.deleteFailed'));
       }
@@ -251,8 +351,8 @@ export default function InventoryAdjustmentDetails() {
     setItemForm({
       productId: item.productId || null,
       warehouseId: item.warehouseId || adjustment?.warehouseId || null,
-      receiptQty: item.receiptQty ?? 0,
-      writeOffQty: item.writeOffQty ?? 0,
+      receiptQty: item.receiptQty != null ? String(item.receiptQty) : '',
+      writeOffQty: item.writeOffQty != null ? String(item.writeOffQty) : '',
       reason: item.reason || null,
     });
     setError('');
@@ -264,12 +364,30 @@ export default function InventoryAdjustmentDetails() {
     setError('');
     if (!adjustmentId) return;
 
+    if (!itemForm.productId) {
+      setError(t('inventoryAdjustments.details.errors.productRequired'));
+      return;
+    }
+    if (!itemForm.warehouseId) {
+      setError(t('inventoryAdjustments.details.errors.warehouseRequired'));
+      return;
+    }
+
+    const normalizeQty = (val) => {
+      if (!val) return 0;
+      const raw = String(val).replace(/[^\d]/g, '');
+      if (!raw) return 0;
+      const num = parseInt(raw, 10);
+      if (!Number.isFinite(num) || num < 0) return 0;
+      return Math.min(num, 1000000000);
+    };
+
     const data = {
       inventoryId: adjustmentId,
       productId: itemForm.productId || null,
       warehouseId: itemForm.warehouseId || null,
-      receiptQty: itemForm.receiptQty ? parseInt(itemForm.receiptQty, 10) : 0,
-      writeOffQty: itemForm.writeOffQty ? parseInt(itemForm.writeOffQty, 10) : 0,
+      receiptQty: normalizeQty(itemForm.receiptQty),
+      writeOffQty: normalizeQty(itemForm.writeOffQty),
       reason: itemForm.reason || null,
     };
 
@@ -442,7 +560,7 @@ export default function InventoryAdjustmentDetails() {
 
       {/* Summary */}
       <div className="grid grid-cols-4 gap-4">
-        <Card className="dark:bg-slate-900 dark:border-slate-800">
+        <Card className="col-span-4 md:col-span-2 dark:bg-slate-900 dark:border-slate-800">
           <CardContent className="pt-6">
             <p className="text-sm text-slate-500">{t('inventoryAdjustments.details.summaryDate')}</p>
             <p className="mt-1 text-lg font-semibold text-slate-900 dark:text-slate-100">
@@ -450,7 +568,7 @@ export default function InventoryAdjustmentDetails() {
             </p>
           </CardContent>
         </Card>
-        <Card className="dark:bg-slate-900 dark:border-slate-800">
+        <Card className="col-span-2 md:col-span-1 dark:bg-slate-900 dark:border-slate-800">
           <CardContent className="pt-6">
             <p className="text-sm text-slate-500">{t('inventoryAdjustments.details.summaryReceipt')}</p>
             <p className="mt-1 text-lg font-semibold text-emerald-600 dark:text-emerald-400">
@@ -458,7 +576,7 @@ export default function InventoryAdjustmentDetails() {
             </p>
           </CardContent>
         </Card>
-        <Card className="dark:bg-slate-900 dark:border-slate-800">
+        <Card className="col-span-2 md:col-span-1 dark:bg-slate-900 dark:border-slate-800">
           <CardContent className="pt-6">
             <p className="text-sm text-slate-500">{t('inventoryAdjustments.details.summaryWriteOff')}</p>
             <p className="mt-1 text-lg font-semibold text-rose-600 dark:text-rose-400">
@@ -466,12 +584,49 @@ export default function InventoryAdjustmentDetails() {
             </p>
           </CardContent>
         </Card>
-        <Card className="dark:bg-slate-900 dark:border-slate-800">
+        <Card className="col-span-4 md:col-span-2 dark:bg-slate-900 dark:border-slate-800">
           <CardContent className="pt-6">
             <p className="text-sm text-slate-500">{t('inventoryAdjustments.details.summaryNotes')}</p>
             <p className="mt-1 text-sm text-slate-700 dark:text-slate-300 line-clamp-2">
               {adjustment?.notes || t('common.notSpecified')}
             </p>
+          </CardContent>
+        </Card>
+        <Card className="col-span-4 md:col-span-2 dark:bg-slate-900 dark:border-slate-800">
+          <CardContent className="pt-6">
+            <p className="text-sm text-slate-500">{t('inventoryAdjustments.details.summaryUsers')}</p>
+            <div className="mt-2 space-y-1 text-sm text-slate-700 dark:text-slate-300">
+              <p>
+                {t('inventoryAdjustments.details.createdBy')}{' '}
+                <span
+                  title={t('inventoryAdjustments.meta.createdByAt', {
+                    user: createdByName,
+                    datetime: adjustment?.createdAt
+                      ? format(new Date(adjustment.createdAt), 'dd.MM.yyyy HH:mm', { locale: ru })
+                      : t('inventoryAdjustments.details.noDate'),
+                  })}
+                >
+                  {createdByName}
+                  {adjustment?.createdAt
+                    ? ` • ${format(new Date(adjustment.createdAt), 'dd.MM.yyyy HH:mm', { locale: ru })}`
+                    : ''}
+                </span>
+              </p>
+              {isFinalStatus && completedByName && adjustment?.updatedAt && (
+                <p className="text-emerald-600 dark:text-emerald-400">
+                  {t('inventoryAdjustments.details.completedBy')}{' '}
+                  <span
+                    title={t('inventoryAdjustments.meta.completedByAt', {
+                      user: completedByName,
+                      datetime: format(new Date(adjustment.updatedAt), 'dd.MM.yyyy HH:mm', { locale: ru }),
+                    })}
+                  >
+                    {completedByName} •{' '}
+                    {format(new Date(adjustment.updatedAt), 'dd.MM.yyyy HH:mm', { locale: ru })}
+                  </span>
+                </p>
+              )}
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -523,7 +678,7 @@ export default function InventoryAdjustmentDetails() {
               </div>
             )}
             <div className="space-y-2">
-              <Label htmlFor="productId">{t('inventoryAdjustments.details.productLabel')}</Label>
+              <Label htmlFor="productId">{t('inventoryAdjustments.details.productLabel')} *</Label>
               <Select
                 value={itemForm.productId?.toString() || ''}
                 onValueChange={(value) => setItemForm({ ...itemForm, productId: value || null })}
@@ -570,11 +725,10 @@ export default function InventoryAdjustmentDetails() {
                   type="number"
                   min="0"
                 max="1000000000"
-                  value={itemForm.receiptQty ?? 0}
+                value={itemForm.receiptQty ?? ''}
                 onChange={(e) => {
                   const raw = e.target.value.replace(/[^\d]/g, '');
-                  const num = raw === '' ? 0 : Math.min(parseInt(raw, 10) || 0, 1000000000);
-                  setItemForm({ ...itemForm, receiptQty: num });
+                  setItemForm({ ...itemForm, receiptQty: raw });
                 }}
                 />
               </div>
@@ -585,11 +739,10 @@ export default function InventoryAdjustmentDetails() {
                   type="number"
                   min="0"
                 max="1000000000"
-                  value={itemForm.writeOffQty ?? 0}
+                value={itemForm.writeOffQty ?? ''}
                 onChange={(e) => {
                   const raw = e.target.value.replace(/[^\d]/g, '');
-                  const num = raw === '' ? 0 : Math.min(parseInt(raw, 10) || 0, 1000000000);
-                  setItemForm({ ...itemForm, writeOffQty: num });
+                  setItemForm({ ...itemForm, writeOffQty: raw });
                 }}
                 />
               </div>

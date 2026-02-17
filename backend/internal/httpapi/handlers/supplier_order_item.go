@@ -112,6 +112,22 @@ func (h *SupplierOrderItemHandler) Create(w http.ResponseWriter, r *http.Request
 		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "totalWeight must be non-negative")
 		return
 	}
+	if req.PurchasePrice != nil && *req.PurchasePrice < 0 {
+		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "purchasePrice must be non-negative")
+		return
+	}
+	if req.TotalPrice != nil && *req.TotalPrice < 0 {
+		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "totalPrice must be non-negative")
+		return
+	}
+	if req.TotalLogistics != nil && *req.TotalLogistics < 0 {
+		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "totalLogistics must be non-negative")
+		return
+	}
+	if req.UnitLogistics != nil && *req.UnitLogistics < 0 {
+		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "unitLogistics must be non-negative")
+		return
+	}
 
 	item, err := h.service.Create(r.Context(), userID, req)
 	if err != nil {
@@ -196,6 +212,22 @@ func (h *SupplierOrderItemHandler) Update(w http.ResponseWriter, r *http.Request
 	}
 	if req.TotalWeight < 0 {
 		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "totalWeight must be non-negative")
+		return
+	}
+	if req.PurchasePrice != nil && *req.PurchasePrice < 0 {
+		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "purchasePrice must be non-negative")
+		return
+	}
+	if req.TotalPrice != nil && *req.TotalPrice < 0 {
+		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "totalPrice must be non-negative")
+		return
+	}
+	if req.TotalLogistics != nil && *req.TotalLogistics < 0 {
+		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "totalLogistics must be non-negative")
+		return
+	}
+	if req.UnitLogistics != nil && *req.UnitLogistics < 0 {
+		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "unitLogistics must be non-negative")
 		return
 	}
 

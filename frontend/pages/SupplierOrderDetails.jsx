@@ -51,6 +51,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import PageHeader from '@/components/ui/PageHeader';
 import DataTable from '@/components/ui/DataTable';
 import StatusBadge from '@/components/ui/StatusBadge';
+import { useI18n } from '@/lib/i18n';
 import { format } from 'date-fns';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
@@ -95,6 +96,7 @@ const computeOrderAggregatesFromItems = (items) => {
 };
 
 export default function SupplierOrderDetails() {
+  const { t } = useI18n();
   const urlParams = new URLSearchParams(window.location.search);
   const orderIdParam = urlParams.get('id');
   const orderId = orderIdParam || null;
@@ -259,11 +261,41 @@ export default function SupplierOrderDetails() {
         queryClient.setQueryData(['supplierOrders'], context.previousOrdersList);
       }
 
-      if (err instanceof ApiError) {
-        setError(err.message || 'Ошибка создания позиции');
-      } else {
-        setError('Ошибка создания позиции');
+    if (err instanceof ApiError) {
+      let message = err.message || t('supplierOrderDetails.itemErrors.createFailed');
+      if (err.code === 'INVALID_REQUEST') {
+        if (err.message?.includes('orderId is required')) {
+          message = t('supplierOrderDetails.itemErrors.orderRequired');
+        } else if (err.message?.includes('productId is required')) {
+          message = t('supplierOrderDetails.itemErrors.productRequired');
+        } else if (err.message?.includes('warehouseId is required')) {
+          message = t('supplierOrderDetails.itemErrors.warehouseRequired');
+        } else if (
+          err.message?.includes('orderedQty must be non-negative') ||
+          err.message?.includes('receivedQty must be non-negative') ||
+          err.message?.includes('totalWeight must be non-negative') ||
+          err.message?.includes('purchasePrice must be non-negative') ||
+          err.message?.includes('totalPrice must be non-negative') ||
+          err.message?.includes('totalLogistics must be non-negative') ||
+          err.message?.includes('unitLogistics must be non-negative')
+        ) {
+          message = t('supplierOrderDetails.itemErrors.nonNegative');
+        }
+      } else if (err.code === 'INVALID_QUANTITY') {
+        message = t('supplierOrderDetails.itemErrors.invalidQuantity');
+      } else if (err.code === 'ORDER_NOT_FOUND') {
+        message = t('supplierOrderDetails.itemErrors.orderNotFound');
+      } else if (err.code === 'PRODUCT_NOT_FOUND') {
+        message = t('supplierOrderDetails.itemErrors.productNotFound');
+      } else if (err.code === 'WAREHOUSE_NOT_FOUND') {
+        message = t('supplierOrderDetails.itemErrors.warehouseNotFound');
+      } else if (err.code === 'ITEM_EXISTS') {
+        message = t('supplierOrderDetails.itemErrors.invalidQuantity');
       }
+      setError(message);
+    } else {
+      setError(t('supplierOrderDetails.itemErrors.createFailed'));
+    }
     },
   });
 
@@ -303,11 +335,41 @@ export default function SupplierOrderDetails() {
         queryClient.setQueryData(['supplierOrders'], context.previousOrdersList);
       }
 
-      if (err instanceof ApiError) {
-        setError(err.message || 'Ошибка обновления позиции');
-      } else {
-        setError('Ошибка обновления позиции');
+    if (err instanceof ApiError) {
+      let message = err.message || t('supplierOrderDetails.itemErrors.updateFailed');
+      if (err.code === 'INVALID_REQUEST') {
+        if (err.message?.includes('orderId is required')) {
+          message = t('supplierOrderDetails.itemErrors.orderRequired');
+        } else if (err.message?.includes('productId is required')) {
+          message = t('supplierOrderDetails.itemErrors.productRequired');
+        } else if (err.message?.includes('warehouseId is required')) {
+          message = t('supplierOrderDetails.itemErrors.warehouseRequired');
+        } else if (
+          err.message?.includes('orderedQty must be non-negative') ||
+          err.message?.includes('receivedQty must be non-negative') ||
+          err.message?.includes('totalWeight must be non-negative') ||
+          err.message?.includes('purchasePrice must be non-negative') ||
+          err.message?.includes('totalPrice must be non-negative') ||
+          err.message?.includes('totalLogistics must be non-negative') ||
+          err.message?.includes('unitLogistics must be non-negative')
+        ) {
+          message = t('supplierOrderDetails.itemErrors.nonNegative');
+        }
+      } else if (err.code === 'INVALID_QUANTITY') {
+        message = t('supplierOrderDetails.itemErrors.invalidQuantity');
+      } else if (err.code === 'ORDER_NOT_FOUND') {
+        message = t('supplierOrderDetails.itemErrors.orderNotFound');
+      } else if (err.code === 'PRODUCT_NOT_FOUND') {
+        message = t('supplierOrderDetails.itemErrors.productNotFound');
+      } else if (err.code === 'WAREHOUSE_NOT_FOUND') {
+        message = t('supplierOrderDetails.itemErrors.warehouseNotFound');
+      } else if (err.code === 'ITEM_NOT_FOUND') {
+        message = t('supplierOrderDetails.itemErrors.itemNotFound');
       }
+      setError(message);
+    } else {
+      setError(t('supplierOrderDetails.itemErrors.updateFailed'));
+    }
     },
   });
 
@@ -348,9 +410,13 @@ export default function SupplierOrderDetails() {
         queryClient.setQueryData(['supplierOrders'], context.previousOrdersList);
       }
       if (err instanceof ApiError) {
-        setError(err.message || 'Ошибка удаления позиции');
+        let message = err.message || t('supplierOrderDetails.itemErrors.deleteFailed');
+        if (err.code === 'ITEM_NOT_FOUND') {
+          message = t('supplierOrderDetails.itemErrors.itemNotFound');
+        }
+        setError(message);
       } else {
-        setError('Ошибка удаления позиции');
+        setError(t('supplierOrderDetails.itemErrors.deleteFailed'));
       }
       setDeleteItemDialogOpen(false);
     },
@@ -398,9 +464,9 @@ export default function SupplierOrderDetails() {
     },
     onError: (err) => {
       if (err instanceof ApiError) {
-        setUploadError(err.message || 'Ошибка загрузки документа');
+        setUploadError(err.message || t('supplierOrderDetails.documents.uploadFailed'));
       } else {
-        setUploadError('Ошибка загрузки документа');
+        setUploadError(t('supplierOrderDetails.documents.uploadFailed'));
       }
     },
   });
@@ -415,9 +481,9 @@ export default function SupplierOrderDetails() {
     },
     onError: (err) => {
       if (err instanceof ApiError) {
-        setUploadError(err.message || 'Ошибка удаления документа');
+        setUploadError(err.message || t('supplierOrderDetails.documents.deleteFailed'));
       } else {
-        setUploadError('Ошибка удаления документа');
+        setUploadError(t('supplierOrderDetails.documents.deleteFailed'));
       }
       setDeleteDocumentDialogOpen(false);
     },
@@ -428,13 +494,13 @@ export default function SupplierOrderDetails() {
     setUploadError('');
 
     if (!documentForm.file) {
-      setUploadError('Выберите файл для загрузки');
+      setUploadError(t('supplierOrderDetails.documents.noFile'));
       return;
     }
 
     const name = documentForm.name.trim() || documentForm.file.name;
     if (!name) {
-      setUploadError('Введите название документа');
+      setUploadError(t('supplierOrderDetails.documents.nameRequired'));
       return;
     }
 
@@ -493,29 +559,29 @@ export default function SupplierOrderDetails() {
     setError('');
 
     if (!itemForm.productId) {
-      setError('Выберите товар');
+      setError(t('supplierOrderDetails.itemErrors.productRequired'));
       return;
     }
 
     if (!itemForm.warehouseId) {
-      setError('Выберите склад');
+      setError(t('supplierOrderDetails.itemErrors.warehouseRequired'));
       return;
     }
 
     const orderedQty = parseInt(itemForm.orderedQty) || 0;
     if (orderedQty <= 0) {
-      setError('Количество должно быть больше 0');
+      setError(t('supplierOrderDetails.itemErrors.orderedQtyPositive'));
       return;
     }
 
     const receivedQty = parseInt(itemForm.receivedQty) || 0;
     if (receivedQty > orderedQty) {
-      setError('Полученное количество не может превышать заказанное');
+      setError(t('supplierOrderDetails.itemErrors.receivedNotGreater'));
       return;
     }
 
     if (!orderId) {
-      setError('ID заказа не указан');
+      setError(t('supplierOrderDetails.itemErrors.orderRequired'));
       return;
     }
 
@@ -547,7 +613,7 @@ export default function SupplierOrderDetails() {
   const itemColumns = [
     {
       accessorKey: 'productId',
-      header: 'Товар',
+      header: t('supplierOrderDetails.table.product'),
       cell: ({ row }) => {
         const product = productsMap.get(row.original.productId);
         return (
@@ -571,7 +637,7 @@ export default function SupplierOrderDetails() {
     },
     {
       accessorKey: 'warehouseId',
-      header: 'Склад',
+      header: t('supplierOrderDetails.table.warehouse'),
       cell: ({ row }) => {
         const warehouse = warehousesMap.get(row.original.warehouseId);
         return (
@@ -586,7 +652,7 @@ export default function SupplierOrderDetails() {
     },
     {
       accessorKey: 'orderedQty',
-      header: 'Заказано',
+      header: t('supplierOrderDetails.table.orderedQty'),
       cell: ({ row }) => (
         <span className="font-medium text-slate-900 dark:text-slate-100">
           {row.original.orderedQty?.toLocaleString() || 0}
@@ -595,7 +661,7 @@ export default function SupplierOrderDetails() {
     },
     {
       accessorKey: 'receivedQty',
-      header: 'Получено',
+      header: t('supplierOrderDetails.table.receivedQty'),
       cell: ({ row }) => {
         const received = row.original.receivedQty || 0;
         const ordered = row.original.orderedQty || 0;
@@ -612,7 +678,7 @@ export default function SupplierOrderDetails() {
     },
     {
       accessorKey: 'purchasePrice',
-      header: 'Цена закупки',
+      header: t('supplierOrderDetails.table.purchasePrice'),
       cell: ({ row }) => (
         <span className="text-slate-600 dark:text-slate-400">
           {row.original.purchasePrice ? `₽${row.original.purchasePrice.toFixed(2)}` : '—'}
@@ -621,7 +687,7 @@ export default function SupplierOrderDetails() {
     },
     {
       accessorKey: 'totalPrice',
-      header: 'Сумма',
+      header: t('supplierOrderDetails.table.totalPrice'),
       cell: ({ row }) => (
         <span className="font-semibold text-slate-900 dark:text-slate-100">
           {row.original.totalPrice ? `₽${row.original.totalPrice.toLocaleString('ru-RU', { minimumFractionDigits: 2 })}` : '—'}
@@ -630,7 +696,7 @@ export default function SupplierOrderDetails() {
     },
     {
       id: 'actions',
-      header: '',
+      header: t('supplierOrderDetails.table.actions'),
       sortable: false,
       cell: ({ row }) => (
         <DropdownMenu>
@@ -642,14 +708,14 @@ export default function SupplierOrderDetails() {
           <DropdownMenuContent align="end">
             <DropdownMenuItem onClick={() => handleEditItem(row.original)}>
               <Edit2 className="w-4 h-4 mr-2" />
-              Редактировать
+              {t('common.edit')}
             </DropdownMenuItem>
             <DropdownMenuItem 
               onClick={() => { setCurrentItem(row.original); setDeleteItemDialogOpen(true); }}
               className="text-red-600"
             >
               <Trash2 className="w-4 h-4 mr-2" />
-              Удалить
+              {t('common.delete')}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -669,11 +735,11 @@ export default function SupplierOrderDetails() {
   if (!orderId) {
     return (
       <div className="p-8 text-center">
-        <p className="text-slate-500">ID заказа не указан</p>
+        <p className="text-slate-500">{t('supplierOrderDetails.noId')}</p>
         <Button asChild className="mt-4">
           <Link to={createPageUrl('SupplierOrders')}>
             <ArrowLeft className="w-4 h-4 mr-2" />
-            Назад к заказам
+            {t('supplierOrderDetails.backToList')}
           </Link>
         </Button>
       </div>
@@ -683,7 +749,7 @@ export default function SupplierOrderDetails() {
   if (loadingOrder) {
     return (
       <div className="p-8 text-center">
-        <p className="text-slate-500">Загрузка...</p>
+        <p className="text-slate-500">{t('common.loading')}</p>
       </div>
     );
   }
@@ -691,11 +757,11 @@ export default function SupplierOrderDetails() {
   if (!order) {
     return (
       <div className="p-8 text-center">
-        <p className="text-slate-500">Заказ не найден</p>
+        <p className="text-slate-500">{t('supplierOrderDetails.notFound')}</p>
         <Button asChild className="mt-4">
           <Link to={createPageUrl('SupplierOrders')}>
             <ArrowLeft className="w-4 h-4 mr-2" />
-            Назад к заказам
+            {t('supplierOrderDetails.backToList')}
           </Link>
         </Button>
       </div>
@@ -711,8 +777,8 @@ export default function SupplierOrderDetails() {
           </Link>
         </Button>
         <PageHeader 
-          title={order.orderNumber || 'Заказ'}
-          description={order.buyer || 'Без покупателя'}
+          title={order.orderNumber || t('supplierOrderDetails.title')}
+          description={order.buyer || ''}
         >
           <StatusBadge status={getOrderStatusName(order.statusId)} />
         </PageHeader>
@@ -722,7 +788,9 @@ export default function SupplierOrderDetails() {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card className="dark:bg-slate-900 dark:border-slate-800">
           <CardContent className="pt-6">
-            <p className="text-sm text-slate-500 dark:text-slate-400">Дата заказа</p>
+            <p className="text-sm text-slate-500 dark:text-slate-400">
+              {t('supplierOrderDetails.summaryPurchaseDate')}
+            </p>
             <p className="mt-1 text-lg font-semibold text-slate-900 dark:text-slate-100">
               {order.purchaseDate ? format(new Date(order.purchaseDate), 'dd.MM.yyyy') : '—'}
             </p>
@@ -730,7 +798,9 @@ export default function SupplierOrderDetails() {
         </Card>
         <Card className="dark:bg-slate-900 dark:border-slate-800">
           <CardContent className="pt-6">
-            <p className="text-sm text-slate-500 dark:text-slate-400">План. получение</p>
+            <p className="text-sm text-slate-500 dark:text-slate-400">
+              {t('supplierOrderDetails.summaryPlannedReceipt')}
+            </p>
             <p className="mt-1 text-lg font-semibold text-slate-900 dark:text-slate-100">
               {order.plannedReceiptDate ? format(new Date(order.plannedReceiptDate), 'dd.MM.yyyy') : '—'}
             </p>
@@ -738,7 +808,9 @@ export default function SupplierOrderDetails() {
         </Card>
         <Card className="dark:bg-slate-900 dark:border-slate-800">
           <CardContent className="pt-6">
-            <p className="text-sm text-slate-500 dark:text-slate-400">Логистика</p>
+            <p className="text-sm text-slate-500 dark:text-slate-400">
+              {t('supplierOrderDetails.summaryLogistics')}
+            </p>
             <p className="mt-1 text-lg font-semibold text-slate-900 dark:text-slate-100">
               {order.logisticsTotal ? `₽${order.logisticsTotal.toLocaleString('ru-RU', { minimumFractionDigits: 2 })}` : '—'}
             </p>
@@ -746,7 +818,9 @@ export default function SupplierOrderDetails() {
         </Card>
         <Card className="dark:bg-slate-900 dark:border-slate-800">
           <CardContent className="pt-6">
-            <p className="text-sm text-slate-500 dark:text-slate-400">Сумма заказа</p>
+            <p className="text-sm text-slate-500 dark:text-slate-400">
+              {t('supplierOrderDetails.summaryTotal')}
+            </p>
             <p className="mt-1 text-lg font-semibold text-indigo-600 dark:text-indigo-400">
               {order.orderItemCost ? `₽${order.orderItemCost.toLocaleString('ru-RU', { minimumFractionDigits: 2 })}` : '—'}
             </p>
@@ -756,26 +830,33 @@ export default function SupplierOrderDetails() {
 
       <Tabs defaultValue="items">
         <TabsList>
-          <TabsTrigger value="items">Позиции заказа ({orderItems.length})</TabsTrigger>
-          <TabsTrigger value="documents">Документы ({orderDocuments.length})</TabsTrigger>
+          <TabsTrigger value="items">
+            {t('supplierOrderDetails.tabsItems')} ({orderItems.length})
+          </TabsTrigger>
+          <TabsTrigger value="documents">
+            {t('supplierOrderDetails.tabsDocuments')} ({orderDocuments.length})
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="items" className="space-y-4">
           <div className="flex justify-between items-center">
             <div className="text-sm text-slate-600 dark:text-slate-400">
-              Всего: {orderTotals.totalQty} шт. | Получено: {orderTotals.receivedQty} шт. | 
-              Сумма: ₽{orderTotals.totalPrice.toLocaleString('ru-RU', { minimumFractionDigits: 2 })}
+              {t('supplierOrderDetails.itemsStats', {
+                total: orderTotals.totalQty,
+                received: orderTotals.receivedQty,
+                amount: orderTotals.totalPrice.toLocaleString('ru-RU', { minimumFractionDigits: 2 }),
+              })}
             </div>
             <Button onClick={() => { resetItemForm(); setItemDialogOpen(true); }}>
               <Plus className="w-4 h-4 mr-2" />
-              Добавить позицию
+              {t('supplierOrderDetails.addItem')}
             </Button>
           </div>
           <DataTable
             columns={itemColumns}
             data={orderItems}
             searchable={false}
-            emptyMessage="Позиции не добавлены"
+            emptyMessage={t('supplierOrderDetails.emptyItems')}
             isLoading={loadingItems}
           />
         </TabsContent>

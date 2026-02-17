@@ -52,6 +52,7 @@ import StatusBadge from '@/components/ui/StatusBadge';
 import { format } from 'date-fns';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
+import { useNavigate } from 'react-router-dom';
 
 const emptyOrder = {
   orderNumber: '',
@@ -73,6 +74,7 @@ const emptyOrder = {
 
 export default function SupplierOrders() {
   const { t } = useI18n();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -136,9 +138,22 @@ export default function SupplierOrders() {
     },
     onError: (err) => {
       if (err instanceof ApiError) {
-        setError(err.message || 'Ошибка создания заказа');
+        let message = err.message || t('supplierOrders.errors.createFailed');
+        if (err.code === 'INVALID_REQUEST' && err.message?.includes('orderNumber is required')) {
+          message = t('supplierOrders.form.orderNumberRequired');
+        }
+        if (err.code === 'ORDER_EXISTS') {
+          message = t('supplierOrders.errors.orderExists');
+        }
+        if (err.code === 'ORDER_STATUS_NOT_FOUND') {
+          message = t('supplierOrders.errors.statusNotFound');
+        }
+        if (err.code === 'INVALID_DATE_RANGE') {
+          message = t('supplierOrders.errors.invalidDateRange');
+        }
+        setError(message);
       } else {
-        setError('Ошибка создания заказа');
+        setError(t('supplierOrders.errors.createFailed'));
       }
     },
   });
@@ -153,9 +168,28 @@ export default function SupplierOrders() {
     },
     onError: (err) => {
       if (err instanceof ApiError) {
-        setError(err.message || 'Ошибка обновления заказа');
+        let message = err.message || t('supplierOrders.errors.updateFailed');
+        if (err.code === 'INVALID_REQUEST' && err.message?.includes('orderNumber is required')) {
+          message = t('supplierOrders.form.orderNumberRequired');
+        }
+        if (err.code === 'ORDER_EXISTS') {
+          message = t('supplierOrders.errors.orderExists');
+        }
+        if (err.code === 'ORDER_STATUS_NOT_FOUND') {
+          message = t('supplierOrders.errors.statusNotFound');
+        }
+        if (err.code === 'INVALID_PARENT_ORDER') {
+          message = t('supplierOrders.errors.invalidParentOrder');
+        }
+        if (err.code === 'INVALID_DATE_RANGE') {
+          message = t('supplierOrders.errors.invalidDateRange');
+        }
+        if (err.code === 'ORDER_NOT_FOUND') {
+          message = t('supplierOrders.errors.notFound');
+        }
+        setError(message);
       } else {
-        setError('Ошибка обновления заказа');
+        setError(t('supplierOrders.errors.updateFailed'));
       }
     },
   });
@@ -185,9 +219,13 @@ export default function SupplierOrders() {
         queryClient.setQueryData(['supplierOrders'], context.previousData);
       }
       if (err instanceof ApiError) {
-        setError(err.message || 'Ошибка удаления заказа');
+        let message = err.message || t('supplierOrders.errors.deleteFailed');
+        if (err.code === 'ORDER_NOT_FOUND') {
+          message = t('supplierOrders.errors.notFound');
+        }
+        setError(message);
       } else {
-        setError('Ошибка удаления заказа');
+        setError(t('supplierOrders.errors.deleteFailed'));
       }
       setDeleteDialogOpen(false);
     },
@@ -305,9 +343,16 @@ export default function SupplierOrders() {
     const hasChildren = childOrdersMap.has(order.orderId) && childOrdersMap.get(order.orderId).length > 0;
     const isExpanded = expandedOrders[order.orderId];
 
+    const handleRowDoubleClick = () => {
+      navigate(`${createPageUrl('SupplierOrderDetails')}?id=${order.orderId}`);
+    };
+
     return (
       <>
-        <tr className={`border-b dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors ${isChild ? 'bg-slate-50/50 dark:bg-slate-800/30' : ''}`}>
+        <tr
+          className={`border-b dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer ${isChild ? 'bg-slate-50/50 dark:bg-slate-800/30' : ''}`}
+          onDoubleClick={handleRowDoubleClick}
+        >
           <td className="px-4 py-3">
             <div className="flex items-center gap-2">
               {hasChildren && (

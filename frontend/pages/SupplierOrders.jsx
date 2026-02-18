@@ -89,7 +89,7 @@ const emptyOrder = {
 };
 
 export default function SupplierOrders() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -100,6 +100,17 @@ export default function SupplierOrders() {
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  // Keep the default backend order (no active sort indicator) until user explicitly sorts.
+  const [sortConfig, setSortConfig] = useState({ field: null, direction: 'asc' });
+
+  const moneyLocale = language === 'en' ? 'en-US' : 'ru-RU';
+  const formatMoney = (value) => {
+    if (value == null) return null;
+    const num = Number(value);
+    if (!Number.isFinite(num)) return null;
+    return num.toLocaleString(moneyLocale, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  };
+  const weightUnit = language === 'en' ? 'kg' : 'кг';
 
   const { data: ordersData, isLoading, refetch: refetchOrders } = useQuery({
     queryKey: ['supplierOrders'],
@@ -148,7 +159,7 @@ export default function SupplierOrders() {
 
   const filteredParentOrders = useMemo(() => {
     const searchValue = search.trim().toLowerCase();
-    return parentOrders.filter(order => {
+    const filtered = parentOrders.filter(order => {
       if (statusFilter !== 'all') {
         if (!order.statusId || String(order.statusId) !== statusFilter) {
           return false;
@@ -159,7 +170,66 @@ export default function SupplierOrders() {
       const buyer = (order.buyer || '').toLowerCase();
       return orderNumber.includes(searchValue) || buyer.includes(searchValue);
     });
-  }, [parentOrders, search, statusFilter]);
+
+    const sorted = [...filtered];
+    if (sortConfig?.field) {
+      const { field, direction } = sortConfig;
+      const factor = direction === 'asc' ? 1 : -1;
+
+      const getValue = (order) => {
+        switch (field) {
+          case 'orderNumber':
+            return (order.orderNumber || '').toLowerCase();
+          case 'buyer':
+            return (order.buyer || '').toLowerCase();
+          case 'status':
+            return getOrderStatusName(order.statusId).toLowerCase();
+          case 'purchaseDate':
+            return order.purchaseDate ? new Date(order.purchaseDate).getTime() : 0;
+          case 'plannedReceiptDate':
+            return order.plannedReceiptDate ? new Date(order.plannedReceiptDate).getTime() : 0;
+          case 'actualReceiptDate':
+            return order.actualReceiptDate ? new Date(order.actualReceiptDate).getTime() : 0;
+          case 'logisticsTotal':
+            return Number(order.logisticsTotal) || 0;
+          case 'totalAmount': {
+            const logisticsTotal = Number(order.logisticsTotal) || 0;
+            const itemsCost = Number(order.orderItemCost) || 0;
+            return logisticsTotal + itemsCost;
+          }
+          case 'totalQty':
+            return Number(order.totalQty) || 0;
+          default:
+            return 0;
+        }
+      };
+
+      sorted.sort((a, b) => {
+        const av = getValue(a);
+        const bv = getValue(b);
+        if (typeof av === 'string' && typeof bv === 'string') {
+          return av.localeCompare(bv) * factor;
+        }
+        if (av < bv) return -1 * factor;
+        if (av > bv) return 1 * factor;
+        return 0;
+      });
+    }
+
+    return sorted;
+  }, [parentOrders, search, statusFilter, sortConfig, getOrderStatusName]);
+
+  const handleSort = (field) => {
+    setSortConfig((prev) => {
+      if (prev.field === field) {
+        return {
+          field,
+          direction: prev.direction === 'asc' ? 'desc' : 'asc',
+        };
+      }
+      return { field, direction: 'asc' };
+    });
+  };
 
   const getStatusFilterLabel = () => {
     if (statusFilter === 'all') {
@@ -447,23 +517,48 @@ export default function SupplierOrders() {
           </td>
           <td className="px-4 py-3">
             <div className="flex flex-col gap-1 text-sm text-slate-700 dark:text-slate-300">
-              <span>Китай-Мск: {order.logisticsChinaMsk ? `${order.logisticsChinaMsk.toFixed(2)} ₽` : '—'}</span>
-              <span>Мск-Кзн: {order.logisticsMskKzn ? `${order.logisticsMskKzn.toFixed(2)} ₽` : '—'}</span>
-              <span>Доп.: {order.logisticsAdditional ? `${order.logisticsAdditional.toFixed(2)} ₽` : '—'}</span>
-              <span className="font-semibold">Итого: {order.logisticsTotal ? `${order.logisticsTotal.toFixed(2)} ₽` : '—'}</span>
+              <span>Китай-Мск: {formatMoney(order.logisticsChinaMsk) ? `${formatMoney(order.logisticsChinaMsk)} ₽` : '—'}</span>
+              <span>Мск-Кзн: {formatMoney(order.logisticsMskKzn) ? `${formatMoney(order.logisticsMskKzn)} ₽` : '—'}</span>
+              <span>Доп.: {formatMoney(order.logisticsAdditional) ? `${formatMoney(order.logisticsAdditional)} ₽` : '—'}</span>
+              <span className="font-semibold">Итого: {formatMoney(order.logisticsTotal) ? `${formatMoney(order.logisticsTotal)} ₽` : '—'}</span>
             </div>
           </td>
-          <td className="px-4 py-3 text-slate-900 dark:text-slate-100">
-            <div className="flex flex-col gap-1">
-              <span className="text-sm font-semibold">
-                Позиции: {order.positionsQty ?? 0}
+          <td className="px-4 py-3">
+            <div className="flex flex-col gap-1 text-sm">
+              <span className="font-semibold">
+                {t('supplierOrders.summary.positionsLabel')}: {order.positionsQty ?? 0}
               </span>
-              <span className="text-sm text-slate-500">
-                Всего: {order.totalQty ?? 0} шт.
+              <span className="text-slate-500">
+                {t('supplierOrders.summary.quantityLabel')}: {order.totalQty ?? 0} {t('supplierOrders.summary.units')}
               </span>
-              <span className="text-sm text-slate-500">
-                Вес: {order.orderItemWeight ? `${order.orderItemWeight.toFixed(2)} г` : '—'}
+              <span className="text-slate-500">
+                {t('supplierOrders.summary.weightLabel')}: {order.orderItemWeight ? `${order.orderItemWeight.toFixed(2)} ${weightUnit}` : '—'}
               </span>
+            </div>
+          </td>
+          <td className="px-4 py-3">
+            <div className="flex flex-col gap-1 text-sm text-slate-700 dark:text-slate-300">
+              {(() => {
+                const logisticsTotal = Number(order.logisticsTotal) || 0;
+                const itemsCost = Number(order.orderItemCost) || 0;
+                const total = logisticsTotal + itemsCost;
+                const logisticsText = formatMoney(logisticsTotal);
+                const itemsText = formatMoney(itemsCost);
+                const totalText = formatMoney(total);
+                return (
+                  <>
+                    <span>
+                      {t('supplierOrders.summary.logistics')}: {logisticsText ? `${logisticsText} ₽` : '—'}
+                    </span>
+                    <span>
+                      {t('supplierOrders.summary.items')}: {itemsText ? `${itemsText} ₽` : '—'}
+                    </span>
+                    <span className="font-semibold">
+                      {t('supplierOrders.summary.total')}: {totalText ? `${totalText} ₽` : '—'}
+                    </span>
+                  </>
+                );
+              })()}
             </div>
           </td>
           <td className="px-4 py-3">
@@ -560,14 +655,123 @@ export default function SupplierOrders() {
           <table className="w-full">
             <thead>
               <tr className="border-b bg-slate-50 dark:bg-slate-800/50 dark:border-slate-800">
-                <th className="px-4 py-3 text-sm font-semibold text-left text-slate-700 dark:text-slate-300">{t('supplierOrders.table.orderNumber')}</th>
-                <th className="px-4 py-3 text-sm font-semibold text-left text-slate-700 dark:text-slate-300">{t('supplierOrders.table.buyer')}</th>
-                <th className="px-4 py-3 text-sm font-semibold text-left text-slate-700 dark:text-slate-300">{t('supplierOrders.table.status')}</th>
-                <th className="px-4 py-3 text-sm font-semibold text-left text-slate-700 dark:text-slate-300">{t('supplierOrders.table.purchaseDate')}</th>
-                <th className="px-4 py-3 text-sm font-semibold text-left text-slate-700 dark:text-slate-300">{t('supplierOrders.table.plannedReceipt')}</th>
-                <th className="px-4 py-3 text-sm font-semibold text-left text-slate-700 dark:text-slate-300">{t('supplierOrders.table.actualReceipt')}</th>
-                <th className="px-4 py-3 text-sm font-semibold text-left text-slate-700 dark:text-slate-300">{t('supplierOrders.table.cost')}</th>
-                <th className="px-4 py-3 text-sm font-semibold text-left text-slate-700 dark:text-slate-300">{t('supplierOrders.table.quantity')}</th>
+                <th
+                  className="px-4 py-3 text-sm font-semibold text-left text-slate-700 dark:text-slate-300 cursor-pointer select-none hover:text-slate-900 dark:hover:text-slate-100"
+                  onClick={() => handleSort('orderNumber')}
+                >
+                  <div className="flex items-center gap-2">
+                    {t('supplierOrders.table.orderNumber')}
+                    {sortConfig.field === 'orderNumber' && (
+                      <span className="text-indigo-500">
+                        {sortConfig.direction === 'asc' ? '↑' : '↓'}
+                      </span>
+                    )}
+                  </div>
+                </th>
+                <th
+                  className="px-4 py-3 text-sm font-semibold text-left text-slate-700 dark:text-slate-300 cursor-pointer select-none hover:text-slate-900 dark:hover:text-slate-100"
+                  onClick={() => handleSort('buyer')}
+                >
+                  <div className="flex items-center gap-2">
+                    {t('supplierOrders.table.buyer')}
+                    {sortConfig.field === 'buyer' && (
+                      <span className="text-indigo-500">
+                        {sortConfig.direction === 'asc' ? '↑' : '↓'}
+                      </span>
+                    )}
+                  </div>
+                </th>
+                <th
+                  className="px-4 py-3 text-sm font-semibold text-left text-slate-700 dark:text-slate-300 cursor-pointer select-none hover:text-slate-900 dark:hover:text-slate-100"
+                  onClick={() => handleSort('status')}
+                >
+                  <div className="flex items-center gap-2">
+                    {t('supplierOrders.table.status')}
+                    {sortConfig.field === 'status' && (
+                      <span className="text-indigo-500">
+                        {sortConfig.direction === 'asc' ? '↑' : '↓'}
+                      </span>
+                    )}
+                  </div>
+                </th>
+                <th
+                  className="px-4 py-3 text-sm font-semibold text-left text-slate-700 dark:text-slate-300 cursor-pointer select-none hover:text-slate-900 dark:hover:text-slate-100"
+                  onClick={() => handleSort('purchaseDate')}
+                >
+                  <div className="flex items-center gap-2">
+                    {t('supplierOrders.table.purchaseDate')}
+                    {sortConfig.field === 'purchaseDate' && (
+                      <span className="text-indigo-500">
+                        {sortConfig.direction === 'asc' ? '↑' : '↓'}
+                      </span>
+                    )}
+                  </div>
+                </th>
+                <th
+                  className="px-4 py-3 text-sm font-semibold text-left text-slate-700 dark:text-slate-300 cursor-pointer select-none hover:text-slate-900 dark:hover:text-slate-100"
+                  onClick={() => handleSort('plannedReceiptDate')}
+                >
+                  <div className="flex items-center gap-2">
+                    {t('supplierOrders.table.plannedReceipt')}
+                    {sortConfig.field === 'plannedReceiptDate' && (
+                      <span className="text-indigo-500">
+                        {sortConfig.direction === 'asc' ? '↑' : '↓'}
+                      </span>
+                    )}
+                  </div>
+                </th>
+                <th
+                  className="px-4 py-3 text-sm font-semibold text-left text-slate-700 dark:text-slate-300 cursor-pointer select-none hover:text-slate-900 dark:hover:text-slate-100"
+                  onClick={() => handleSort('actualReceiptDate')}
+                >
+                  <div className="flex items-center gap-2">
+                    {t('supplierOrders.table.actualReceipt')}
+                    {sortConfig.field === 'actualReceiptDate' && (
+                      <span className="text-indigo-500">
+                        {sortConfig.direction === 'asc' ? '↑' : '↓'}
+                      </span>
+                    )}
+                  </div>
+                </th>
+                <th
+                  className="px-4 py-3 text-sm font-semibold text-left text-slate-700 dark:text-slate-300 cursor-pointer select-none hover:text-slate-900 dark:hover:text-slate-100"
+                  onClick={() => handleSort('logisticsTotal')}
+                >
+                  <div className="flex items-center gap-2">
+                    {t('supplierOrders.table.cost')}
+                    {sortConfig.field === 'logisticsTotal' && (
+                      <span className="text-indigo-500">
+                        {sortConfig.direction === 'asc' ? '↑' : '↓'}
+                      </span>
+                    )}
+                  </div>
+                </th>
+                <th
+                  className="px-4 py-3 text-sm font-semibold text-left text-slate-700 dark:text-slate-300 cursor-pointer select-none hover:text-slate-900 dark:hover:text-slate-100"
+                  onClick={() => handleSort('totalQty')}
+                >
+                  <div className="flex items-center gap-2">
+                    {t('supplierOrders.table.quantity')}
+                    {sortConfig.field === 'totalQty' && (
+                      <span className="text-indigo-500">
+                        {sortConfig.direction === 'asc' ? '↑' : '↓'}
+                      </span>
+                    )}
+                  </div>
+                </th>
+                <th
+                  className="px-4 py-3 text-sm font-semibold text-left text-slate-700 dark:text-slate-300 cursor-pointer select-none hover:text-slate-900 dark:hover:text-slate-100"
+                  onClick={() => handleSort('totalAmount')}
+                >
+                  <div className="flex items-center gap-2">
+                    {t('supplierOrders.table.amount')}
+                    {sortConfig.field === 'totalAmount' && (
+                      <span className="text-indigo-500">
+                        {sortConfig.direction === 'asc' ? '↑' : '↓'}
+                      </span>
+                    )}
+                  </div>
+                </th>
                 <th className="px-4 py-3 text-sm font-semibold text-left text-slate-700 dark:text-slate-300"></th>
               </tr>
             </thead>

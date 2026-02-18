@@ -677,6 +677,43 @@ export default function SupplierOrderDetails() {
       },
     },
     {
+      accessorKey: 'weight',
+      header: t('supplierOrderDetails.table.weight'),
+      cell: ({ row }) => {
+        const product = productsMap.get(row.original.productId);
+        const unitWeightGrams = product?.unitWeight || 0;
+        const orderedQty = row.original.orderedQty || 0;
+        const totalWeightGrams =
+          row.original.totalWeight != null
+            ? row.original.totalWeight
+            : unitWeightGrams * orderedQty;
+        const totalWeightKg = totalWeightGrams / 1000;
+
+        return (
+          <div className="flex flex-col text-sm text-slate-700 dark:text-slate-300">
+            <span>
+              {t('supplierOrderDetails.weight.perUnit')}{' '}
+              {unitWeightGrams
+                ? `${unitWeightGrams} ${t(
+                    'supplierOrderDetails.weight.unitGrams'
+                  )}`
+                : '—'}
+            </span>
+            <span>
+              <span className="font-semibold">
+                {t('supplierOrderDetails.weight.total')}:
+              </span>{' '}
+              {totalWeightGrams
+                ? `${totalWeightKg.toFixed(2)} ${t(
+                    'supplierOrderDetails.weight.unitKg'
+                  )}`
+                : '—'}
+            </span>
+          </div>
+        );
+      },
+    },
+    {
       accessorKey: 'purchasePrice',
       header: t('supplierOrderDetails.table.purchasePrice'),
       cell: ({ row }) => (
@@ -943,7 +980,9 @@ export default function SupplierOrderDetails() {
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
-              {currentItem ? 'Редактировать позицию' : 'Добавить позицию'}
+              {currentItem
+                ? t('supplierOrderDetails.itemForm.submitUpdate')
+                : t('supplierOrderDetails.itemForm.submitCreate')}
             </DialogTitle>
           </DialogHeader>
           <form onSubmit={handleItemSubmit} className="space-y-4">
@@ -954,7 +993,9 @@ export default function SupplierOrderDetails() {
             )}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="productId">Товар *</Label>
+                <Label htmlFor="productId">
+                  {t('supplierOrderDetails.itemForm.product')} *
+                </Label>
                 <Select
                   value={itemForm.productId ? itemForm.productId.toString() : ''}
                   onValueChange={(value) => {
@@ -967,7 +1008,7 @@ export default function SupplierOrderDetails() {
                   }}
                 >
                   <SelectTrigger id="productId">
-                    <SelectValue placeholder="Выберите товар" />
+                    <SelectValue placeholder={t('supplierOrderDetails.itemForm.product')} />
                   </SelectTrigger>
                   <SelectContent>
                     {products.map(product => (
@@ -979,7 +1020,9 @@ export default function SupplierOrderDetails() {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="warehouseId">Склад *</Label>
+                <Label htmlFor="warehouseId">
+                  {t('supplierOrderDetails.itemForm.warehouse')} *
+                </Label>
                 <Select
                   value={itemForm.warehouseId ? itemForm.warehouseId.toString() : ''}
                   onValueChange={(value) => {
@@ -990,7 +1033,7 @@ export default function SupplierOrderDetails() {
                   }}
                 >
                   <SelectTrigger id="warehouseId">
-                    <SelectValue placeholder="Выберите склад" />
+                    <SelectValue placeholder={t('supplierOrderDetails.itemForm.warehouse')} />
                   </SelectTrigger>
                   <SelectContent>
                     {warehouses.map(warehouse => (
@@ -1004,7 +1047,9 @@ export default function SupplierOrderDetails() {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="orderedQty">Заказано *</Label>
+                <Label htmlFor="orderedQty">
+                  {t('supplierOrderDetails.itemForm.orderedQty')} *
+                </Label>
                 <Input
                   id="orderedQty"
                   type="number"
@@ -1027,7 +1072,9 @@ export default function SupplierOrderDetails() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="receivedQty">Получено</Label>
+                <Label htmlFor="receivedQty">
+                  {t('supplierOrderDetails.itemForm.receivedQty')}
+                </Label>
                 <Input
                   id="receivedQty"
                   type="number"
@@ -1040,7 +1087,9 @@ export default function SupplierOrderDetails() {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="purchasePrice">Цена закупки (₽)</Label>
+                <Label htmlFor="purchasePrice">
+                  {t('supplierOrderDetails.itemForm.purchasePrice')} (₽)
+                </Label>
                 <Input
                   id="purchasePrice"
                   type="number"
@@ -1061,7 +1110,9 @@ export default function SupplierOrderDetails() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="unitLogistics">Логистика за единицу (₽)</Label>
+                <Label htmlFor="unitLogistics">
+                  {t('supplierOrderDetails.itemForm.unitLogistics')} (₽)
+                </Label>
                 <Input
                   id="unitLogistics"
                   type="number"
@@ -1086,20 +1137,37 @@ export default function SupplierOrderDetails() {
               <div className="p-3 bg-slate-50 dark:bg-slate-800 rounded-lg">
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
-                    <span className="text-slate-500">Сумма:</span>{' '}
-                    <span className="font-semibold">₽{itemForm.totalPrice?.toFixed(2) || '0.00'}</span>
+                    <span className="text-slate-500">
+                      {t('supplierOrderDetails.table.totalPrice')}:
+                    </span>{' '}
+                    <span className="font-semibold">
+                      ₽{itemForm.totalPrice?.toFixed(2) || '0.00'}
+                    </span>
                   </div>
                   <div>
-                    <span className="text-slate-500">Себестоимость:</span>{' '}
-                    <span className="font-semibold">₽{itemForm.totalSelfCost?.toFixed(2) || '0.00'}</span>
+                    <span className="text-slate-500">
+                      {t('supplierOrderDetails.summaryTotal')}:
+                    </span>{' '}
+                    <span className="font-semibold">
+                      ₽{itemForm.totalSelfCost?.toFixed(2) || '0.00'}
+                    </span>
                   </div>
                   <div>
-                    <span className="text-slate-500">Вес:</span>{' '}
-                    <span className="font-semibold">{itemForm.totalWeight} г</span>
+                    <span className="text-slate-500">
+                      {t('supplierOrderDetails.table.weight')}:
+                    </span>{' '}
+                    <span className="font-semibold">
+                      {itemForm.totalWeight}{' '}
+                      {t('supplierOrderDetails.weight.unitGrams')}
+                    </span>
                   </div>
                   <div>
-                    <span className="text-slate-500">Логистика:</span>{' '}
-                    <span className="font-semibold">₽{itemForm.totalLogistics?.toFixed(2) || '0.00'}</span>
+                    <span className="text-slate-500">
+                      {t('supplierOrderDetails.summaryLogistics')}:
+                    </span>{' '}
+                    <span className="font-semibold">
+                      ₽{itemForm.totalLogistics?.toFixed(2) || '0.00'}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -1113,13 +1181,15 @@ export default function SupplierOrderDetails() {
                   resetItemForm();
                 }}
               >
-                Отмена
+                {t('common.cancel')}
               </Button>
               <Button 
                 type="submit" 
                 disabled={createItemMutation.isPending || updateItemMutation.isPending}
               >
-                {currentItem ? 'Обновить' : 'Добавить'}
+                {currentItem
+                  ? t('supplierOrderDetails.itemForm.submitUpdate')
+                  : t('supplierOrderDetails.itemForm.submitCreate')}
               </Button>
             </DialogFooter>
           </form>
@@ -1130,14 +1200,16 @@ export default function SupplierOrderDetails() {
       <AlertDialog open={deleteItemDialogOpen} onOpenChange={setDeleteItemDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Удалить позицию</AlertDialogTitle>
+            <AlertDialogTitle>
+              {t('supplierOrderDetails.itemErrors.deleteFailed')}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              Вы уверены, что хотите удалить эту позицию из заказа?
+              {t('supplierOrderDetails.itemErrors.deleteFailed')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel onClick={() => setDeleteItemDialogOpen(false)}>
-              Отмена
+              {t('common.cancel')}
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={(e) => {
@@ -1148,7 +1220,7 @@ export default function SupplierOrderDetails() {
               className="bg-red-600 hover:bg-red-700"
               disabled={deleteItemMutation.isPending}
             >
-              {deleteItemMutation.isPending ? 'Удаление...' : 'Удалить'}
+              {deleteItemMutation.isPending ? t('common.deleting') : t('common.delete')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -1166,7 +1238,9 @@ export default function SupplierOrderDetails() {
       >
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Загрузить документ</DialogTitle>
+            <DialogTitle>
+              {t('supplierOrderDetails.documents.uploadTitle')}
+            </DialogTitle>
           </DialogHeader>
           <form onSubmit={handleDocumentSubmit} className="space-y-4">
             {uploadError && (
@@ -1175,7 +1249,9 @@ export default function SupplierOrderDetails() {
               </div>
             )}
             <div className="space-y-2">
-              <Label htmlFor="doc-file">Файл *</Label>
+              <Label htmlFor="doc-file">
+                {t('supplierOrderDetails.documents.file')} *
+              </Label>
               <Input
                 id="doc-file"
                 type="file"
@@ -1193,26 +1269,35 @@ export default function SupplierOrderDetails() {
                 required
               />
               <p className="text-xs text-slate-500">
-                Разрешенные форматы: PDF, DOC, DOCX, XLS, XLSX, TXT, RTF, ODT, ODS, изображения, архивы, CSV, XML (макс. 50 МБ)
+                {t('supplierOrderDetails.documents.allowedFormats')}
               </p>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="doc-name">Название документа *</Label>
+              <Label htmlFor="doc-name">
+                {t('supplierOrderDetails.documents.name')} *
+              </Label>
               <Input
                 id="doc-name"
                 value={documentForm.name}
                 onChange={(e) => setDocumentForm({ ...documentForm, name: e.target.value })}
-                placeholder={documentForm.file?.name || 'Введите название'}
+                placeholder={
+                  documentForm.file?.name ||
+                  t('supplierOrderDetails.documents.namePlaceholder')
+                }
                 required
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="doc-description">Описание</Label>
+              <Label htmlFor="doc-description">
+                {t('supplierOrderDetails.documents.description')}
+              </Label>
               <Input
                 id="doc-description"
                 value={documentForm.description || ''}
                 onChange={(e) => setDocumentForm({ ...documentForm, description: e.target.value })}
-                placeholder="Необязательное описание документа"
+                placeholder={t(
+                  'supplierOrderDetails.documents.descriptionPlaceholder'
+                )}
               />
             </div>
             <DialogFooter>
@@ -1224,13 +1309,15 @@ export default function SupplierOrderDetails() {
                   resetDocumentForm();
                 }}
               >
-                Отмена
+                {t('common.cancel')}
               </Button>
               <Button 
                 type="submit" 
                 disabled={uploadDocumentMutation.isPending || !documentForm.file}
               >
-                {uploadDocumentMutation.isPending ? 'Загрузка...' : 'Загрузить'}
+                {uploadDocumentMutation.isPending
+                  ? t('common.loading')
+                  : t('supplierOrderDetails.documents.upload')}
               </Button>
             </DialogFooter>
           </form>
@@ -1241,9 +1328,13 @@ export default function SupplierOrderDetails() {
       <AlertDialog open={deleteDocumentDialogOpen} onOpenChange={setDeleteDocumentDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Удалить документ</AlertDialogTitle>
+            <AlertDialogTitle>
+              {t('supplierOrderDetails.documents.deleteTitle')}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              Вы уверены, что хотите удалить документ "{currentDocument?.name}"? Это действие нельзя отменить.
+              {t('supplierOrderDetails.documents.deleteDescription', {
+                name: currentDocument?.name || '',
+              })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -1251,7 +1342,7 @@ export default function SupplierOrderDetails() {
               setDeleteDocumentDialogOpen(false);
               setCurrentDocument(null);
             }}>
-              Отмена
+              {t('common.cancel')}
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={(e) => {
@@ -1264,7 +1355,9 @@ export default function SupplierOrderDetails() {
               className="bg-red-600 hover:bg-red-700"
               disabled={deleteDocumentMutation.isPending}
             >
-              {deleteDocumentMutation.isPending ? 'Удаление...' : 'Удалить'}
+              {deleteDocumentMutation.isPending
+                ? t('common.deleting')
+                : t('common.delete')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

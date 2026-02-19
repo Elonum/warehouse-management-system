@@ -543,10 +543,16 @@ export default function SupplierOrderDetails() {
     return warehouse?.name || '';
   };
 
+  // Helper function to normalize quantity from string or number to number
+  const normalizeQty = (qty) => {
+    if (typeof qty === 'string') {
+      return qty === '' ? 0 : parseInt(qty) || 0;
+    }
+    return qty || 0;
+  };
+
   const calculateItemTotals = (formData) => {
-    const orderedQty = typeof formData.orderedQty === 'string'
-      ? (formData.orderedQty === '' ? 0 : parseInt(formData.orderedQty) || 0)
-      : formData.orderedQty || 0;
+    const orderedQty = normalizeQty(formData.orderedQty);
     const purchasePrice = parseFloat(formData.purchasePrice) || 0;
     const unitLogistics = parseFloat(formData.unitLogistics) || 0;
     const product = productsMap.get(formData.productId);
@@ -583,17 +589,13 @@ export default function SupplierOrderDetails() {
       return;
     }
 
-    const orderedQty = typeof itemForm.orderedQty === 'string' 
-      ? (itemForm.orderedQty === '' ? 0 : parseInt(itemForm.orderedQty) || 0)
-      : itemForm.orderedQty || 0;
+    const orderedQty = normalizeQty(itemForm.orderedQty);
     if (orderedQty <= 0) {
       setError(t('supplierOrderDetails.itemErrors.orderedQtyPositive'));
       return;
     }
 
-    const receivedQty = typeof itemForm.receivedQty === 'string'
-      ? (itemForm.receivedQty === '' ? 0 : parseInt(itemForm.receivedQty) || 0)
-      : itemForm.receivedQty || 0;
+    const receivedQty = normalizeQty(itemForm.receivedQty);
     if (receivedQty > orderedQty) {
       setError(t('supplierOrderDetails.itemErrors.receivedNotGreater'));
       return;
@@ -841,37 +843,84 @@ export default function SupplierOrderDetails() {
       </div>
 
       {/* Order Summary */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-4">
+        {/* Block 1: Order Date */}
         <Card className="dark:bg-slate-900 dark:border-slate-800">
           <CardContent className="pt-6">
             <p className="text-sm text-slate-500 dark:text-slate-400">
               {t('supplierOrderDetails.summaryPurchaseDate')}
             </p>
-            <p className="mt-1 text-lg font-semibold text-slate-900 dark:text-slate-100">
+            <p className="mt-1 text-base font-semibold text-slate-900 dark:text-slate-100">
               {order.purchaseDate ? format(new Date(order.purchaseDate), 'dd.MM.yyyy') : '—'}
             </p>
           </CardContent>
         </Card>
+
+        {/* Block 2: Planned Receipt */}
         <Card className="dark:bg-slate-900 dark:border-slate-800">
           <CardContent className="pt-6">
             <p className="text-sm text-slate-500 dark:text-slate-400">
               {t('supplierOrderDetails.summaryPlannedReceipt')}
             </p>
-            <p className="mt-1 text-lg font-semibold text-slate-900 dark:text-slate-100">
+            <p className="mt-1 text-base font-semibold text-slate-900 dark:text-slate-100">
               {order.plannedReceiptDate ? format(new Date(order.plannedReceiptDate), 'dd.MM.yyyy') : '—'}
             </p>
           </CardContent>
         </Card>
+
+        {/* Block 3: Ordered Quantity */}
+        <Card className="dark:bg-slate-900 dark:border-slate-800">
+          <CardContent className="pt-6">
+            <p className="text-sm text-slate-500 dark:text-slate-400">
+              {t('supplierOrderDetails.summaryOrderedQty')}
+            </p>
+            <p className="mt-1 text-base font-semibold text-slate-900 dark:text-slate-100">
+              {orderTotals.totalQty} {t('supplierOrderDetails.summaryUnits')}
+            </p>
+          </CardContent>
+        </Card>
+
+        {/* Block 4: Received Quantity */}
+        <Card className="dark:bg-slate-900 dark:border-slate-800">
+          <CardContent className="pt-6">
+            <p className="text-sm text-slate-500 dark:text-slate-400">
+              {t('supplierOrderDetails.summaryReceivedQty')}
+            </p>
+            <p className={`mt-1 text-base font-semibold ${
+              orderTotals.receivedQty >= orderTotals.totalQty
+                ? 'text-emerald-600 dark:text-emerald-400'
+                : 'text-amber-600 dark:text-amber-400'
+            }`}>
+              {orderTotals.receivedQty} {t('supplierOrderDetails.summaryUnits')}
+            </p>
+          </CardContent>
+        </Card>
+
+        {/* Block 5: Total Logistics */}
         <Card className="dark:bg-slate-900 dark:border-slate-800">
           <CardContent className="pt-6">
             <p className="text-sm text-slate-500 dark:text-slate-400">
               {t('supplierOrderDetails.summaryTotalLogistics')}
             </p>
-            <p className="mt-1 text-lg font-semibold text-slate-900 dark:text-slate-100">
+            <p className="mt-1 text-base font-semibold text-slate-900 dark:text-slate-100">
               {order.logisticsTotal ? `₽${order.logisticsTotal.toLocaleString('ru-RU', { minimumFractionDigits: 2 })}` : '—'}
             </p>
           </CardContent>
         </Card>
+
+        {/* Block 6: Items Cost */}
+        <Card className="dark:bg-slate-900 dark:border-slate-800">
+          <CardContent className="pt-6">
+            <p className="text-sm text-slate-500 dark:text-slate-400">
+              {t('supplierOrderDetails.summaryItemsCost')}
+            </p>
+            <p className="mt-1 text-base font-semibold text-slate-900 dark:text-slate-100">
+              {order.orderItemCost ? `₽${order.orderItemCost.toLocaleString('ru-RU', { minimumFractionDigits: 2 })}` : '—'}
+            </p>
+          </CardContent>
+        </Card>
+
+        {/* Block 7: Order Total */}
         <Card className="dark:bg-slate-900 dark:border-slate-800">
           <CardContent className="pt-6">
             <div className="flex items-center gap-2">
@@ -902,29 +951,22 @@ export default function SupplierOrderDetails() {
       </div>
 
       <Tabs defaultValue="items">
-        <TabsList>
-          <TabsTrigger value="items">
-            {t('supplierOrderDetails.tabsItems')} ({orderItems.length})
-          </TabsTrigger>
-          <TabsTrigger value="documents">
-            {t('supplierOrderDetails.tabsDocuments')} ({orderDocuments.length})
-          </TabsTrigger>
-        </TabsList>
+        <div className="flex items-center justify-between mb-4">
+          <TabsList>
+            <TabsTrigger value="items">
+              {t('supplierOrderDetails.tabsItems')} ({orderItems.length})
+            </TabsTrigger>
+            <TabsTrigger value="documents">
+              {t('supplierOrderDetails.tabsDocuments')} ({orderDocuments.length})
+            </TabsTrigger>
+          </TabsList>
+          <Button onClick={() => { resetItemForm(); setItemDialogOpen(true); }}>
+            <Plus className="w-4 h-4 mr-2" />
+            {t('supplierOrderDetails.addItem')}
+          </Button>
+        </div>
 
         <TabsContent value="items" className="space-y-4">
-          <div className="flex justify-between items-center">
-            <div className="text-sm text-slate-600 dark:text-slate-400">
-              {t('supplierOrderDetails.itemsStats', {
-                total: orderTotals.totalQty,
-                received: orderTotals.receivedQty,
-                amount: orderTotals.totalPrice.toLocaleString('ru-RU', { minimumFractionDigits: 2 }),
-              })}
-            </div>
-            <Button onClick={() => { resetItemForm(); setItemDialogOpen(true); }}>
-              <Plus className="w-4 h-4 mr-2" />
-              {t('supplierOrderDetails.addItem')}
-            </Button>
-          </div>
           <DataTable
             columns={itemColumns}
             data={orderItems}
@@ -1035,10 +1077,7 @@ export default function SupplierOrderDetails() {
                 <Select
                   value={itemForm.productId ? itemForm.productId.toString() : ''}
                   onValueChange={(value) => {
-                    const product = productsMap.get(value);
-                    const qty = typeof itemForm.orderedQty === 'string'
-                      ? (itemForm.orderedQty === '' ? 0 : parseInt(itemForm.orderedQty) || 0)
-                      : itemForm.orderedQty || 0;
+                    const qty = normalizeQty(itemForm.orderedQty);
                     const totals = calculateItemTotals({ ...itemForm, productId: value || null, orderedQty: qty });
                     setItemForm({ 
                       ...itemForm, 
@@ -1104,8 +1143,7 @@ export default function SupplierOrderDetails() {
                   value={itemForm.orderedQty}
                   onChange={(e) => {
                     const raw = e.target.value;
-                    const qty = raw === '' ? '' : parseInt(raw) || 0;
-                    const product = productsMap.get(itemForm.productId);
+                    const qty = raw === '' ? '' : normalizeQty(raw);
                     const totals = calculateItemTotals({ ...itemForm, orderedQty: qty === '' ? 0 : qty });
                     setItemForm({ 
                       ...itemForm, 
@@ -1127,7 +1165,7 @@ export default function SupplierOrderDetails() {
                   id="receivedQty"
                   type="number"
                   min="0"
-                  max={typeof itemForm.orderedQty === 'number' ? itemForm.orderedQty : parseInt(itemForm.orderedQty) || 0}
+                  max={normalizeQty(itemForm.orderedQty)}
                   value={itemForm.receivedQty}
                   onChange={(e) => {
                     const raw = e.target.value;

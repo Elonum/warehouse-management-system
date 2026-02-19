@@ -11,7 +11,8 @@ import {
   Package,
   Warehouse,
   MoreHorizontal,
-  ExternalLink
+  ExternalLink,
+  HelpCircle
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -59,8 +60,8 @@ import { createPageUrl } from '@/utils';
 const emptyItem = {
   productId: null,
   warehouseId: null,
-  orderedQty: 0,
-  receivedQty: 0,
+  orderedQty: '',
+  receivedQty: '',
   purchasePrice: null,
   totalPrice: null,
   totalWeight: 0,
@@ -443,7 +444,7 @@ export default function SupplierOrderDetails() {
   const uploadDocumentMutation = useMutation({
     mutationFn: async ({ file, name, description }) => {
       if (!orderId) {
-        throw new Error('ID заказа не указан');
+        throw new Error(t('supplierOrderDetails.itemErrors.orderRequired'));
       }
       // First upload the file
       const uploadResult = await api.upload.uploadFile(file);
@@ -516,8 +517,8 @@ export default function SupplierOrderDetails() {
     setItemForm({
       productId: item.productId,
       warehouseId: item.warehouseId,
-      orderedQty: item.orderedQty || 0,
-      receivedQty: item.receivedQty || 0,
+      orderedQty: item.orderedQty || '',
+      receivedQty: item.receivedQty || '',
       purchasePrice: item.purchasePrice || null,
       totalPrice: item.totalPrice || null,
       totalWeight: item.totalWeight || 0,
@@ -530,8 +531,22 @@ export default function SupplierOrderDetails() {
     setItemDialogOpen(true);
   };
 
+  const getSelectedProductLabel = () => {
+    if (!itemForm.productId) return '';
+    const product = productsMap.get(itemForm.productId);
+    return product?.article || '';
+  };
+
+  const getSelectedWarehouseLabel = () => {
+    if (!itemForm.warehouseId) return '';
+    const warehouse = warehousesMap.get(itemForm.warehouseId);
+    return warehouse?.name || '';
+  };
+
   const calculateItemTotals = (formData) => {
-    const orderedQty = parseInt(formData.orderedQty) || 0;
+    const orderedQty = typeof formData.orderedQty === 'string'
+      ? (formData.orderedQty === '' ? 0 : parseInt(formData.orderedQty) || 0)
+      : formData.orderedQty || 0;
     const purchasePrice = parseFloat(formData.purchasePrice) || 0;
     const unitLogistics = parseFloat(formData.unitLogistics) || 0;
     const product = productsMap.get(formData.productId);
@@ -542,7 +557,7 @@ export default function SupplierOrderDetails() {
     const totalLogistics = unitLogistics * orderedQty;
     const unitSelfCost = purchasePrice + unitLogistics;
     const totalSelfCost = unitSelfCost * orderedQty;
-    const fulfillmentCost = totalLogistics * 0.1; // Пример расчета
+    const fulfillmentCost = totalLogistics * 0.1;
 
     return {
       totalPrice,
@@ -568,13 +583,17 @@ export default function SupplierOrderDetails() {
       return;
     }
 
-    const orderedQty = parseInt(itemForm.orderedQty) || 0;
+    const orderedQty = typeof itemForm.orderedQty === 'string' 
+      ? (itemForm.orderedQty === '' ? 0 : parseInt(itemForm.orderedQty) || 0)
+      : itemForm.orderedQty || 0;
     if (orderedQty <= 0) {
       setError(t('supplierOrderDetails.itemErrors.orderedQtyPositive'));
       return;
     }
 
-    const receivedQty = parseInt(itemForm.receivedQty) || 0;
+    const receivedQty = typeof itemForm.receivedQty === 'string'
+      ? (itemForm.receivedQty === '' ? 0 : parseInt(itemForm.receivedQty) || 0)
+      : itemForm.receivedQty || 0;
     if (receivedQty > orderedQty) {
       setError(t('supplierOrderDetails.itemErrors.receivedNotGreater'));
       return;
@@ -846,7 +865,7 @@ export default function SupplierOrderDetails() {
         <Card className="dark:bg-slate-900 dark:border-slate-800">
           <CardContent className="pt-6">
             <p className="text-sm text-slate-500 dark:text-slate-400">
-              {t('supplierOrderDetails.summaryLogistics')}
+              {t('supplierOrderDetails.summaryTotalLogistics')}
             </p>
             <p className="mt-1 text-lg font-semibold text-slate-900 dark:text-slate-100">
               {order.logisticsTotal ? `₽${order.logisticsTotal.toLocaleString('ru-RU', { minimumFractionDigits: 2 })}` : '—'}
@@ -855,11 +874,28 @@ export default function SupplierOrderDetails() {
         </Card>
         <Card className="dark:bg-slate-900 dark:border-slate-800">
           <CardContent className="pt-6">
-            <p className="text-sm text-slate-500 dark:text-slate-400">
-              {t('supplierOrderDetails.summaryTotal')}
-            </p>
+            <div className="flex items-center gap-2">
+              <p className="text-sm text-slate-500 dark:text-slate-400">
+                {t('supplierOrderDetails.summaryTotal')}
+              </p>
+              <span
+                className="relative inline-flex items-center group"
+                onClick={(e) => e.stopPropagation()}
+                onMouseDown={(e) => e.stopPropagation()}
+              >
+                <HelpCircle className="w-3 h-3 text-slate-400" />
+                <span className="pointer-events-none absolute left-1/2 top-full z-20 mt-2 w-72 -translate-x-1/2 rounded-md border bg-white px-2 py-1 text-xs font-normal text-slate-700 opacity-0 shadow-sm transition-opacity group-hover:opacity-100 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200">
+                  {t('supplierOrderDetails.summaryTotalHint')}
+                </span>
+              </span>
+            </div>
             <p className="mt-1 text-lg font-semibold text-indigo-600 dark:text-indigo-400">
-              {order.orderItemCost ? `₽${order.orderItemCost.toLocaleString('ru-RU', { minimumFractionDigits: 2 })}` : '—'}
+              {(() => {
+                const itemsCost = Number(order.orderItemCost) || 0;
+                const logisticsTotal = Number(order.logisticsTotal) || 0;
+                const total = itemsCost + logisticsTotal;
+                return total > 0 ? `₽${total.toLocaleString('ru-RU', { minimumFractionDigits: 2 })}` : '—';
+              })()}
             </p>
           </CardContent>
         </Card>
@@ -1000,20 +1036,29 @@ export default function SupplierOrderDetails() {
                   value={itemForm.productId ? itemForm.productId.toString() : ''}
                   onValueChange={(value) => {
                     const product = productsMap.get(value);
+                    const qty = typeof itemForm.orderedQty === 'string'
+                      ? (itemForm.orderedQty === '' ? 0 : parseInt(itemForm.orderedQty) || 0)
+                      : itemForm.orderedQty || 0;
+                    const totals = calculateItemTotals({ ...itemForm, productId: value || null, orderedQty: qty });
                     setItemForm({ 
                       ...itemForm, 
                       productId: value || null,
-                      totalWeight: product ? (product.unitWeight || 0) * (parseInt(itemForm.orderedQty) || 0) : 0,
+                      totalWeight: totals.totalWeight,
+                      totalPrice: totals.totalPrice,
+                      totalLogistics: totals.totalLogistics,
+                      totalSelfCost: totals.totalSelfCost,
                     });
                   }}
                 >
                   <SelectTrigger id="productId">
-                    <SelectValue placeholder={t('supplierOrderDetails.itemForm.product')} />
+                    <SelectValue placeholder={t('supplierOrderDetails.itemForm.product')}>
+                      {getSelectedProductLabel()}
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     {products.map(product => (
                       <SelectItem key={product.productId} value={product.productId.toString()}>
-                        {product.article} {product.barcode ? `(${product.barcode})` : ''}
+                        {product.article || product.name || t('common.notSpecified')}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -1033,12 +1078,14 @@ export default function SupplierOrderDetails() {
                   }}
                 >
                   <SelectTrigger id="warehouseId">
-                    <SelectValue placeholder={t('supplierOrderDetails.itemForm.warehouse')} />
+                    <SelectValue placeholder={t('supplierOrderDetails.itemForm.warehouse')}>
+                      {getSelectedWarehouseLabel()}
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     {warehouses.map(warehouse => (
                       <SelectItem key={warehouse.warehouseId} value={warehouse.warehouseId.toString()}>
-                        {warehouse.name}
+                        {warehouse.name || t('common.notSpecified')}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -1056,12 +1103,13 @@ export default function SupplierOrderDetails() {
                   min="1"
                   value={itemForm.orderedQty}
                   onChange={(e) => {
-                    const qty = parseInt(e.target.value) || 0;
+                    const raw = e.target.value;
+                    const qty = raw === '' ? '' : parseInt(raw) || 0;
                     const product = productsMap.get(itemForm.productId);
-                    const totals = calculateItemTotals({ ...itemForm, orderedQty: qty });
+                    const totals = calculateItemTotals({ ...itemForm, orderedQty: qty === '' ? 0 : qty });
                     setItemForm({ 
                       ...itemForm, 
-                      orderedQty: qty,
+                      orderedQty: raw,
                       totalWeight: totals.totalWeight,
                       totalPrice: totals.totalPrice,
                       totalLogistics: totals.totalLogistics,
@@ -1079,9 +1127,13 @@ export default function SupplierOrderDetails() {
                   id="receivedQty"
                   type="number"
                   min="0"
-                  max={itemForm.orderedQty}
+                  max={typeof itemForm.orderedQty === 'number' ? itemForm.orderedQty : parseInt(itemForm.orderedQty) || 0}
                   value={itemForm.receivedQty}
-                  onChange={(e) => setItemForm({ ...itemForm, receivedQty: parseInt(e.target.value) || 0 })}
+                  onChange={(e) => {
+                    const raw = e.target.value;
+                    const qty = raw === '' ? '' : parseInt(raw) || 0;
+                    setItemForm({ ...itemForm, receivedQty: raw });
+                  }}
                 />
               </div>
             </div>
@@ -1133,45 +1185,43 @@ export default function SupplierOrderDetails() {
                 />
               </div>
             </div>
-            {(itemForm.totalPrice || itemForm.totalSelfCost) && (
-              <div className="p-3 bg-slate-50 dark:bg-slate-800 rounded-lg">
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <span className="text-slate-500">
-                      {t('supplierOrderDetails.table.totalPrice')}:
-                    </span>{' '}
-                    <span className="font-semibold">
-                      ₽{itemForm.totalPrice?.toFixed(2) || '0.00'}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-slate-500">
-                      {t('supplierOrderDetails.summaryTotal')}:
-                    </span>{' '}
-                    <span className="font-semibold">
-                      ₽{itemForm.totalSelfCost?.toFixed(2) || '0.00'}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-slate-500">
-                      {t('supplierOrderDetails.table.weight')}:
-                    </span>{' '}
-                    <span className="font-semibold">
-                      {itemForm.totalWeight}{' '}
-                      {t('supplierOrderDetails.weight.unitGrams')}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-slate-500">
-                      {t('supplierOrderDetails.summaryLogistics')}:
-                    </span>{' '}
-                    <span className="font-semibold">
-                      ₽{itemForm.totalLogistics?.toFixed(2) || '0.00'}
-                    </span>
-                  </div>
+            <div className="p-3 bg-slate-50 dark:bg-slate-800 rounded-lg">
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <span className="text-slate-500">
+                    {t('supplierOrderDetails.table.totalPrice')}:
+                  </span>{' '}
+                  <span className="font-semibold">
+                    ₽{(itemForm.totalPrice || 0).toFixed(2)}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-slate-500">
+                    {t('supplierOrderDetails.summaryTotal')}:
+                  </span>{' '}
+                  <span className="font-semibold">
+                    ₽{(itemForm.totalSelfCost || 0).toFixed(2)}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-slate-500">
+                    {t('supplierOrderDetails.table.weight')}:
+                  </span>{' '}
+                  <span className="font-semibold">
+                    {itemForm.totalWeight || 0}{' '}
+                    {t('supplierOrderDetails.weight.unitGrams')}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-slate-500">
+                    {t('supplierOrderDetails.itemForm.totalLogistics')}:
+                  </span>{' '}
+                  <span className="font-semibold">
+                    ₽{(itemForm.totalLogistics || 0).toFixed(2)}
+                  </span>
                 </div>
               </div>
-            )}
+            </div>
             <DialogFooter>
               <Button 
                 type="button" 

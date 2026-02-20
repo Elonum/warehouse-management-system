@@ -15,11 +15,15 @@ import (
 )
 
 type SupplierOrderHandler struct {
-	service *service.SupplierOrderService
+	service            *service.SupplierOrderService
+	itemService        *service.SupplierOrderItemService
 }
 
-func NewSupplierOrderHandler(service *service.SupplierOrderService) *SupplierOrderHandler {
-	return &SupplierOrderHandler{service: service}
+func NewSupplierOrderHandler(service *service.SupplierOrderService, itemService *service.SupplierOrderItemService) *SupplierOrderHandler {
+	return &SupplierOrderHandler{
+		service:     service,
+		itemService: itemService,
+	}
 }
 
 func (h *SupplierOrderHandler) GetByID(w http.ResponseWriter, r *http.Request) {
@@ -173,6 +177,14 @@ func (h *SupplierOrderHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Get old order to check if logistics or weight changed
+	oldOrder, err := h.service.GetByID(r.Context(), orderID)
+	if err != nil && err != repository.ErrSupplierOrderNotFound {
+		log.Error().Err(err).Str("orderId", orderID.String()).Msg("Failed to load old order for comparison")
+		writeError(w, http.StatusInternalServerError, "ORDER_LOAD_FAILED", "failed to load order")
+		return
+	}
+
 	order, err := h.service.Update(r.Context(), orderID, userID, req)
 	if err != nil {
 		if err == repository.ErrSupplierOrderNotFound {
@@ -203,6 +215,23 @@ func (h *SupplierOrderHandler) Update(w http.ResponseWriter, r *http.Request) {
 		log.Error().Err(err).Str("orderId", orderID.String()).Str("userId", userID.String()).Msg("Failed to update supplier order")
 		writeError(w, http.StatusInternalServerError, "ORDER_UPDATE_FAILED", "failed to update supplier order")
 		return
+	}
+
+	// Recalculate logistics for all items if logistics_total or order_item_weight changed
+	if oldOrder != nil {
+		logisticsChanged := (req.LogisticsTotal != nil && oldOrder.LogisticsTotal != nil && *req.LogisticsTotal != *oldOrder.LogisticsTotal) ||
+			(req.LogisticsTotal != nil && oldOrder.LogisticsTotal == nil) ||
+			(req.LogisticsTotal == nil && oldOrder.LogisticsTotal != nil)
+		weightChanged := (req.OrderItemWeight != nil && oldOrder.OrderItemWeight != nil && *req.OrderItemWeight != *oldOrder.OrderItemWeight) ||
+			(req.OrderItemWeight != nil && oldOrder.OrderItemWeight == nil) ||
+			(req.OrderItemWeight == nil && oldOrder.OrderItemWeight != nil)
+
+		if logisticsChanged || weightChanged {
+			if recalcErr := h.itemService.RecalculateLogisticsForAllItems(r.Context(), orderID); recalcErr != nil {
+				log.Warn().Err(recalcErr).Str("orderId", orderID.String()).Msg("Failed to recalculate logistics for order items after order update")
+				// Don't fail the request, just log the warning
+			}
+		}
 	}
 
 	response := dto.APIResponse[dto.SupplierOrderResponse]{

@@ -80,7 +80,7 @@ func NewRouter(pg *db.Postgres, cfg config.Config) *chi.Mux {
 	warehouseHandler := handlers.NewWarehouseHandler(warehouseService)
 	warehouseTypeHandler := handlers.NewWarehouseTypeHandler(warehouseTypeService)
 	storeHandler := handlers.NewStoreHandler(storeService)
-	supplierOrderHandler := handlers.NewSupplierOrderHandler(supplierOrderService)
+	supplierOrderHandler := handlers.NewSupplierOrderHandler(supplierOrderService, supplierOrderItemService)
 	supplierOrderItemHandler := handlers.NewSupplierOrderItemHandler(supplierOrderItemService)
 	mpShipmentHandler := handlers.NewMpShipmentHandler(mpShipmentService)
 	mpShipmentItemHandler := handlers.NewMpShipmentItemHandler(mpShipmentItemService)

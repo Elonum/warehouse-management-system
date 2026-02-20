@@ -272,3 +272,52 @@ func (r *SupplierOrderItemRepository) DeleteByOrderID(ctx context.Context, order
 	_, err := r.pool.Exec(ctx, query, orderID)
 	return err
 }
+
+// UpdateLogisticsForOrder updates logistics for all items in an order based on weight distribution
+func (r *SupplierOrderItemRepository) UpdateLogisticsForOrder(ctx context.Context, orderID uuid.UUID, itemID uuid.UUID, unitLogistics, totalLogistics *float64) error {
+	query := `
+		UPDATE supplier_order_items
+		SET unit_logistics = $1, total_logistics = $2
+		WHERE order_item_id = $3 AND order_id = $4
+	`
+
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	_, err := r.pool.Exec(ctx, query, unitLogistics, totalLogistics, itemID, orderID)
+	return err
+}
+
+// UpdateLogisticsForAllOrderItems updates logistics for all items in an order
+func (r *SupplierOrderItemRepository) UpdateLogisticsForAllOrderItems(ctx context.Context, orderID uuid.UUID, updates map[uuid.UUID]struct {
+	UnitLogistics  *float64
+	TotalLogistics *float64
+}) error {
+	if len(updates) == 0 {
+		return nil
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	query := `
+		UPDATE supplier_order_items
+		SET unit_logistics = $1, total_logistics = $2
+		WHERE order_item_id = $3 AND order_id = $4
+	`
+
+	for itemID, logistics := range updates {
+		_, err := tx.Exec(ctx, query, logistics.UnitLogistics, logistics.TotalLogistics, itemID, orderID)
+		if err != nil {
+			return err
+		}
+	}
+
+	return tx.Commit(ctx)
+}

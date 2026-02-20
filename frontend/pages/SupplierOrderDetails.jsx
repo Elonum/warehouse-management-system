@@ -551,16 +551,41 @@ export default function SupplierOrderDetails() {
     return qty || 0;
   };
 
+  // Calculate logistics automatically based on weight distribution
+  // Formula: unit_logistics = (item_weight_kg / total_order_weight_kg) * total_order_logistics
+  const calculateItemLogistics = (itemWeightGrams, orderedQty) => {
+    if (!order || !order.logisticsTotal || !order.orderItemWeight) {
+      return { unitLogistics: 0, totalLogistics: 0 };
+    }
+
+    const itemWeightKg = itemWeightGrams / 1000.0;
+    const totalOrderWeightKg = Number(order.orderItemWeight) || 0;
+    const totalOrderLogistics = Number(order.logisticsTotal) || 0;
+
+    if (totalOrderWeightKg <= 0 || totalOrderLogistics <= 0) {
+      return { unitLogistics: 0, totalLogistics: 0 };
+    }
+
+    // Calculate unit logistics: (item_weight_kg / total_order_weight_kg) * total_order_logistics
+    const unitLogistics = (itemWeightKg / totalOrderWeightKg) * totalOrderLogistics;
+    // Calculate total logistics: unit_logistics * ordered_qty
+    const totalLogistics = unitLogistics * orderedQty;
+
+    return { unitLogistics, totalLogistics };
+  };
+
   const calculateItemTotals = (formData) => {
     const orderedQty = normalizeQty(formData.orderedQty);
     const purchasePrice = parseFloat(formData.purchasePrice) || 0;
-    const unitLogistics = parseFloat(formData.unitLogistics) || 0;
     const product = productsMap.get(formData.productId);
     const unitWeight = product?.unitWeight || 0;
 
     const totalPrice = purchasePrice * orderedQty;
     const totalWeight = unitWeight * orderedQty;
-    const totalLogistics = unitLogistics * orderedQty;
+    
+    // Calculate logistics automatically based on weight distribution
+    const { unitLogistics, totalLogistics } = calculateItemLogistics(totalWeight, orderedQty);
+    
     const unitSelfCost = purchasePrice + unitLogistics;
     const totalSelfCost = unitSelfCost * orderedQty;
     const fulfillmentCost = totalLogistics * 0.1;
@@ -569,6 +594,7 @@ export default function SupplierOrderDetails() {
       totalPrice,
       totalWeight,
       totalLogistics,
+      unitLogistics,
       unitSelfCost,
       totalSelfCost,
       fulfillmentCost,
@@ -617,8 +643,8 @@ export default function SupplierOrderDetails() {
       purchasePrice: itemForm.purchasePrice ? parseFloat(itemForm.purchasePrice) : null,
       totalPrice: totals.totalPrice || null,
       totalWeight: totals.totalWeight,
-      totalLogistics: totals.totalLogistics || null,
-      unitLogistics: itemForm.unitLogistics ? parseFloat(itemForm.unitLogistics) : null,
+      totalLogistics: totals.totalLogistics > 0 ? totals.totalLogistics : null,
+      unitLogistics: totals.unitLogistics > 0 ? totals.unitLogistics : null,
       unitSelfCost: totals.unitSelfCost || null,
       totalSelfCost: totals.totalSelfCost || null,
       fulfillmentCost: totals.fulfillmentCost || null,
@@ -1151,7 +1177,9 @@ export default function SupplierOrderDetails() {
                       totalWeight: totals.totalWeight,
                       totalPrice: totals.totalPrice,
                       totalLogistics: totals.totalLogistics,
+                      unitLogistics: totals.unitLogistics,
                       totalSelfCost: totals.totalSelfCost,
+                      unitSelfCost: totals.unitSelfCost,
                     });
                   }}
                   required
@@ -1193,6 +1221,8 @@ export default function SupplierOrderDetails() {
                       ...itemForm, 
                       purchasePrice: price,
                       totalPrice: totals.totalPrice,
+                      totalLogistics: totals.totalLogistics,
+                      unitLogistics: totals.unitLogistics,
                       totalSelfCost: totals.totalSelfCost,
                       unitSelfCost: totals.unitSelfCost,
                     });
@@ -1208,19 +1238,17 @@ export default function SupplierOrderDetails() {
                   type="number"
                   step="0.01"
                   min="0"
-                  value={itemForm.unitLogistics || ''}
-                  onChange={(e) => {
-                    const logistics = parseFloat(e.target.value) || null;
-                    const totals = calculateItemTotals({ ...itemForm, unitLogistics: logistics });
-                    setItemForm({ 
-                      ...itemForm, 
-                      unitLogistics: logistics,
-                      totalLogistics: totals.totalLogistics,
-                      totalSelfCost: totals.totalSelfCost,
-                      unitSelfCost: totals.unitSelfCost,
-                    });
-                  }}
+                  readOnly
+                  value={(() => {
+                    const totals = calculateItemTotals(itemForm);
+                    return totals.unitLogistics > 0 ? totals.unitLogistics.toFixed(2) : '';
+                  })()}
+                  className="bg-slate-50 dark:bg-slate-800 cursor-not-allowed"
+                  title={t('supplierOrderDetails.itemForm.logisticsAutoCalculated')}
                 />
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  {t('supplierOrderDetails.itemForm.logisticsAutoCalculated')}
+                </p>
               </div>
             </div>
             <div className="p-3 bg-slate-50 dark:bg-slate-800 rounded-lg">

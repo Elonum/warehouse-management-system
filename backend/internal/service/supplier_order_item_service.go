@@ -26,6 +26,37 @@ func NewSupplierOrderItemService(repo *repository.SupplierOrderItemRepository, o
 	}
 }
 
+// calculateItemLogistics calculates logistics for an item based on weight distribution
+// Formula: unit_logistics = (item_weight_kg / total_order_weight_kg) * total_order_logistics
+// Returns unit_logistics and total_logistics (unit_logistics * ordered_qty)
+func (s *SupplierOrderItemService) calculateItemLogistics(ctx context.Context, orderID uuid.UUID, itemWeightGrams int, orderedQty int) (*float64, *float64, error) {
+	order, err := s.orderRepo.GetByID(ctx, orderID)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// If order logistics or weight is not set, return nil
+	if order.LogisticsTotal == nil || *order.LogisticsTotal <= 0 {
+		return nil, nil, nil
+	}
+	if order.OrderItemWeight == nil || *order.OrderItemWeight <= 0 {
+		return nil, nil, nil
+	}
+
+	// Convert item weight from grams to kg
+	itemWeightKg := float64(itemWeightGrams) / 1000.0
+	totalOrderWeightKg := *order.OrderItemWeight
+	totalOrderLogistics := *order.LogisticsTotal
+
+	// Calculate unit logistics: (item_weight_kg / total_order_weight_kg) * total_order_logistics
+	unitLogistics := (itemWeightKg / totalOrderWeightKg) * totalOrderLogistics
+
+	// Calculate total logistics: unit_logistics * ordered_qty
+	totalLogistics := unitLogistics * float64(orderedQty)
+
+	return &unitLogistics, &totalLogistics, nil
+}
+
 // recalcAndUpdateOrderAggregates aggregates items of an order and persists totals into supplier_orders.
 func (s *SupplierOrderItemService) recalcAndUpdateOrderAggregates(ctx context.Context, orderID, userID uuid.UUID) error {
 	items, err := s.repo.GetByOrderID(ctx, orderID)
@@ -180,6 +211,24 @@ func (s *SupplierOrderItemService) Create(ctx context.Context, userID uuid.UUID,
 		return nil, repository.ErrInvalidQuantity
 	}
 
+	// Calculate logistics automatically based on weight distribution
+	// Override user-provided logistics if order has logistics_total and order_item_weight
+	unitLogistics := req.UnitLogistics
+	totalLogistics := req.TotalLogistics
+	calculatedUnitLogistics, calculatedTotalLogistics, calcErr := s.calculateItemLogistics(ctx, orderID, req.TotalWeight, req.OrderedQty)
+	if calcErr != nil {
+		log.Warn().Err(calcErr).Str("orderId", req.OrderID).Msg("Failed to calculate item logistics, using provided values")
+	} else if calculatedUnitLogistics != nil && calculatedTotalLogistics != nil {
+		// Use calculated values instead of user-provided ones
+		unitLogistics = calculatedUnitLogistics
+		totalLogistics = calculatedTotalLogistics
+		log.Debug().
+			Float64("calculatedUnitLogistics", *calculatedUnitLogistics).
+			Float64("calculatedTotalLogistics", *calculatedTotalLogistics).
+			Str("orderId", req.OrderID).
+			Msg("Calculated logistics for order item")
+	}
+
 	item, err := s.repo.Create(ctx,
 		orderID,
 		productID,
@@ -189,8 +238,8 @@ func (s *SupplierOrderItemService) Create(ctx context.Context, userID uuid.UUID,
 		req.TotalWeight,
 		req.PurchasePrice,
 		req.TotalPrice,
-		req.TotalLogistics,
-		req.UnitLogistics,
+		totalLogistics,
+		unitLogistics,
 		req.UnitSelfCost,
 		req.TotalSelfCost,
 		req.FulfillmentCost,
@@ -274,6 +323,24 @@ func (s *SupplierOrderItemService) Update(ctx context.Context, itemID, userID uu
 		return nil, repository.ErrInvalidQuantity
 	}
 
+	// Calculate logistics automatically based on weight distribution
+	// Override user-provided logistics if order has logistics_total and order_item_weight
+	unitLogistics := req.UnitLogistics
+	totalLogistics := req.TotalLogistics
+	calculatedUnitLogistics, calculatedTotalLogistics, calcErr := s.calculateItemLogistics(ctx, orderID, req.TotalWeight, req.OrderedQty)
+	if calcErr != nil {
+		log.Warn().Err(calcErr).Str("orderId", req.OrderID).Msg("Failed to calculate item logistics, using provided values")
+	} else if calculatedUnitLogistics != nil && calculatedTotalLogistics != nil {
+		// Use calculated values instead of user-provided ones
+		unitLogistics = calculatedUnitLogistics
+		totalLogistics = calculatedTotalLogistics
+		log.Debug().
+			Float64("calculatedUnitLogistics", *calculatedUnitLogistics).
+			Float64("calculatedTotalLogistics", *calculatedTotalLogistics).
+			Str("orderId", req.OrderID).
+			Msg("Calculated logistics for order item update")
+	}
+
 	item, err := s.repo.Update(ctx, itemID,
 		orderID,
 		productID,
@@ -283,8 +350,8 @@ func (s *SupplierOrderItemService) Update(ctx context.Context, itemID, userID uu
 		req.TotalWeight,
 		req.PurchasePrice,
 		req.TotalPrice,
-		req.TotalLogistics,
-		req.UnitLogistics,
+		totalLogistics,
+		unitLogistics,
 		req.UnitSelfCost,
 		req.TotalSelfCost,
 		req.FulfillmentCost,
@@ -335,5 +402,51 @@ func (s *SupplierOrderItemService) Delete(ctx context.Context, itemID, userID uu
 	}
 
 	log.Info().Str("itemId", itemID.String()).Msg("Supplier order item deleted successfully")
+	return nil
+}
+
+// RecalculateLogisticsForAllItems recalculates logistics for all items in an order
+// This should be called when order logistics_total or order_item_weight changes
+func (s *SupplierOrderItemService) RecalculateLogisticsForAllItems(ctx context.Context, orderID uuid.UUID) error {
+	items, err := s.repo.GetByOrderID(ctx, orderID)
+	if err != nil {
+		log.Error().Err(err).Str("orderId", orderID.String()).Msg("Failed to load order items for logistics recalculation")
+		return err
+	}
+
+	if len(items) == 0 {
+		return nil
+	}
+
+	updates := make(map[uuid.UUID]struct {
+		UnitLogistics  *float64
+		TotalLogistics *float64
+	})
+
+	for _, item := range items {
+		unitLogistics, totalLogistics, calcErr := s.calculateItemLogistics(ctx, orderID, item.TotalWeight, item.OrderedQty)
+		if calcErr != nil {
+			log.Warn().Err(calcErr).Str("itemId", item.OrderItemID.String()).Msg("Failed to calculate logistics for item, skipping")
+			continue
+		}
+		if unitLogistics != nil && totalLogistics != nil {
+			updates[item.OrderItemID] = struct {
+				UnitLogistics  *float64
+				TotalLogistics *float64
+			}{
+				UnitLogistics:  unitLogistics,
+				TotalLogistics: totalLogistics,
+			}
+		}
+	}
+
+	if len(updates) > 0 {
+		if err := s.repo.UpdateLogisticsForAllOrderItems(ctx, orderID, updates); err != nil {
+			log.Error().Err(err).Str("orderId", orderID.String()).Msg("Failed to update logistics for all order items")
+			return err
+		}
+		log.Info().Str("orderId", orderID.String()).Int("itemsUpdated", len(updates)).Msg("Recalculated logistics for all order items")
+	}
+
 	return nil
 }

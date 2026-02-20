@@ -609,12 +609,7 @@ export default function SupplierOrders() {
       <PageHeader 
         title={t('supplierOrders.title')} 
         description={t('supplierOrders.description')}
-      >
-        <Button onClick={() => { resetForm(); setDialogOpen(true); }}>
-          <Plus className="w-4 h-4 mr-2" />
-          {t('supplierOrders.addOrder')}
-        </Button>
-      </PageHeader>
+      />
 
       <div className="space-y-3">
         <div className="flex items-center gap-3 text-sm text-slate-700 dark:text-slate-300">
@@ -635,14 +630,20 @@ export default function SupplierOrders() {
             </SelectContent>
           </Select>
         </div>
-        <div className="relative max-w-sm">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-          <Input
-            placeholder={t('supplierOrders.searchPlaceholder')}
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-9"
-          />
+        <div className="flex items-center justify-between gap-4">
+          <div className="relative max-w-sm flex-1">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <Input
+              placeholder={t('supplierOrders.searchPlaceholder')}
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-9"
+            />
+          </div>
+          <Button onClick={() => { resetForm(); setDialogOpen(true); }}>
+            <Plus className="w-4 h-4 mr-2" />
+            {t('supplierOrders.addOrder')}
+          </Button>
         </div>
       </div>
 

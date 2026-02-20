@@ -553,9 +553,10 @@ export default function SupplierOrderDetails() {
 
   // Calculate logistics automatically based on weight distribution
   // Formula: unit_logistics = (item_weight_kg / total_order_weight_kg) * total_order_logistics
+  // Returns null if logistics cannot be calculated (order doesn't have logistics_total or order_item_weight)
   const calculateItemLogistics = (itemWeightGrams, orderedQty) => {
     if (!order || !order.logisticsTotal || !order.orderItemWeight) {
-      return { unitLogistics: 0, totalLogistics: 0 };
+      return { unitLogistics: null, totalLogistics: null };
     }
 
     const itemWeightKg = itemWeightGrams / 1000.0;
@@ -563,7 +564,7 @@ export default function SupplierOrderDetails() {
     const totalOrderLogistics = Number(order.logisticsTotal) || 0;
 
     if (totalOrderWeightKg <= 0 || totalOrderLogistics <= 0) {
-      return { unitLogistics: 0, totalLogistics: 0 };
+      return { unitLogistics: null, totalLogistics: null };
     }
 
     // Calculate unit logistics: (item_weight_kg / total_order_weight_kg) * total_order_logistics
@@ -643,8 +644,10 @@ export default function SupplierOrderDetails() {
       purchasePrice: itemForm.purchasePrice ? parseFloat(itemForm.purchasePrice) : null,
       totalPrice: totals.totalPrice || null,
       totalWeight: totals.totalWeight,
-      totalLogistics: totals.totalLogistics > 0 ? totals.totalLogistics : null,
-      unitLogistics: totals.unitLogistics > 0 ? totals.unitLogistics : null,
+      // Save logistics if calculated (can be 0 or positive)
+      // null means logistics was not calculated (order doesn't have logistics_total or order_item_weight)
+      totalLogistics: totals.totalLogistics != null ? totals.totalLogistics : null,
+      unitLogistics: totals.unitLogistics != null ? totals.unitLogistics : null,
       unitSelfCost: totals.unitSelfCost || null,
       totalSelfCost: totals.totalSelfCost || null,
       fulfillmentCost: totals.fulfillmentCost || null,
@@ -761,22 +764,40 @@ export default function SupplierOrderDetails() {
       },
     },
     {
-      accessorKey: 'purchasePrice',
-      header: t('supplierOrderDetails.table.purchasePrice'),
-      cell: ({ row }) => (
-        <span className="text-slate-600 dark:text-slate-400">
-          {row.original.purchasePrice ? `₽${row.original.purchasePrice.toFixed(2)}` : '—'}
-        </span>
-      ),
+      accessorKey: 'price',
+      header: t('supplierOrderDetails.table.price'),
+      cell: ({ row }) => {
+        const purchasePrice = row.original.purchasePrice;
+        const totalPrice = row.original.totalPrice;
+        return (
+          <div className="flex flex-col text-sm">
+            <span className="text-slate-600 dark:text-slate-400">
+              {t('supplierOrderDetails.table.purchasePriceLabel')}: {purchasePrice ? `₽${purchasePrice.toFixed(2)}` : '—'}
+            </span>
+            <span className="font-semibold text-slate-900 dark:text-slate-100">
+              {t('supplierOrderDetails.table.totalPriceLabel')}: {totalPrice ? `₽${totalPrice.toLocaleString('ru-RU', { minimumFractionDigits: 2 })}` : '—'}
+            </span>
+          </div>
+        );
+      },
     },
     {
-      accessorKey: 'totalPrice',
-      header: t('supplierOrderDetails.table.totalPrice'),
-      cell: ({ row }) => (
-        <span className="font-semibold text-slate-900 dark:text-slate-100">
-          {row.original.totalPrice ? `₽${row.original.totalPrice.toLocaleString('ru-RU', { minimumFractionDigits: 2 })}` : '—'}
-        </span>
-      ),
+      accessorKey: 'logistics',
+      header: t('supplierOrderDetails.table.logistics'),
+      cell: ({ row }) => {
+        const unitLogistics = row.original.unitLogistics;
+        const totalLogistics = row.original.totalLogistics;
+        return (
+          <div className="flex flex-col text-sm">
+            <span className="text-slate-600 dark:text-slate-400">
+              {t('supplierOrderDetails.table.unitLogisticsLabel')}: {unitLogistics != null ? `₽${unitLogistics.toFixed(2)}` : '—'}
+            </span>
+            <span className="font-semibold text-slate-900 dark:text-slate-100">
+              {t('supplierOrderDetails.table.totalLogisticsLabel')}: {totalLogistics != null ? `₽${totalLogistics.toLocaleString('ru-RU', { minimumFractionDigits: 2 })}` : '—'}
+            </span>
+          </div>
+        );
+      },
     },
     {
       id: 'actions',
@@ -1241,7 +1262,7 @@ export default function SupplierOrderDetails() {
                   readOnly
                   value={(() => {
                     const totals = calculateItemTotals(itemForm);
-                    return totals.unitLogistics > 0 ? totals.unitLogistics.toFixed(2) : '';
+                    return totals.unitLogistics != null ? totals.unitLogistics.toFixed(2) : '';
                   })()}
                   className="bg-slate-50 dark:bg-slate-800 cursor-not-allowed"
                   title={t('supplierOrderDetails.itemForm.logisticsAutoCalculated')}

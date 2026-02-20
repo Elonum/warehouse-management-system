@@ -73,7 +73,7 @@ func (s *SupplierOrderItemService) recalcAndUpdateOrderAggregates(ctx context.Co
 
 	for _, item := range items {
 		totalQty += item.OrderedQty
-		totalWeight += float64(item.TotalWeight)
+		totalWeight += float64(item.TotalWeight) // TotalWeight is in grams
 		if item.TotalPrice != nil {
 			totalCost += *item.TotalPrice
 		}
@@ -82,9 +82,11 @@ func (s *SupplierOrderItemService) recalcAndUpdateOrderAggregates(ctx context.Co
 		}
 	}
 
+	// Convert total weight from grams to kilograms for storage in order_item_weight
 	var weightPtr *float64
-	if positionsQty > 0 {
-		weightPtr = &totalWeight
+	if positionsQty > 0 && totalWeight > 0 {
+		weightInKg := totalWeight / 1000.0
+		weightPtr = &weightInKg
 	}
 
 	var costPtr *float64

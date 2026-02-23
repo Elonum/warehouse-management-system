@@ -28,6 +28,7 @@ const translations = {
       deleting: 'Удаление...',
       notSpecified: 'Не указан',
       noData: 'Нет данных',
+      calculated: 'Расчётные значения',
     },
     layout: {
       appName: 'WareFlow',
@@ -573,6 +574,9 @@ const translations = {
         logistics: 'Логистика',
         unitLogisticsLabel: 'За товар',
         totalLogisticsLabel: 'Итого',
+        selfCost: 'Себестоимость',
+        unitSelfCostLabel: 'За ед.',
+        totalSelfCostLabel: 'Итого',
         actions: 'Действия',
       },
       itemForm: {
@@ -584,6 +588,8 @@ const translations = {
         unitLogistics: 'Логистика на ед.',
         logisticsAutoCalculated: 'Рассчитывается автоматически пропорционально весу',
         totalLogistics: 'Логистика',
+        totalPrice: 'Сумма закупки',
+        totalSelfCost: 'Себестоимость итого',
         submitCreate: 'Добавить',
         submitUpdate: 'Сохранить',
       },
@@ -747,6 +753,7 @@ const translations = {
       deleting: 'Deleting...',
       notSpecified: 'Not specified',
       noData: 'No data',
+      calculated: 'Calculated values',
     },
     layout: {
       appName: 'WareFlow',
@@ -1292,6 +1299,9 @@ const translations = {
         logistics: 'Logistics',
         unitLogisticsLabel: 'Per item',
         totalLogisticsLabel: 'Total',
+        selfCost: 'Self-cost',
+        unitSelfCostLabel: 'Per unit',
+        totalSelfCostLabel: 'Total',
         actions: 'Actions',
       },
       itemForm: {
@@ -1303,6 +1313,8 @@ const translations = {
         unitLogistics: 'Logistics per unit',
         logisticsAutoCalculated: 'Calculated automatically proportional to weight',
         totalLogistics: 'Logistics',
+        totalPrice: 'Purchase total',
+        totalSelfCost: 'Self-cost total',
         submitCreate: 'Add',
         submitUpdate: 'Save',
       },

@@ -577,19 +577,27 @@ export default function SupplierOrderDetails() {
 
   const calculateItemTotals = (formData) => {
     const orderedQty = normalizeQty(formData.orderedQty);
+    const receivedQty = normalizeQty(formData.receivedQty);
     const purchasePrice = parseFloat(formData.purchasePrice) || 0;
     const product = productsMap.get(formData.productId);
     const unitWeight = product?.unitWeight || 0;
 
-    const totalPrice = purchasePrice * orderedQty;
+    const totalPrice = purchasePrice > 0 ? purchasePrice * orderedQty : 0;
     const totalWeight = unitWeight * orderedQty;
-    
-    // Calculate logistics automatically based on weight distribution
+
+    // Logistics: auto-calculated proportional to weight
     const { unitLogistics, totalLogistics } = calculateItemLogistics(totalWeight, orderedQty);
-    
-    const unitSelfCost = purchasePrice + unitLogistics;
-    const totalSelfCost = unitSelfCost * orderedQty;
-    const fulfillmentCost = totalLogistics * 0.1;
+
+    // Self-cost: purchase_price + unit_logistics (mirrors backend logic)
+    // total_self_cost uses receivedQty (goods actually received), matching backend
+    let unitSelfCost = null;
+    let totalSelfCost = null;
+    if (purchasePrice > 0 || unitLogistics != null) {
+      unitSelfCost = purchasePrice + (unitLogistics ?? 0);
+      // For preview in the form we use orderedQty since receivedQty may be 0 on creation
+      const qtyForSelfCost = receivedQty > 0 ? receivedQty : orderedQty;
+      totalSelfCost = unitSelfCost * qtyForSelfCost;
+    }
 
     return {
       totalPrice,
@@ -598,7 +606,6 @@ export default function SupplierOrderDetails() {
       unitLogistics,
       unitSelfCost,
       totalSelfCost,
-      fulfillmentCost,
     };
   };
 
@@ -644,13 +651,12 @@ export default function SupplierOrderDetails() {
       purchasePrice: itemForm.purchasePrice ? parseFloat(itemForm.purchasePrice) : null,
       totalPrice: totals.totalPrice || null,
       totalWeight: totals.totalWeight,
-      // Save logistics if calculated (can be 0 or positive)
-      // null means logistics was not calculated (order doesn't have logistics_total or order_item_weight)
+      // Logistics: null means not yet calculable (order has no logistics_total / weight)
       totalLogistics: totals.totalLogistics != null ? totals.totalLogistics : null,
       unitLogistics: totals.unitLogistics != null ? totals.unitLogistics : null,
-      unitSelfCost: totals.unitSelfCost || null,
-      totalSelfCost: totals.totalSelfCost || null,
-      fulfillmentCost: totals.fulfillmentCost || null,
+      // Self-cost is recalculated server-side; send preview values so optimistic UI looks right
+      unitSelfCost: totals.unitSelfCost != null ? totals.unitSelfCost : null,
+      totalSelfCost: totals.totalSelfCost != null ? totals.totalSelfCost : null,
     };
 
     if (currentItem) {
@@ -794,6 +800,24 @@ export default function SupplierOrderDetails() {
             </span>
             <span className="font-semibold text-slate-900 dark:text-slate-100">
               {t('supplierOrderDetails.table.totalLogisticsLabel')}: {totalLogistics != null ? `₽${totalLogistics.toLocaleString('ru-RU', { minimumFractionDigits: 2 })}` : '—'}
+            </span>
+          </div>
+        );
+      },
+    },
+    {
+      accessorKey: 'selfCost',
+      header: t('supplierOrderDetails.table.selfCost'),
+      cell: ({ row }) => {
+        const unitSelfCost = row.original.unitSelfCost;
+        const totalSelfCost = row.original.totalSelfCost;
+        return (
+          <div className="flex flex-col text-sm">
+            <span className="text-slate-600 dark:text-slate-400">
+              {t('supplierOrderDetails.table.unitSelfCostLabel')}: {unitSelfCost != null ? `₽${unitSelfCost.toFixed(2)}` : '—'}
+            </span>
+            <span className="font-semibold text-slate-900 dark:text-slate-100">
+              {t('supplierOrderDetails.table.totalSelfCostLabel')}: {totalSelfCost != null ? `₽${totalSelfCost.toLocaleString('ru-RU', { minimumFractionDigits: 2 })}` : '—'}
             </span>
           </div>
         );
@@ -1218,8 +1242,12 @@ export default function SupplierOrderDetails() {
                   value={itemForm.receivedQty}
                   onChange={(e) => {
                     const raw = e.target.value;
-                    const qty = raw === '' ? '' : parseInt(raw) || 0;
-                    setItemForm({ ...itemForm, receivedQty: raw });
+                    const totals = calculateItemTotals({ ...itemForm, receivedQty: raw });
+                    setItemForm({
+                      ...itemForm,
+                      receivedQty: raw,
+                      totalSelfCost: totals.totalSelfCost,
+                    });
                   }}
                 />
               </div>
@@ -1272,39 +1300,32 @@ export default function SupplierOrderDetails() {
                 </p>
               </div>
             </div>
-            <div className="p-3 bg-slate-50 dark:bg-slate-800 rounded-lg">
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <span className="text-slate-500">
-                    {t('supplierOrderDetails.table.totalPrice')}:
-                  </span>{' '}
+            {/* Calculated fields preview */}
+            <div className="p-3 bg-slate-50 dark:bg-slate-800 rounded-lg space-y-1">
+              <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-2 uppercase tracking-wide">
+                {t('common.calculated')}
+              </p>
+              <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-slate-500">{t('supplierOrderDetails.itemForm.totalPrice')}:</span>
+                  <span className="font-semibold">₽{(itemForm.totalPrice || 0).toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">{t('supplierOrderDetails.table.weight')}:</span>
                   <span className="font-semibold">
-                    ₽{(itemForm.totalPrice || 0).toFixed(2)}
+                    {itemForm.totalWeight || 0} {t('supplierOrderDetails.weight.unitGrams')}
                   </span>
                 </div>
-                <div>
-                  <span className="text-slate-500">
-                    {t('supplierOrderDetails.summaryTotal')}:
-                  </span>{' '}
+                <div className="flex justify-between">
+                  <span className="text-slate-500">{t('supplierOrderDetails.itemForm.totalLogistics')}:</span>
                   <span className="font-semibold">
-                    ₽{(itemForm.totalSelfCost || 0).toFixed(2)}
+                    {itemForm.totalLogistics != null ? `₽${Number(itemForm.totalLogistics).toFixed(2)}` : '—'}
                   </span>
                 </div>
-                <div>
-                  <span className="text-slate-500">
-                    {t('supplierOrderDetails.table.weight')}:
-                  </span>{' '}
-                  <span className="font-semibold">
-                    {itemForm.totalWeight || 0}{' '}
-                    {t('supplierOrderDetails.weight.unitGrams')}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-slate-500">
-                    {t('supplierOrderDetails.itemForm.totalLogistics')}:
-                  </span>{' '}
-                  <span className="font-semibold">
-                    ₽{(itemForm.totalLogistics || 0).toFixed(2)}
+                <div className="flex justify-between">
+                  <span className="text-slate-500">{t('supplierOrderDetails.itemForm.totalSelfCost')}:</span>
+                  <span className="font-semibold text-indigo-600 dark:text-indigo-400">
+                    {itemForm.totalSelfCost != null ? `₽${Number(itemForm.totalSelfCost).toFixed(2)}` : '—'}
                   </span>
                 </div>
               </div>

@@ -288,7 +288,8 @@ func (r *SupplierOrderItemRepository) UpdateLogisticsForOrder(ctx context.Contex
 	return err
 }
 
-// UpdateLogisticsForAllOrderItems updates logistics for all items in an order
+// UpdateLogisticsForAllOrderItems updates logistics for all items in an order.
+// Deprecated: use UpdateComputedFieldsForAllOrderItems which also handles self-cost.
 func (r *SupplierOrderItemRepository) UpdateLogisticsForAllOrderItems(ctx context.Context, orderID uuid.UUID, updates map[uuid.UUID]struct {
 	UnitLogistics  *float64
 	TotalLogistics *float64
@@ -315,6 +316,50 @@ func (r *SupplierOrderItemRepository) UpdateLogisticsForAllOrderItems(ctx contex
 	for itemID, logistics := range updates {
 		_, err := tx.Exec(ctx, query, logistics.UnitLogistics, logistics.TotalLogistics, itemID, orderID)
 		if err != nil {
+			return err
+		}
+	}
+
+	return tx.Commit(ctx)
+}
+
+// ComputedItemFields holds all server-side computed fields for a batch update.
+type ComputedItemFields struct {
+	UnitLogistics  *float64
+	TotalLogistics *float64
+	UnitSelfCost   *float64
+	TotalSelfCost  *float64
+}
+
+// UpdateComputedFieldsForAllOrderItems updates logistics and self-cost for all items in an order
+// within a single transaction for consistency.
+func (r *SupplierOrderItemRepository) UpdateComputedFieldsForAllOrderItems(ctx context.Context, orderID uuid.UUID, updates map[uuid.UUID]ComputedItemFields) error {
+	if len(updates) == 0 {
+		return nil
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	const query = `
+		UPDATE supplier_order_items
+		SET unit_logistics = $1, total_logistics = $2,
+		    unit_self_cost = $3, total_self_cost = $4
+		WHERE order_item_id = $5 AND order_id = $6
+	`
+
+	for itemID, f := range updates {
+		if _, err := tx.Exec(ctx, query,
+			f.UnitLogistics, f.TotalLogistics,
+			f.UnitSelfCost, f.TotalSelfCost,
+			itemID, orderID,
+		); err != nil {
 			return err
 		}
 	}

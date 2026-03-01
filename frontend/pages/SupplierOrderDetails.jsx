@@ -70,6 +70,8 @@ const emptyItem = {
   unitSelfCost: null,
   totalSelfCost: null,
   fulfillmentCost: null,
+  // Custom weight per unit (grams). If null → falls back to product.unitWeight
+  customUnitWeight: '',
 };
 
 const computeOrderAggregatesFromItems = (items) => {
@@ -103,6 +105,7 @@ export default function SupplierOrderDetails() {
   const orderId = orderIdParam || null;
   const queryClient = useQueryClient();
 
+  const [activeTab, setActiveTab] = useState('items');
   const [itemDialogOpen, setItemDialogOpen] = useState(false);
   const [deleteItemDialogOpen, setDeleteItemDialogOpen] = useState(false);
   const [currentItem, setCurrentItem] = useState(null);
@@ -514,6 +517,21 @@ export default function SupplierOrderDetails() {
 
   const handleEditItem = (item) => {
     setCurrentItem(item);
+
+    // Reverse-calculate the per-unit weight that was used when saving this item.
+    // If the stored totalWeight differs from product.unitWeight * orderedQty, the user
+    // had set a custom weight — restore it so they can see and edit it.
+    const product = productsMap.get(item.productId);
+    const productUnitWeight = product?.unitWeight || 0;
+    const orderedQty = item.orderedQty || 0;
+    const storedTotalWeight = item.totalWeight || 0;
+    const derivedUnitWeight = orderedQty > 0 ? storedTotalWeight / orderedQty : 0;
+    // Show custom weight only when it meaningfully differs from the product default
+    const isCustomWeight = productUnitWeight > 0
+      ? Math.abs(derivedUnitWeight - productUnitWeight) > 0.001
+      : derivedUnitWeight > 0;
+    const customUnitWeight = isCustomWeight ? String(derivedUnitWeight) : '';
+
     setItemForm({
       productId: item.productId,
       warehouseId: item.warehouseId,
@@ -527,6 +545,7 @@ export default function SupplierOrderDetails() {
       unitSelfCost: item.unitSelfCost || null,
       totalSelfCost: item.totalSelfCost || null,
       fulfillmentCost: item.fulfillmentCost || null,
+      customUnitWeight,
     });
     setItemDialogOpen(true);
   };
@@ -580,7 +599,12 @@ export default function SupplierOrderDetails() {
     const receivedQty = normalizeQty(formData.receivedQty);
     const purchasePrice = parseFloat(formData.purchasePrice) || 0;
     const product = productsMap.get(formData.productId);
-    const unitWeight = product?.unitWeight || 0;
+
+    // Use custom weight if provided, otherwise fall back to product's unitWeight
+    const customWeight = formData.customUnitWeight !== '' && formData.customUnitWeight != null
+      ? parseFloat(formData.customUnitWeight) || 0
+      : null;
+    const unitWeight = customWeight != null ? customWeight : (product?.unitWeight || 0);
 
     const totalPrice = purchasePrice > 0 ? purchasePrice * orderedQty : 0;
     const totalWeight = unitWeight * orderedQty;
@@ -737,20 +761,22 @@ export default function SupplierOrderDetails() {
       header: t('supplierOrderDetails.table.weight'),
       cell: ({ row }) => {
         const product = productsMap.get(row.original.productId);
-        const unitWeightGrams = product?.unitWeight || 0;
         const orderedQty = row.original.orderedQty || 0;
         const totalWeightGrams =
           row.original.totalWeight != null
             ? row.original.totalWeight
-            : unitWeightGrams * orderedQty;
+            : (product?.unitWeight || 0) * orderedQty;
+        // Derive per-unit weight from stored total (reflects any custom override)
+        const effectiveUnitWeightGrams =
+          orderedQty > 0 ? totalWeightGrams / orderedQty : (product?.unitWeight || 0);
         const totalWeightKg = totalWeightGrams / 1000;
 
         return (
           <div className="flex flex-col text-sm text-slate-700 dark:text-slate-300">
             <span>
               {t('supplierOrderDetails.weight.perUnit')}{' '}
-              {unitWeightGrams
-                ? `${unitWeightGrams} ${t(
+              {effectiveUnitWeightGrams
+                ? `${effectiveUnitWeightGrams} ${t(
                     'supplierOrderDetails.weight.unitGrams'
                   )}`
                 : '—'}
@@ -825,7 +851,7 @@ export default function SupplierOrderDetails() {
     },
     {
       id: 'actions',
-      header: t('supplierOrderDetails.table.actions'),
+      header: '',
       sortable: false,
       cell: ({ row }) => (
         <DropdownMenu>
@@ -1021,7 +1047,7 @@ export default function SupplierOrderDetails() {
         </Card>
       </div>
 
-      <Tabs defaultValue="items">
+      <Tabs defaultValue="items" onValueChange={setActiveTab}>
         <div className="flex items-center justify-between mb-4">
           <TabsList>
             <TabsTrigger value="items">
@@ -1031,10 +1057,20 @@ export default function SupplierOrderDetails() {
               {t('supplierOrderDetails.tabsDocuments')} ({orderDocuments.length})
             </TabsTrigger>
           </TabsList>
-          <Button onClick={() => { resetItemForm(); setItemDialogOpen(true); }}>
-            <Plus className="w-4 h-4 mr-2" />
-            {t('supplierOrderDetails.addItem')}
-          </Button>
+          <div className="flex items-center gap-2">
+            {activeTab === 'items' && (
+              <Button onClick={() => { resetItemForm(); setItemDialogOpen(true); }}>
+                <Plus className="w-4 h-4 mr-2" />
+                {t('supplierOrderDetails.addItem')}
+              </Button>
+            )}
+            {activeTab === 'documents' && (
+              <Button onClick={() => { resetDocumentForm(); setDocumentDialogOpen(true); }}>
+                <Upload className="w-4 h-4 mr-2" />
+                {t('supplierOrderDetails.documents.upload')}
+              </Button>
+            )}
+          </div>
         </div>
 
         <TabsContent value="items" className="space-y-4">
@@ -1053,12 +1089,6 @@ export default function SupplierOrderDetails() {
               {uploadError}
             </div>
           )}
-          <div className="flex justify-end">
-            <Button onClick={() => { resetDocumentForm(); setDocumentDialogOpen(true); }}>
-              <Upload className="w-4 h-4 mr-2" />
-              Загрузить документ
-            </Button>
-          </div>
           <div className="grid gap-4">
             {orderDocuments.length === 0 ? (
               <Card className="dark:bg-slate-900 dark:border-slate-800">
@@ -1149,14 +1179,17 @@ export default function SupplierOrderDetails() {
                   value={itemForm.productId ? itemForm.productId.toString() : ''}
                   onValueChange={(value) => {
                     const qty = normalizeQty(itemForm.orderedQty);
-                    const totals = calculateItemTotals({ ...itemForm, productId: value || null, orderedQty: qty });
+                    // When product changes, reset custom weight so product default is used
+                    const updatedForm = { ...itemForm, productId: value || null, orderedQty: qty, customUnitWeight: '' };
+                    const totals = calculateItemTotals(updatedForm);
                     setItemForm({ 
-                      ...itemForm, 
-                      productId: value || null,
+                      ...updatedForm,
                       totalWeight: totals.totalWeight,
                       totalPrice: totals.totalPrice,
                       totalLogistics: totals.totalLogistics,
+                      unitLogistics: totals.unitLogistics,
                       totalSelfCost: totals.totalSelfCost,
+                      unitSelfCost: totals.unitSelfCost,
                     });
                   }}
                 >
@@ -1279,24 +1312,38 @@ export default function SupplierOrderDetails() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="unitLogistics">
-                  {t('supplierOrderDetails.itemForm.unitLogistics')} (₽)
+                <Label htmlFor="customUnitWeight">
+                  {t('supplierOrderDetails.itemForm.itemWeight')} ({t('supplierOrderDetails.weight.unitGrams')})
                 </Label>
                 <Input
-                  id="unitLogistics"
+                  id="customUnitWeight"
                   type="number"
-                  step="0.01"
+                  step="1"
                   min="0"
-                  readOnly
-                  value={(() => {
-                    const totals = calculateItemTotals(itemForm);
-                    return totals.unitLogistics != null ? totals.unitLogistics.toFixed(2) : '';
+                  value={itemForm.customUnitWeight}
+                  placeholder={(() => {
+                    const product = productsMap.get(itemForm.productId);
+                    const defaultWeight = product?.unitWeight;
+                    return defaultWeight != null
+                      ? String(defaultWeight)
+                      : t('supplierOrderDetails.itemForm.itemWeightPlaceholder');
                   })()}
-                  className="bg-slate-50 dark:bg-slate-800 cursor-not-allowed"
-                  title={t('supplierOrderDetails.itemForm.logisticsAutoCalculated')}
+                  onChange={(e) => {
+                    const raw = e.target.value;
+                    const updatedForm = { ...itemForm, customUnitWeight: raw };
+                    const totals = calculateItemTotals(updatedForm);
+                    setItemForm({
+                      ...updatedForm,
+                      totalWeight: totals.totalWeight,
+                      totalLogistics: totals.totalLogistics,
+                      unitLogistics: totals.unitLogistics,
+                      totalSelfCost: totals.totalSelfCost,
+                      unitSelfCost: totals.unitSelfCost,
+                    });
+                  }}
                 />
                 <p className="text-xs text-slate-500 dark:text-slate-400">
-                  {t('supplierOrderDetails.itemForm.logisticsAutoCalculated')}
+                  {t('supplierOrderDetails.itemForm.itemWeightHint')}
                 </p>
               </div>
             </div>

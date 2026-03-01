@@ -346,6 +346,9 @@ export default function SupplierOrders() {
     const today = new Date().toISOString().split('T')[0];
     setFormData({
       ...emptyOrder,
+      // Номер заказа теперь генерируется на бэкенде, поэтому при создании
+      // мы показываем пустое поле/подсказку, а при редактировании — фактический номер.
+      orderNumber: '',
       purchaseDate: today,
     });
     setCurrentOrder(null);
@@ -400,12 +403,6 @@ export default function SupplierOrders() {
     e.preventDefault();
     setError('');
 
-    const orderNumber = formData.orderNumber.trim();
-    if (!orderNumber) {
-      setError(t('supplierOrders.form.orderNumberRequired'));
-      return;
-    }
-
     if (!formData.statusId) {
       setError(t('supplierOrders.form.statusRequired'));
       return;
@@ -424,7 +421,7 @@ export default function SupplierOrders() {
     );
 
     const data = {
-      orderNumber,
+      // orderNumber генерируется на сервере; фронтенд его не задаёт.
       buyer: buyerTrimmed || null,
       statusId: formData.statusId || null,
       purchaseDate: formData.purchaseDate ? new Date(formData.purchaseDate).toISOString() : null,
@@ -817,13 +814,12 @@ export default function SupplierOrders() {
             )}
             <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="orderNumber">{t('supplierOrders.form.orderNumber')} *</Label>
+              <Label htmlFor="orderNumber">{t('supplierOrders.form.orderNumber')}</Label>
               <Input
                 id="orderNumber"
-                value={formData.orderNumber}
-                onChange={(e) => setFormData({ ...formData, orderNumber: e.target.value })}
-                required
-                maxLength={100}
+                value={currentOrder ? (currentOrder.orderNumber || '') : t('supplierOrders.form.orderNumberAuto')}
+                readOnly
+                disabled
               />
             </div>
             <div className="space-y-2">

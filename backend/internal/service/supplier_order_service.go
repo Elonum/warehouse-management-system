@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/google/uuid"
 	"warehouse-backend/internal/dto"
@@ -51,8 +52,9 @@ func (s *SupplierOrderService) GetByID(ctx context.Context, orderID uuid.UUID) (
 	}
 
 	return &dto.SupplierOrderResponse{
-		OrderID:             order.OrderID.String(),
+		// Numbering
 		OrderNumber:         order.OrderNumber,
+		OrderID:             order.OrderID.String(),
 		Buyer:               order.Buyer,
 		StatusID:            statusIDStr,
 		PurchaseDate:        order.PurchaseDate,
@@ -186,8 +188,49 @@ func (s *SupplierOrderService) Create(ctx context.Context, userID uuid.UUID, req
 		}
 	}
 
+	// --- numbering ---
+	// For now, order numbers are generated automatically on the backend.
+	// Parent orders: N, sub-orders: N.1, N.2, ...
+	var mainNumber int
+	var subNumber *int
+	var orderNumber string
+
+	if parentOrderID != nil {
+		// Sub-order: get parent's main number and next sub-number for that main.
+		parentOrder, err := s.repo.GetByID(ctx, *parentOrderID)
+		if err != nil {
+			if err == repository.ErrSupplierOrderNotFound {
+				log.Warn().Str("parentOrderId", (*parentOrderID).String()).Msg("Parent order not found when generating sub-order number")
+				return nil, repository.ErrSupplierOrderNotFound
+			}
+			log.Error().Err(err).Str("parentOrderId", (*parentOrderID).String()).Msg("Failed to load parent order for numbering")
+			return nil, err
+		}
+
+		mainNumber = parentOrder.MainNumber
+		nextSub, err := s.repo.GetNextSubNumber(ctx, mainNumber)
+		if err != nil {
+			log.Error().Err(err).Int("mainNumber", mainNumber).Msg("Failed to determine next sub-number for supplier order")
+			return nil, err
+		}
+		subNumber = &nextSub
+		orderNumber = fmt.Sprintf("%d.%d", mainNumber, nextSub)
+	} else {
+		// Main order: get next main number across all orders.
+		nextMain, err := s.repo.GetNextMainNumber(ctx)
+		if err != nil {
+			log.Error().Err(err).Msg("Failed to determine next main number for supplier order")
+			return nil, err
+		}
+		mainNumber = nextMain
+		subNumber = nil
+		orderNumber = fmt.Sprintf("%d", mainNumber)
+	}
+
 	order, err := s.repo.Create(ctx,
-		req.OrderNumber,
+		orderNumber,
+		mainNumber,
+		subNumber,
 		req.Buyer,
 		statusID,
 		req.PurchaseDate,
@@ -315,8 +358,19 @@ func (s *SupplierOrderService) Update(ctx context.Context, orderID, userID uuid.
 		}
 	}
 
+	// Preserve existing numbering for now: order numbers are immutable via this endpoint.
+	existingOrder, err := s.repo.GetByID(ctx, orderID)
+	if err != nil {
+		if err == repository.ErrSupplierOrderNotFound {
+			log.Warn().Str("orderId", orderID.String()).Msg("Supplier order not found during update (while loading existing order)")
+			return nil, repository.ErrSupplierOrderNotFound
+		}
+		log.Error().Err(err).Str("orderId", orderID.String()).Msg("Failed to load existing supplier order for update")
+		return nil, err
+	}
+
 	order, err := s.repo.Update(ctx, orderID,
-		req.OrderNumber,
+		existingOrder.OrderNumber,
 		req.Buyer,
 		statusID,
 		req.PurchaseDate,

@@ -111,25 +111,45 @@ CREATE TABLE IF NOT EXISTS order_statuses (
 
 CREATE TABLE IF NOT EXISTS supplier_orders (
     order_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    order_number VARCHAR(50) UNIQUE NOT NULL,
+
+    -- Human-readable order number, e.g. "5" for main order or "5.1" for sub-order.
+    order_number VARCHAR(50) NOT NULL,
+
+    -- Structured numeric components for robust sorting and grouping.
+    -- main_number is the sequence of the main order (1,2,3,...).
+    -- sub_number is NULL for main orders and 1,2,3,... for sub-orders of a given main order.
+    main_number INTEGER NOT NULL,
+    sub_number  INTEGER,
+
     buyer VARCHAR(100),
     status_id UUID REFERENCES order_statuses(order_status_id),
+
     purchase_date DATE,
     planned_receipt_date DATE,
     actual_receipt_date DATE,
+
     logistics_china_msk DECIMAL(10,2),
-    logistics_msk_kzn DECIMAL(10,2),
+    logistics_msk_kzn   DECIMAL(10,2),
     logistics_additional DECIMAL(10,2),
-    logistics_total DECIMAL(10,2),
+    logistics_total     DECIMAL(10,2),
+
     order_item_cost DECIMAL(10,2),
-    positions_qty INTEGER NOT NULL DEFAULT 0,
-    total_qty INTEGER NOT NULL DEFAULT 0,
+    positions_qty   INTEGER NOT NULL DEFAULT 0,
+    total_qty       INTEGER NOT NULL DEFAULT 0,
     order_item_weight DECIMAL(10,2),
+
     parent_order_id UUID REFERENCES supplier_orders(order_id),
+
     created_by UUID REFERENCES users(user_id),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_by UUID REFERENCES users(user_id),
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    -- Ensure there cannot be two orders with the same main/sub pair.
+    CONSTRAINT supplier_orders_main_sub_unique UNIQUE (main_number, sub_number),
+
+    -- Optional: keep order_number globally unique for safety and fast lookups.
+    CONSTRAINT supplier_orders_order_number_unique UNIQUE (order_number)
 );
 
 CREATE TABLE IF NOT EXISTS supplier_order_items (

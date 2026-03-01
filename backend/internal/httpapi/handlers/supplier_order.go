@@ -111,11 +111,6 @@ func (h *SupplierOrderHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if req.OrderNumber == "" {
-		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "orderNumber is required")
-		return
-	}
-
 	order, err := h.service.Create(r.Context(), userID, req)
 	if err != nil {
 		if err == repository.ErrSupplierOrderExists {
@@ -169,11 +164,6 @@ func (h *SupplierOrderHandler) Update(w http.ResponseWriter, r *http.Request) {
 	var req dto.SupplierOrderUpdateRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "invalid request body")
-		return
-	}
-
-	if req.OrderNumber == "" {
-		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "orderNumber is required")
 		return
 	}
 

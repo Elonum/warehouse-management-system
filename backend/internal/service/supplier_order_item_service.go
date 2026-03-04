@@ -37,17 +37,24 @@ type itemComputedFields struct {
 
 // computeItemFields calculates logistics and self-cost for an item.
 //
-// Logistics formula (weight-proportional):
+// Logistics distribution (weight-proportional, consistent at order level):
 //
-//	unit_logistics  = (item_weight_kg / order_weight_kg) * order_logistics_total
-//	total_logistics = unit_logistics * ordered_qty
+//  share_i           = item_weight_kg / total_order_weight_kg
+//  total_logistics_i = share_i * order_logistics_total
+//  unit_logistics_i  = total_logistics_i / max(received_qty, ordered_qty)
+//
+// This guarantees that the sum of total_logistics_i across all items is approximately
+// equal to order.logistics_total (up to rounding), and unit logistics is per piece.
 //
 // Self-cost formula:
 //
-//	unit_self_cost  = purchase_price + unit_logistics
-//	total_self_cost = unit_self_cost * received_qty   (cost of goods actually received)
+//  purchase_total_i      = item_total_price (or purchase_price * ordered_qty)
+//  unit_purchase_cost    = purchase_total_i / received_qty
+//  unit_self_cost        = unit_purchase_cost + unit_logistics_i
+//  total_self_cost       = unit_self_cost * received_qty
 //
-// All fields are nil when the required inputs are absent (no logistics configured on the order).
+// Self-cost is only computed when there are actually received goods (received_qty > 0);
+// otherwise it remains nil and is not shown in reports.
 func (s *SupplierOrderItemService) computeItemFields(
 	ctx context.Context,
 	orderID uuid.UUID,
@@ -55,6 +62,7 @@ func (s *SupplierOrderItemService) computeItemFields(
 	orderedQty int,
 	receivedQty int,
 	purchasePrice *float64,
+	totalPrice *float64,
 ) (itemComputedFields, error) {
 	order, err := s.orderRepo.GetByID(ctx, orderID)
 	if err != nil {
@@ -62,33 +70,59 @@ func (s *SupplierOrderItemService) computeItemFields(
 	}
 
 	// --- logistics ---
+	// total_logistics_i = share_i * order_logistics_total
+	// unit_logistics_i  = total_logistics_i / max(received_qty, ordered_qty)
 	var unitLogistics, totalLogistics *float64
 
 	if order.LogisticsTotal != nil && *order.LogisticsTotal > 0 &&
-		order.OrderItemWeight != nil && *order.OrderItemWeight > 0 {
+		order.OrderItemWeight != nil && *order.OrderItemWeight > 0 &&
+		itemWeightGrams > 0 {
 
 		itemWeightKg := float64(itemWeightGrams) / 1000.0
-		ul := (itemWeightKg / *order.OrderItemWeight) * *order.LogisticsTotal
-		tl := ul * float64(orderedQty)
-		unitLogistics = &ul
-		totalLogistics = &tl
+		totalOrderWeightKg := *order.OrderItemWeight
+		if totalOrderWeightKg > 0 {
+			share := itemWeightKg / totalOrderWeightKg
+			if share > 0 {
+				tl := *order.LogisticsTotal * share
+				totalLogistics = &tl
+
+				qtyForUnit := receivedQty
+				if qtyForUnit <= 0 {
+					qtyForUnit = orderedQty
+				}
+				if qtyForUnit > 0 {
+					ul := tl / float64(qtyForUnit)
+					unitLogistics = &ul
+				}
+			}
+		}
 	}
 
 	// --- self-cost ---
-	// unit_self_cost = purchase_price + unit_logistics (both must be present)
 	var unitSelfCost, totalSelfCost *float64
 
-	if purchasePrice != nil && unitLogistics != nil {
-		usc := *purchasePrice + *unitLogistics
-		tsc := usc * float64(receivedQty)
-		unitSelfCost = &usc
-		totalSelfCost = &tsc
-	} else if purchasePrice != nil {
-		// logistics not configured yet — self-cost equals purchase price only
-		usc := *purchasePrice
-		tsc := usc * float64(receivedQty)
-		unitSelfCost = &usc
-		totalSelfCost = &tsc
+	// Self-cost is meaningful only when the goods are received.
+	if receivedQty > 0 {
+		// Determine total purchase sum for the item.
+		var purchaseTotal float64
+		if totalPrice != nil {
+			purchaseTotal = *totalPrice
+		} else if purchasePrice != nil {
+			purchaseTotal = *purchasePrice * float64(orderedQty)
+		}
+
+		if purchaseTotal > 0 {
+			unitPurchase := purchaseTotal / float64(receivedQty)
+			var logisticsPerUnit float64
+			if unitLogistics != nil {
+				logisticsPerUnit = *unitLogistics
+			}
+
+			usc := unitPurchase + logisticsPerUnit
+			tsc := usc * float64(receivedQty)
+			unitSelfCost = &usc
+			totalSelfCost = &tsc
+		}
 	}
 
 	return itemComputedFields{
@@ -136,14 +170,26 @@ func (s *SupplierOrderItemService) recalcAndUpdateOrderAggregates(ctx context.Co
 		costPtr = &totalCost
 	}
 
-	var logisticsPtr *float64
-	if positionsQty > 0 {
-		logisticsPtr = &totalLogistics
-	}
-
-	if err := s.orderRepo.UpdateAggregates(ctx, orderID, positionsQty, totalQty, weightPtr, costPtr, logisticsPtr, &userID); err != nil {
+	if err := s.orderRepo.UpdateAggregates(ctx, orderID, positionsQty, totalQty, weightPtr, costPtr, &userID); err != nil {
 		log.Error().Err(err).Str("orderId", orderID.String()).Msg("Failed to update supplier order aggregates")
 		return err
+	}
+
+	// After aggregates are updated (including total order weight), recalculate logistics
+	// and self-cost for all items if the order has logistics configured.
+	order, err := s.orderRepo.GetByID(ctx, orderID)
+	if err != nil {
+		log.Error().Err(err).Str("orderId", orderID.String()).Msg("Failed to load supplier order for post-aggregate logistics recalculation")
+		// Aggregates are already updated; do not fail hard, just stop here.
+		return nil
+	}
+
+	if order.LogisticsTotal != nil && *order.LogisticsTotal > 0 &&
+		order.OrderItemWeight != nil && *order.OrderItemWeight > 0 {
+
+		if recalcErr := s.RecalculateLogisticsForAllItems(ctx, orderID); recalcErr != nil {
+			log.Warn().Err(recalcErr).Str("orderId", orderID.String()).Msg("Failed to recalculate logistics for all items after aggregates update")
+		}
 	}
 
 	return nil
@@ -246,7 +292,7 @@ func (s *SupplierOrderItemService) Create(ctx context.Context, userID uuid.UUID,
 	}
 
 	// Server-side computation: logistics + self-cost (overrides any client-provided values)
-	computed, calcErr := s.computeItemFields(ctx, orderID, req.TotalWeight, req.OrderedQty, req.ReceivedQty, req.PurchasePrice)
+	computed, calcErr := s.computeItemFields(ctx, orderID, req.TotalWeight, req.OrderedQty, req.ReceivedQty, req.PurchasePrice, req.TotalPrice)
 	if calcErr != nil {
 		log.Warn().Err(calcErr).Str("orderId", req.OrderID).Msg("Failed to compute item fields, proceeding without computed values")
 	}
@@ -331,7 +377,7 @@ func (s *SupplierOrderItemService) Update(ctx context.Context, itemID, userID uu
 	}
 
 	// Server-side computation: logistics + self-cost (overrides any client-provided values)
-	computed, calcErr := s.computeItemFields(ctx, orderID, req.TotalWeight, req.OrderedQty, req.ReceivedQty, req.PurchasePrice)
+	computed, calcErr := s.computeItemFields(ctx, orderID, req.TotalWeight, req.OrderedQty, req.ReceivedQty, req.PurchasePrice, req.TotalPrice)
 	if calcErr != nil {
 		log.Warn().Err(calcErr).Str("orderId", req.OrderID).Msg("Failed to compute item fields, proceeding without computed values")
 	}
@@ -401,7 +447,7 @@ func (s *SupplierOrderItemService) RecalculateLogisticsForAllItems(ctx context.C
 	updates := make(map[uuid.UUID]repository.ComputedItemFields, len(items))
 
 	for _, item := range items {
-		computed, calcErr := s.computeItemFields(ctx, orderID, item.TotalWeight, item.OrderedQty, item.ReceivedQty, item.PurchasePrice)
+		computed, calcErr := s.computeItemFields(ctx, orderID, item.TotalWeight, item.OrderedQty, item.ReceivedQty, item.PurchasePrice, item.TotalPrice)
 		if calcErr != nil {
 			log.Warn().Err(calcErr).Str("itemId", item.OrderItemID.String()).Msg("Failed to compute fields for item during recalculation, skipping")
 			continue

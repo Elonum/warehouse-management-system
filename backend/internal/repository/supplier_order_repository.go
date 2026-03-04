@@ -360,24 +360,26 @@ func (r *SupplierOrderRepository) GetNextSubNumber(ctx context.Context, mainNumb
 	return next, nil
 }
 
-// UpdateAggregates updates only aggregate fields of the order to keep data consistent with items.
-func (r *SupplierOrderRepository) UpdateAggregates(ctx context.Context, orderID uuid.UUID, positionsQty, totalQty int, orderItemWeight, orderItemCost, logisticsTotal *float64, updatedBy *uuid.UUID) error {
+// UpdateAggregates updates only aggregate fields of the order that are derived from items.
+// IMPORTANT:
+//   - logistics_total is *not* touched here and is controlled by business logic
+//     (logistics_china_msk + logistics_msk_kzn + logistics_additional).
+func (r *SupplierOrderRepository) UpdateAggregates(ctx context.Context, orderID uuid.UUID, positionsQty, totalQty int, orderItemWeight, orderItemCost *float64, updatedBy *uuid.UUID) error {
 	query := `
 		UPDATE supplier_orders
 		SET positions_qty = $1,
 		    total_qty = $2,
 		    order_item_weight = $3,
 		    order_item_cost = $4,
-		    logistics_total = $5,
-		    updated_by = $6,
+		    updated_by = $5,
 		    updated_at = CURRENT_TIMESTAMP
-		WHERE order_id = $7
+		WHERE order_id = $6
 	`
 
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
-	result, err := r.pool.Exec(ctx, query, positionsQty, totalQty, orderItemWeight, orderItemCost, logisticsTotal, updatedBy, orderID)
+	result, err := r.pool.Exec(ctx, query, positionsQty, totalQty, orderItemWeight, orderItemCost, updatedBy, orderID)
 	if err != nil {
 		return err
 	}

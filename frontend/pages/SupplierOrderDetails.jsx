@@ -570,33 +570,10 @@ export default function SupplierOrderDetails() {
     return qty || 0;
   };
 
-  // Calculate logistics automatically based on weight distribution
-  // Formula: unit_logistics = (item_weight_kg / total_order_weight_kg) * total_order_logistics
-  // Returns null if logistics cannot be calculated (order doesn't have logistics_total or order_item_weight)
-  const calculateItemLogistics = (itemWeightGrams, orderedQty) => {
-    if (!order || !order.logisticsTotal || !order.orderItemWeight) {
-      return { unitLogistics: null, totalLogistics: null };
-    }
-
-    const itemWeightKg = itemWeightGrams / 1000.0;
-    const totalOrderWeightKg = Number(order.orderItemWeight) || 0;
-    const totalOrderLogistics = Number(order.logisticsTotal) || 0;
-
-    if (totalOrderWeightKg <= 0 || totalOrderLogistics <= 0) {
-      return { unitLogistics: null, totalLogistics: null };
-    }
-
-    // Calculate unit logistics: (item_weight_kg / total_order_weight_kg) * total_order_logistics
-    const unitLogistics = (itemWeightKg / totalOrderWeightKg) * totalOrderLogistics;
-    // Calculate total logistics: unit_logistics * ordered_qty
-    const totalLogistics = unitLogistics * orderedQty;
-
-    return { unitLogistics, totalLogistics };
-  };
-
+  // Basic calculation of total price and total weight for the item.
+  // All logistics and self-cost fields are computed on the backend to keep business rules in one place.
   const calculateItemTotals = (formData) => {
     const orderedQty = normalizeQty(formData.orderedQty);
-    const receivedQty = normalizeQty(formData.receivedQty);
     const purchasePrice = parseFloat(formData.purchasePrice) || 0;
     const product = productsMap.get(formData.productId);
 
@@ -609,27 +586,9 @@ export default function SupplierOrderDetails() {
     const totalPrice = purchasePrice > 0 ? purchasePrice * orderedQty : 0;
     const totalWeight = unitWeight * orderedQty;
 
-    // Logistics: auto-calculated proportional to weight
-    const { unitLogistics, totalLogistics } = calculateItemLogistics(totalWeight, orderedQty);
-
-    // Self-cost: purchase_price + unit_logistics (mirrors backend logic)
-    // total_self_cost uses receivedQty (goods actually received), matching backend
-    let unitSelfCost = null;
-    let totalSelfCost = null;
-    if (purchasePrice > 0 || unitLogistics != null) {
-      unitSelfCost = purchasePrice + (unitLogistics ?? 0);
-      // For preview in the form we use orderedQty since receivedQty may be 0 on creation
-      const qtyForSelfCost = receivedQty > 0 ? receivedQty : orderedQty;
-      totalSelfCost = unitSelfCost * qtyForSelfCost;
-    }
-
     return {
       totalPrice,
       totalWeight,
-      totalLogistics,
-      unitLogistics,
-      unitSelfCost,
-      totalSelfCost,
     };
   };
 
@@ -675,12 +634,11 @@ export default function SupplierOrderDetails() {
       purchasePrice: itemForm.purchasePrice ? parseFloat(itemForm.purchasePrice) : null,
       totalPrice: totals.totalPrice || null,
       totalWeight: totals.totalWeight,
-      // Logistics: null means not yet calculable (order has no logistics_total / weight)
-      totalLogistics: totals.totalLogistics != null ? totals.totalLogistics : null,
-      unitLogistics: totals.unitLogistics != null ? totals.unitLogistics : null,
-      // Self-cost is recalculated server-side; send preview values so optimistic UI looks right
-      unitSelfCost: totals.unitSelfCost != null ? totals.unitSelfCost : null,
-      totalSelfCost: totals.totalSelfCost != null ? totals.totalSelfCost : null,
+      // All logistics and self-cost fields are calculated on the backend.
+      totalLogistics: null,
+      unitLogistics: null,
+      unitSelfCost: null,
+      totalSelfCost: null,
     };
 
     if (currentItem) {
@@ -1178,18 +1136,21 @@ export default function SupplierOrderDetails() {
                 <Select
                   value={itemForm.productId ? itemForm.productId.toString() : ''}
                   onValueChange={(value) => {
-                    const qty = normalizeQty(itemForm.orderedQty);
+                    const hasQty = itemForm.orderedQty !== '' && itemForm.orderedQty != null;
+                    const qtyForCalc = hasQty ? normalizeQty(itemForm.orderedQty) : 0;
+
                     // When product changes, reset custom weight so product default is used
-                    const updatedForm = { ...itemForm, productId: value || null, orderedQty: qty, customUnitWeight: '' };
-                    const totals = calculateItemTotals(updatedForm);
+                    const updatedForm = { 
+                      ...itemForm, 
+                      productId: value || null, 
+                      orderedQty: hasQty ? qtyForCalc : '', 
+                      customUnitWeight: '' 
+                    };
+                    const totals = calculateItemTotals({ ...updatedForm, orderedQty: qtyForCalc });
                     setItemForm({ 
                       ...updatedForm,
                       totalWeight: totals.totalWeight,
                       totalPrice: totals.totalPrice,
-                      totalLogistics: totals.totalLogistics,
-                      unitLogistics: totals.unitLogistics,
-                      totalSelfCost: totals.totalSelfCost,
-                      unitSelfCost: totals.unitSelfCost,
                     });
                   }}
                 >
@@ -1244,20 +1205,25 @@ export default function SupplierOrderDetails() {
                   id="orderedQty"
                   type="number"
                   min="1"
-                  value={itemForm.orderedQty}
+                  value={itemForm.orderedQty ?? ''}
                   onChange={(e) => {
                     const raw = e.target.value;
-                    const qty = raw === '' ? '' : normalizeQty(raw);
-                    const totals = calculateItemTotals({ ...itemForm, orderedQty: qty === '' ? 0 : qty });
+                    if (raw === '') {
+                      setItemForm({
+                        ...itemForm,
+                        orderedQty: '',
+                        totalWeight: 0,
+                        totalPrice: null,
+                      });
+                      return;
+                    }
+                    const qty = normalizeQty(raw);
+                    const totals = calculateItemTotals({ ...itemForm, orderedQty: qty });
                     setItemForm({ 
                       ...itemForm, 
-                      orderedQty: raw,
+                      orderedQty: qty,
                       totalWeight: totals.totalWeight,
                       totalPrice: totals.totalPrice,
-                      totalLogistics: totals.totalLogistics,
-                      unitLogistics: totals.unitLogistics,
-                      totalSelfCost: totals.totalSelfCost,
-                      unitSelfCost: totals.unitSelfCost,
                     });
                   }}
                   required
@@ -1275,11 +1241,9 @@ export default function SupplierOrderDetails() {
                   value={itemForm.receivedQty}
                   onChange={(e) => {
                     const raw = e.target.value;
-                    const totals = calculateItemTotals({ ...itemForm, receivedQty: raw });
                     setItemForm({
                       ...itemForm,
                       receivedQty: raw,
-                      totalSelfCost: totals.totalSelfCost,
                     });
                   }}
                 />
@@ -1298,15 +1262,11 @@ export default function SupplierOrderDetails() {
                   value={itemForm.purchasePrice || ''}
                   onChange={(e) => {
                     const price = parseFloat(e.target.value) || null;
-                    const totals = calculateItemTotals({ ...itemForm, purchasePrice: price });
+                    const totals = calculateItemTotals({ ...itemForm, purchasePrice: price ?? 0 });
                     setItemForm({ 
                       ...itemForm, 
                       purchasePrice: price,
                       totalPrice: totals.totalPrice,
-                      totalLogistics: totals.totalLogistics,
-                      unitLogistics: totals.unitLogistics,
-                      totalSelfCost: totals.totalSelfCost,
-                      unitSelfCost: totals.unitSelfCost,
                     });
                   }}
                 />
@@ -1335,10 +1295,6 @@ export default function SupplierOrderDetails() {
                     setItemForm({
                       ...updatedForm,
                       totalWeight: totals.totalWeight,
-                      totalLogistics: totals.totalLogistics,
-                      unitLogistics: totals.unitLogistics,
-                      totalSelfCost: totals.totalSelfCost,
-                      unitSelfCost: totals.unitSelfCost,
                     });
                   }}
                 />
@@ -1347,32 +1303,50 @@ export default function SupplierOrderDetails() {
                 </p>
               </div>
             </div>
-            {/* Calculated fields preview */}
-            <div className="p-3 bg-slate-50 dark:bg-slate-800 rounded-lg space-y-1">
-              <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-2 uppercase tracking-wide">
+            {/* Calculated fields preview (read-friendly, follows app style) */}
+            <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-lg space-y-3">
+              <p className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">
                 {t('common.calculated')}
               </p>
-              <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-slate-500">{t('supplierOrderDetails.itemForm.totalPrice')}:</span>
-                  <span className="font-semibold">₽{(itemForm.totalPrice || 0).toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500">{t('supplierOrderDetails.table.weight')}:</span>
-                  <span className="font-semibold">
-                    {itemForm.totalWeight || 0} {t('supplierOrderDetails.weight.unitGrams')}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-2 text-sm">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-slate-500 dark:text-slate-400">
+                    {t('supplierOrderDetails.itemForm.totalPrice')}:
+                  </span>
+                  <span className="font-semibold tabular-nums text-slate-900 dark:text-slate-100 max-w-[10rem] text-right truncate">
+                    {itemForm.totalPrice != null
+                      ? `₽${Number(itemForm.totalPrice).toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                      : '—'}
                   </span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500">{t('supplierOrderDetails.itemForm.totalLogistics')}:</span>
-                  <span className="font-semibold">
-                    {itemForm.totalLogistics != null ? `₽${Number(itemForm.totalLogistics).toFixed(2)}` : '—'}
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-slate-500 dark:text-slate-400">
+                    {t('supplierOrderDetails.table.weight')}:
+                  </span>
+                  <span className="font-semibold tabular-nums text-slate-900 dark:text-slate-100 max-w-[10rem] text-right truncate">
+                    {itemForm.totalWeight
+                      ? `${itemForm.totalWeight.toLocaleString('ru-RU')} ${t('supplierOrderDetails.weight.unitGrams')}`
+                      : '—'}
                   </span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500">{t('supplierOrderDetails.itemForm.totalSelfCost')}:</span>
-                  <span className="font-semibold text-indigo-600 dark:text-indigo-400">
-                    {itemForm.totalSelfCost != null ? `₽${Number(itemForm.totalSelfCost).toFixed(2)}` : '—'}
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-slate-500 dark:text-slate-400">
+                    {t('supplierOrderDetails.itemForm.totalLogistics')}:
+                  </span>
+                  <span className="font-semibold tabular-nums text-slate-900 dark:text-slate-100 max-w-[10rem] text-right truncate">
+                    {itemForm.totalLogistics != null
+                      ? `₽${Number(itemForm.totalLogistics).toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                      : t('supplierOrderDetails.itemForm.totalLogisticsPending')}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-slate-500 dark:text-slate-400">
+                    {t('supplierOrderDetails.itemForm.totalSelfCost')}:
+                  </span>
+                  <span className="font-semibold tabular-nums text-indigo-600 dark:text-indigo-400 max-w-[10rem] text-right truncate">
+                    {itemForm.totalSelfCost != null
+                      ? `₽${Number(itemForm.totalSelfCost).toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                      : t('supplierOrderDetails.itemForm.totalSelfCostPending')}
                   </span>
                 </div>
               </div>

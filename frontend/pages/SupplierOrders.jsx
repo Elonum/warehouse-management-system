@@ -56,18 +56,42 @@ import { createPageUrl } from '@/utils';
 import { useNavigate } from 'react-router-dom';
 
 const sanitizeMoneyInput = (value) => {
-  if (!value) return '';
-  let v = value.replace(',', '.').replace(/[^0-9.]/g, '');
+  if (value == null) return '';
+  // Нормализуем разделитель: запятая → точка, убираем посторонние символы
+  let v = String(value).replace(',', '.').replace(/[^0-9.]/g, '');
+  if (v === '') return '';
+
+  // Разрешаем только одну точку: всё после первой точки сливаем в дробную часть
   const parts = v.split('.');
   if (parts.length > 2) {
     v = parts[0] + '.' + parts.slice(1).join('');
   }
+
+  // Фиксируем, был ли введён разделитель в конце (например, "10.")
+  const endsWithDot = v.endsWith('.');
+
   let [intPart, fracPart] = v.split('.');
+
+  // Ограничиваем длину целой части
   intPart = intPart ? intPart.slice(0, 12) : '';
+
+  // Ограничиваем длину дробной части до двух знаков
   if (fracPart != null) {
     fracPart = fracPart.slice(0, 2);
   }
-  return fracPart != null && fracPart !== '' ? `${intPart}.${fracPart}` : intPart;
+
+  // Если пользователь только что ввёл точку в конце — сохраняем её
+  if (endsWithDot && (fracPart == null || fracPart === '')) {
+    return intPart === '' ? '0.' : `${intPart}.`;
+  }
+
+  // Обычный случай: есть и целая и дробная часть
+  if (fracPart != null && fracPart !== '') {
+    return `${intPart}.${fracPart}`;
+  }
+
+  // Только целая часть
+  return intPart;
 };
 
 const emptyOrder = {

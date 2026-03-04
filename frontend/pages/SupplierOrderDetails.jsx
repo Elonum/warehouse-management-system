@@ -1303,7 +1303,7 @@ export default function SupplierOrderDetails() {
                 </p>
               </div>
             </div>
-            {/* Calculated fields preview (read-friendly, follows app style) */}
+            {/* Calculated fields preview: only values, без «пустых» логистики и себестоимости */}
             <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-lg space-y-3">
               <p className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">
                 {t('common.calculated')}
@@ -1327,26 +1327,6 @@ export default function SupplierOrderDetails() {
                     {itemForm.totalWeight
                       ? `${itemForm.totalWeight.toLocaleString('ru-RU')} ${t('supplierOrderDetails.weight.unitGrams')}`
                       : '—'}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-slate-500 dark:text-slate-400">
-                    {t('supplierOrderDetails.itemForm.totalLogistics')}:
-                  </span>
-                  <span className="font-semibold tabular-nums text-slate-900 dark:text-slate-100 max-w-[10rem] text-right truncate">
-                    {itemForm.totalLogistics != null
-                      ? `₽${Number(itemForm.totalLogistics).toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-                      : t('supplierOrderDetails.itemForm.totalLogisticsPending')}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-slate-500 dark:text-slate-400">
-                    {t('supplierOrderDetails.itemForm.totalSelfCost')}:
-                  </span>
-                  <span className="font-semibold tabular-nums text-indigo-600 dark:text-indigo-400 max-w-[10rem] text-right truncate">
-                    {itemForm.totalSelfCost != null
-                      ? `₽${Number(itemForm.totalSelfCost).toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-                      : t('supplierOrderDetails.itemForm.totalSelfCostPending')}
                   </span>
                 </div>
               </div>

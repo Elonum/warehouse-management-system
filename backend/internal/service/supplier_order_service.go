@@ -369,6 +369,10 @@ func (s *SupplierOrderService) Update(ctx context.Context, orderID, userID uuid.
 		return nil, err
 	}
 
+	// Aggregated fields (positions_qty, total_qty, order_item_weight, order_item_cost)
+	// are derived from order items and must NOT be overridden from the request.
+	// We always preserve the existing values here; they are updated exclusively
+	// via SupplierOrderItemService.recalcAndUpdateOrderAggregates.
 	order, err := s.repo.Update(ctx, orderID,
 		existingOrder.OrderNumber,
 		req.Buyer,
@@ -380,10 +384,10 @@ func (s *SupplierOrderService) Update(ctx context.Context, orderID, userID uuid.
 		req.LogisticsMskKzn,
 		req.LogisticsAdditional,
 		req.LogisticsTotal,
-		req.OrderItemCost,
-		req.OrderItemWeight,
-		req.PositionsQty,
-		req.TotalQty,
+		existingOrder.OrderItemCost,
+		existingOrder.OrderItemWeight,
+		existingOrder.PositionsQty,
+		existingOrder.TotalQty,
 		parentOrderID,
 		&userID,
 	)

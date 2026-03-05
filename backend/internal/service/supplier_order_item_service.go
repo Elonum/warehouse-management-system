@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"math"
 
 	"warehouse-backend/internal/dto"
 	"warehouse-backend/internal/repository"
@@ -428,6 +429,210 @@ func (s *SupplierOrderItemService) Delete(ctx context.Context, itemID, userID uu
 	}
 
 	log.Info().Str("itemId", itemID.String()).Msg("Supplier order item deleted successfully")
+	return nil
+}
+
+// TransferItemsToSubOrder moves or splits items from a parent order into a sub-order.
+// It operates on ordered quantities only; already received quantities are never moved.
+// For each transfer:
+//   - if Quantity is nil, the entire available (not yet received) quantity is moved;
+//   - otherwise, Quantity must be > 0 and not exceed the available quantity.
+// After all updates, aggregates and computed fields for both orders are recalculated.
+func (s *SupplierOrderItemService) TransferItemsToSubOrder(
+	ctx context.Context,
+	parentOrderID, subOrderID, userID uuid.UUID,
+	transfers []dto.SupplierSubOrderItemTransfer,
+) error {
+	if len(transfers) == 0 {
+		return nil
+	}
+
+	items, err := s.repo.GetByOrderID(ctx, parentOrderID)
+	if err != nil {
+		log.Error().Err(err).Str("parentOrderId", parentOrderID.String()).Msg("Failed to load parent order items for transfer to sub-order")
+		return err
+	}
+
+	if len(items) == 0 {
+		return repository.ErrSupplierOrderItemNotFound
+	}
+
+	itemByID := make(map[uuid.UUID]repository.SupplierOrderItem, len(items))
+	for _, it := range items {
+		itemByID[it.OrderItemID] = it
+	}
+
+	for _, tr := range transfers {
+		itemID, parseErr := uuid.Parse(tr.OrderItemID)
+		if parseErr != nil {
+			log.Warn().Str("orderItemId", tr.OrderItemID).Msg("Invalid order item ID format for transfer")
+			return repository.ErrSupplierOrderItemNotFound
+		}
+
+		item, ok := itemByID[itemID]
+		if !ok {
+			log.Warn().Str("orderItemId", itemID.String()).Msg("Parent order item not found for transfer")
+			return repository.ErrSupplierOrderItemNotFound
+		}
+
+		// Available quantity to move is the part that has not yet been received.
+		available := item.OrderedQty - item.ReceivedQty
+		if available <= 0 {
+			log.Warn().
+				Str("orderItemId", item.OrderItemID.String()).
+				Int("orderedQty", item.OrderedQty).
+				Int("receivedQty", item.ReceivedQty).
+				Msg("No available quantity to transfer to sub-order")
+			return repository.ErrInvalidQuantity
+		}
+
+		var moveQty int
+		if tr.Quantity == nil {
+			moveQty = available
+		} else {
+			if *tr.Quantity <= 0 {
+				log.Warn().
+					Str("orderItemId", item.OrderItemID.String()).
+					Int("requestedQty", *tr.Quantity).
+					Msg("Requested transfer quantity must be positive")
+				return repository.ErrInvalidQuantity
+			}
+			if *tr.Quantity > available {
+				log.Warn().
+					Str("orderItemId", item.OrderItemID.String()).
+					Int("requestedQty", *tr.Quantity).
+					Int("availableQty", available).
+					Msg("Requested transfer quantity exceeds available quantity")
+				return repository.ErrInvalidQuantity
+			}
+			moveQty = *tr.Quantity
+		}
+
+		if moveQty == 0 {
+			continue
+		}
+
+		// Full move: just reassign the order_id to the sub-order.
+		if moveQty == item.OrderedQty {
+			_, err := s.repo.Update(ctx,
+				item.OrderItemID,
+				subOrderID,
+				item.ProductID,
+				item.WarehouseID,
+				item.OrderedQty,
+				item.ReceivedQty,
+				item.TotalWeight,
+				item.PurchasePrice,
+				item.TotalPrice,
+				item.TotalLogistics,
+				item.UnitLogistics,
+				item.UnitSelfCost,
+				item.TotalSelfCost,
+				item.FulfillmentCost,
+			)
+			if err != nil {
+				log.Error().
+					Err(err).
+					Str("orderItemId", item.OrderItemID.String()).
+					Str("parentOrderId", parentOrderID.String()).
+					Str("subOrderId", subOrderID.String()).
+					Msg("Failed to transfer full item to sub-order")
+				return err
+			}
+			continue
+		}
+
+		// Partial move (split): adjust parent item and create a new item in the sub-order.
+		newParentOrdered := item.OrderedQty - moveQty
+
+		// Ensure parent still has enough ordered quantity to cover already received quantity.
+		if newParentOrdered < item.ReceivedQty {
+			log.Warn().
+				Str("orderItemId", item.OrderItemID.String()).
+				Int("newParentOrdered", newParentOrdered).
+				Int("receivedQty", item.ReceivedQty).
+				Msg("Splitting item would violate received <= ordered invariant")
+			return repository.ErrInvalidQuantity
+		}
+
+		// Weight split (in grams) - keep total weight conserved and use integer arithmetic.
+		moveWeight := int(math.Round(float64(item.TotalWeight) * float64(moveQty) / float64(item.OrderedQty)))
+		parentWeight := item.TotalWeight - moveWeight
+
+		// Total price split, if present: proportionally split by ordered quantity.
+		var moveTotalPrice *float64
+		var parentTotalPrice *float64
+		if item.TotalPrice != nil {
+			moveVal := *item.TotalPrice * float64(moveQty) / float64(item.OrderedQty)
+			parentVal := *item.TotalPrice - moveVal
+			moveTotalPrice = &moveVal
+			parentTotalPrice = &parentVal
+		}
+
+		// Update parent item.
+		_, err := s.repo.Update(ctx,
+			item.OrderItemID,
+			parentOrderID,
+			item.ProductID,
+			item.WarehouseID,
+			newParentOrdered,
+			item.ReceivedQty,
+			parentWeight,
+			item.PurchasePrice,
+			parentTotalPrice,
+			item.TotalLogistics,
+			item.UnitLogistics,
+			item.UnitSelfCost,
+			item.TotalSelfCost,
+			item.FulfillmentCost,
+		)
+		if err != nil {
+			log.Error().
+				Err(err).
+				Str("orderItemId", item.OrderItemID.String()).
+				Str("parentOrderId", parentOrderID.String()).
+				Msg("Failed to update parent order item during transfer to sub-order")
+			return err
+		}
+
+		// Create new item in sub-order. At this stage we set only structural fields;
+		// logistics and self-cost will be recomputed after aggregates update.
+		_, err = s.repo.Create(ctx,
+			subOrderID,
+			item.ProductID,
+			item.WarehouseID,
+			moveQty,
+			0, // receivedQty starts from zero in the new sub-order
+			moveWeight,
+			item.PurchasePrice,
+			moveTotalPrice,
+			nil, // total_logistics
+			nil, // unit_logistics
+			nil, // unit_self_cost
+			nil, // total_self_cost
+			item.FulfillmentCost,
+		)
+		if err != nil {
+			log.Error().
+				Err(err).
+				Str("parentOrderId", parentOrderID.String()).
+				Str("subOrderId", subOrderID.String()).
+				Str("productId", item.ProductID.String()).
+				Msg("Failed to create split item in sub-order")
+			return err
+		}
+	}
+
+	// Recalculate aggregates and computed fields for both orders.
+	if err := s.recalcAndUpdateOrderAggregates(ctx, parentOrderID, userID); err != nil {
+		log.Error().Err(err).Str("orderId", parentOrderID.String()).Msg("Failed to recalc aggregates for parent order after transfer to sub-order")
+		return err
+	}
+	if err := s.recalcAndUpdateOrderAggregates(ctx, subOrderID, userID); err != nil {
+		log.Error().Err(err).Str("orderId", subOrderID.String()).Msg("Failed to recalc aggregates for sub-order after transfer")
+		return err
+	}
+
 	return nil
 }
 

@@ -298,6 +298,200 @@ func (s *SupplierOrderService) Create(ctx context.Context, userID uuid.UUID, req
 	}, nil
 }
 
+// CreateSubOrder creates a sub-order for an existing parent order. Most fields
+// default to the parent order values when not explicitly provided, while
+// numbering (main/sub) is generated automatically based on the parent.
+func (s *SupplierOrderService) CreateSubOrder(ctx context.Context, userID, parentOrderID uuid.UUID, req dto.SupplierSubOrderCreateRequest) (*dto.SupplierOrderResponse, error) {
+	// Load parent order to inherit default values and mainNumber.
+	parentOrder, err := s.repo.GetByID(ctx, parentOrderID)
+	if err != nil {
+		if err == repository.ErrSupplierOrderNotFound {
+			log.Warn().Str("parentOrderId", parentOrderID.String()).Msg("Parent order not found for sub-order creation")
+			return nil, repository.ErrSupplierOrderNotFound
+		}
+		log.Error().Err(err).Str("parentOrderId", parentOrderID.String()).Msg("Failed to load parent order for sub-order creation")
+		return nil, err
+	}
+
+	// --- status ---
+	var statusID *uuid.UUID
+	if req.StatusID != nil && *req.StatusID != "" {
+		id, err := uuid.Parse(*req.StatusID)
+		if err != nil {
+			log.Warn().Str("statusId", *req.StatusID).Msg("Invalid status ID format for sub-order")
+			return nil, repository.ErrOrderStatusNotFound
+		}
+		statusID = &id
+
+		_, err = s.orderStatusRepo.GetByID(ctx, id)
+		if err != nil {
+			if err == repository.ErrOrderStatusNotFound {
+				log.Warn().Str("statusId", *req.StatusID).Msg("Order status not found for sub-order")
+				return nil, repository.ErrOrderStatusNotFound
+			}
+			log.Error().Err(err).Str("statusId", *req.StatusID).Msg("Failed to validate order status for sub-order")
+			return nil, err
+		}
+	} else {
+		statusID = parentOrder.StatusID
+	}
+
+	// --- inherit / override base fields from parent ---
+	buyer := parentOrder.Buyer
+	if req.Buyer != nil {
+		buyer = req.Buyer
+	}
+
+	purchaseDate := parentOrder.PurchaseDate
+	if req.PurchaseDate != nil {
+		purchaseDate = req.PurchaseDate
+	}
+
+	plannedReceiptDate := parentOrder.PlannedReceiptDate
+	if req.PlannedReceiptDate != nil {
+		plannedReceiptDate = req.PlannedReceiptDate
+	}
+
+	actualReceiptDate := parentOrder.ActualReceiptDate
+	if req.ActualReceiptDate != nil {
+		actualReceiptDate = req.ActualReceiptDate
+	}
+
+	logisticsChinaMsk := parentOrder.LogisticsChinaMsk
+	if req.LogisticsChinaMsk != nil {
+		logisticsChinaMsk = req.LogisticsChinaMsk
+	}
+
+	logisticsMskKzn := parentOrder.LogisticsMskKzn
+	if req.LogisticsMskKzn != nil {
+		logisticsMskKzn = req.LogisticsMskKzn
+	}
+
+	logisticsAdditional := parentOrder.LogisticsAdditional
+	if req.LogisticsAdditional != nil {
+		logisticsAdditional = req.LogisticsAdditional
+	}
+
+	logisticsTotal := parentOrder.LogisticsTotal
+	if req.LogisticsTotal != nil {
+		logisticsTotal = req.LogisticsTotal
+	}
+
+	// --- validate dates ---
+	if plannedReceiptDate != nil && purchaseDate != nil {
+		if plannedReceiptDate.Before(*purchaseDate) {
+			log.Warn().
+				Time("purchaseDate", *purchaseDate).
+				Time("plannedReceiptDate", *plannedReceiptDate).
+				Msg("Planned receipt date must be after purchase date (sub-order)")
+			return nil, repository.ErrInvalidDateRange
+		}
+	}
+
+	if actualReceiptDate != nil && plannedReceiptDate != nil {
+		if actualReceiptDate.Before(*plannedReceiptDate) {
+			log.Warn().
+				Time("plannedReceiptDate", *plannedReceiptDate).
+				Time("actualReceiptDate", *actualReceiptDate).
+				Msg("Actual receipt date must be after planned receipt date (sub-order)")
+			return nil, repository.ErrInvalidDateRange
+		}
+	}
+
+	// --- numbering for sub-order ---
+	mainNumber := parentOrder.MainNumber
+	nextSub, err := s.repo.GetNextSubNumber(ctx, mainNumber)
+	if err != nil {
+		log.Error().Err(err).Int("mainNumber", mainNumber).Msg("Failed to determine next sub-number for supplier sub-order")
+		return nil, err
+	}
+	subNumber := &nextSub
+	orderNumber := fmt.Sprintf("%d.%d", mainNumber, nextSub)
+
+	// Sub-order starts with zero aggregates; they will be recalculated after items are moved.
+	parentIDCopy := parentOrderID
+	order, err := s.repo.Create(ctx,
+		orderNumber,
+		mainNumber,
+		subNumber,
+		buyer,
+		statusID,
+		purchaseDate,
+		plannedReceiptDate,
+		actualReceiptDate,
+		logisticsChinaMsk,
+		logisticsMskKzn,
+		logisticsAdditional,
+		logisticsTotal,
+		nil, // OrderItemCost
+		nil, // OrderItemWeight
+		0,   // PositionsQty
+		0,   // TotalQty
+		&parentIDCopy,
+		&userID,
+	)
+	if err != nil {
+		log.Error().
+			Err(err).
+			Str("orderNumber", orderNumber).
+			Str("userId", userID.String()).
+			Str("parentOrderId", parentOrderID.String()).
+			Msg("Failed to create supplier sub-order")
+		return nil, err
+	}
+
+	var statusIDStr *string
+	if order.StatusID != nil {
+		str := order.StatusID.String()
+		statusIDStr = &str
+	}
+	var parentOrderIDStr *string
+	if order.ParentOrderID != nil {
+		str := order.ParentOrderID.String()
+		parentOrderIDStr = &str
+	}
+	var createdByStr *string
+	if order.CreatedBy != nil {
+		str := order.CreatedBy.String()
+		createdByStr = &str
+	}
+	var updatedByStr *string
+	if order.UpdatedBy != nil {
+		str := order.UpdatedBy.String()
+		updatedByStr = &str
+	}
+
+	log.Info().
+		Str("orderId", order.OrderID.String()).
+		Str("orderNumber", order.OrderNumber).
+		Str("parentOrderId", parentOrderID.String()).
+		Str("userId", userID.String()).
+		Msg("Supplier sub-order created successfully")
+
+	return &dto.SupplierOrderResponse{
+		OrderID:             order.OrderID.String(),
+		OrderNumber:         order.OrderNumber,
+		Buyer:               order.Buyer,
+		StatusID:            statusIDStr,
+		PurchaseDate:        order.PurchaseDate,
+		PlannedReceiptDate:  order.PlannedReceiptDate,
+		ActualReceiptDate:   order.ActualReceiptDate,
+		LogisticsChinaMsk:   order.LogisticsChinaMsk,
+		LogisticsMskKzn:     order.LogisticsMskKzn,
+		LogisticsAdditional: order.LogisticsAdditional,
+		LogisticsTotal:      order.LogisticsTotal,
+		OrderItemCost:       order.OrderItemCost,
+		PositionsQty:        order.PositionsQty,
+		TotalQty:            order.TotalQty,
+		OrderItemWeight:     order.OrderItemWeight,
+		ParentOrderID:       parentOrderIDStr,
+		CreatedBy:           createdByStr,
+		CreatedAt:           order.CreatedAt,
+		UpdatedBy:           updatedByStr,
+		UpdatedAt:           order.UpdatedAt,
+	}, nil
+}
+
 func (s *SupplierOrderService) Update(ctx context.Context, orderID, userID uuid.UUID, req dto.SupplierOrderUpdateRequest) (*dto.SupplierOrderResponse, error) {
 	var statusID *uuid.UUID
 	if req.StatusID != nil && *req.StatusID != "" {

@@ -181,6 +181,9 @@ func NewRouter(pg *db.Postgres, cfg config.Config) *chi.Mux {
 				r.Route("/{orderId}/documents", func(r chi.Router) {
 					r.Get("/", supplierOrderDocumentHandler.GetByOrderID)
 				})
+
+				// Sub-orders: create a child order and optionally transfer items into it.
+				r.Post("/{orderId}/suborders", supplierOrderHandler.CreateSubOrder)
 			})
 
 			r.Route("/supplier-order-items", func(r chi.Router) {

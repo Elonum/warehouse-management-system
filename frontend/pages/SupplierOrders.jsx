@@ -538,10 +538,18 @@ export default function SupplierOrders() {
           </td>
           <td className="px-4 py-3">
             <div className="flex flex-col gap-1 text-sm text-slate-700 dark:text-slate-300">
-              <span>Китай-Мск: {formatMoney(order.logisticsChinaMsk) ? `${formatMoney(order.logisticsChinaMsk)} ₽` : '—'}</span>
-              <span>Мск-Кзн: {formatMoney(order.logisticsMskKzn) ? `${formatMoney(order.logisticsMskKzn)} ₽` : '—'}</span>
-              <span>Доп.: {formatMoney(order.logisticsAdditional) ? `${formatMoney(order.logisticsAdditional)} ₽` : '—'}</span>
-              <span className="font-semibold">Итого: {formatMoney(order.logisticsTotal) ? `${formatMoney(order.logisticsTotal)} ₽` : '—'}</span>
+              <span>
+                {t('supplierOrders.form.logisticsChinaMsk')}: {formatMoney(order.logisticsChinaMsk) ? `${formatMoney(order.logisticsChinaMsk)} ₽` : '—'}
+              </span>
+              <span>
+                {t('supplierOrders.form.logisticsMskKzn')}: {formatMoney(order.logisticsMskKzn) ? `${formatMoney(order.logisticsMskKzn)} ₽` : '—'}
+              </span>
+              <span>
+                {t('supplierOrders.form.logisticsAdditional')}: {formatMoney(order.logisticsAdditional) ? `${formatMoney(order.logisticsAdditional)} ₽` : '—'}
+              </span>
+              <span className="font-semibold">
+                {t('supplierOrders.form.logisticsTotal')}: {formatMoney(order.logisticsTotal) ? `${formatMoney(order.logisticsTotal)} ₽` : '—'}
+              </span>
             </div>
           </td>
           <td className="px-4 py-3">

@@ -1089,7 +1089,9 @@ export default function SupplierOrderDetails() {
               <Card className="dark:bg-slate-900 dark:border-slate-800">
                 <CardContent className="py-12 text-center">
                   <FileText className="w-12 h-12 mx-auto mb-4 text-slate-300" />
-                  <p className="text-slate-500">Документы не загружены</p>
+                  <p className="text-slate-500">
+                    {t('supplierOrderDetails.documents.empty')}
+                  </p>
                 </CardContent>
               </Card>
             ) : (

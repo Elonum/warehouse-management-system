@@ -233,6 +233,102 @@ func (h *SupplierOrderHandler) Update(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(response)
 }
 
+// CreateSubOrder creates a new sub-order for an existing parent order and,
+// optionally, transfers a subset of items from the parent into the new sub-order.
+func (h *SupplierOrderHandler) CreateSubOrder(w http.ResponseWriter, r *http.Request) {
+	userID := auth.GetUserID(r.Context())
+	if userID == uuid.Nil {
+		writeError(w, http.StatusUnauthorized, "UNAUTHORIZED", "user not found in context")
+		return
+	}
+
+	parentIDStr := chi.URLParam(r, "orderId")
+	parentOrderID, err := parseUUID(parentIDStr)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "INVALID_ORDER_ID", "invalid parent order id")
+		return
+	}
+
+	var req dto.SupplierSubOrderCreateRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "invalid request body")
+		return
+	}
+
+	// First create the sub-order shell (without items).
+	subOrder, err := h.service.CreateSubOrder(r.Context(), userID, parentOrderID, req)
+	if err != nil {
+		if err == repository.ErrSupplierOrderNotFound {
+			log.Warn().Str("parentOrderId", parentOrderID.String()).Msg("Parent supplier order not found for sub-order creation")
+			writeError(w, http.StatusNotFound, "ORDER_NOT_FOUND", "parent supplier order not found")
+			return
+		}
+		if err == repository.ErrOrderStatusNotFound {
+			log.Warn().Interface("statusId", req.StatusID).Msg("Order status not found for sub-order")
+			writeError(w, http.StatusBadRequest, "ORDER_STATUS_NOT_FOUND", "specified order status does not exist")
+			return
+		}
+		if err == repository.ErrInvalidDateRange {
+			log.Warn().Msg("Invalid date range for sub-order")
+			writeError(w, http.StatusBadRequest, "INVALID_DATE_RANGE", "invalid date range: planned receipt date must be after purchase date, actual receipt date must be after planned receipt date")
+			return
+		}
+		log.Error().
+			Err(err).
+			Str("parentOrderId", parentOrderID.String()).
+			Str("userId", userID.String()).
+			Msg("Failed to create supplier sub-order")
+		writeError(w, http.StatusInternalServerError, "ORDER_CREATE_FAILED", "failed to create supplier sub-order")
+		return
+	}
+
+	// Then transfer items, if requested.
+	if len(req.ItemsToMove) > 0 {
+		subOrderID, parseErr := uuid.Parse(subOrder.OrderID)
+		if parseErr != nil {
+			log.Error().
+				Err(parseErr).
+				Str("subOrderId", subOrder.OrderID).
+				Msg("Failed to parse sub-order ID for item transfer")
+			writeError(w, http.StatusInternalServerError, "SUBORDER_TRANSFER_FAILED", "failed to transfer items to sub-order")
+			return
+		}
+
+		if err := h.itemService.TransferItemsToSubOrder(r.Context(), parentOrderID, subOrderID, userID, req.ItemsToMove); err != nil {
+			if err == repository.ErrSupplierOrderItemNotFound {
+				log.Warn().
+					Str("parentOrderId", parentOrderID.String()).
+					Msg("One or more parent order items not found for transfer to sub-order")
+				writeError(w, http.StatusBadRequest, "ORDER_ITEM_NOT_FOUND", "one or more order items to transfer were not found")
+				return
+			}
+			if err == repository.ErrInvalidQuantity {
+				log.Warn().
+					Str("parentOrderId", parentOrderID.String()).
+					Msg("Invalid quantity requested for transfer to sub-order")
+				writeError(w, http.StatusBadRequest, "INVALID_QUANTITY", "invalid quantity requested for transfer to sub-order")
+				return
+			}
+
+			log.Error().
+				Err(err).
+				Str("parentOrderId", parentOrderID.String()).
+				Str("subOrderId", subOrderID.String()).
+				Msg("Failed to transfer items to sub-order")
+			writeError(w, http.StatusInternalServerError, "SUBORDER_TRANSFER_FAILED", "failed to transfer items to sub-order")
+			return
+		}
+	}
+
+	response := dto.APIResponse[dto.SupplierOrderResponse]{
+		Data: *subOrder,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(response)
+}
+
 func (h *SupplierOrderHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	idStr := chi.URLParam(r, "id")
 	orderID, err := parseUUID(idStr)

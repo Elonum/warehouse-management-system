@@ -80,24 +80,15 @@ func (h *SupplierOrderDocumentHandler) Create(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	if req.OrderID == "" {
-		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "orderId is required")
-		return
-	}
-	if req.Name == "" {
-		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "name is required")
-		return
-	}
-	if req.FilePath == "" {
-		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "filePath is required")
-		return
-	}
-
 	doc, err := h.service.Create(r.Context(), req)
 	if err != nil {
 		if err == repository.ErrSupplierOrderNotFound {
 			log.Warn().Str("orderId", req.OrderID).Msg("Supplier order not found")
 			writeError(w, http.StatusBadRequest, "ORDER_NOT_FOUND", "specified supplier order does not exist")
+			return
+		}
+		if err == repository.ErrInvalidDocumentName {
+			writeError(w, http.StatusBadRequest, "INVALID_DOCUMENT_NAME", "invalid document name")
 			return
 		}
 		log.Error().Err(err).Str("orderId", req.OrderID).Str("name", req.Name).Msg("Failed to create supplier order document")
@@ -128,19 +119,6 @@ func (h *SupplierOrderDocumentHandler) Update(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	if req.OrderID == "" {
-		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "orderId is required")
-		return
-	}
-	if req.Name == "" {
-		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "name is required")
-		return
-	}
-	if req.FilePath == "" {
-		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "filePath is required")
-		return
-	}
-
 	doc, err := h.service.Update(r.Context(), documentID, req)
 	if err != nil {
 		if err == repository.ErrSupplierOrderDocumentNotFound {
@@ -151,6 +129,10 @@ func (h *SupplierOrderDocumentHandler) Update(w http.ResponseWriter, r *http.Req
 		if err == repository.ErrSupplierOrderNotFound {
 			log.Warn().Str("orderId", req.OrderID).Msg("Supplier order not found")
 			writeError(w, http.StatusBadRequest, "ORDER_NOT_FOUND", "specified supplier order does not exist")
+			return
+		}
+		if err == repository.ErrInvalidDocumentName {
+			writeError(w, http.StatusBadRequest, "INVALID_DOCUMENT_NAME", "invalid document name")
 			return
 		}
 		log.Error().Err(err).Str("documentId", documentID.String()).Msg("Failed to update supplier order document")

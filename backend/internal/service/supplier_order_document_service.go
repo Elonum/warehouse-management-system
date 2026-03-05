@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"strings"
 
 	"github.com/google/uuid"
 	"warehouse-backend/internal/dto"
@@ -13,6 +14,19 @@ import (
 type SupplierOrderDocumentService struct {
 	repo      *repository.SupplierOrderDocumentRepository
 	orderRepo *repository.SupplierOrderRepository
+}
+
+// truncateRunes safely truncates a string by rune count (characters), not bytes,
+// to avoid producing invalid UTF-8 sequences when cutting multibyte characters.
+func truncateRunes(s string, limit int) string {
+	if limit <= 0 || s == "" {
+		return ""
+	}
+	runes := []rune(s)
+	if len(runes) <= limit {
+		return s
+	}
+	return string(runes[:limit])
 }
 
 func NewSupplierOrderDocumentService(repo *repository.SupplierOrderDocumentRepository, orderRepo *repository.SupplierOrderRepository) *SupplierOrderDocumentService {
@@ -75,7 +89,23 @@ func (s *SupplierOrderDocumentService) Create(ctx context.Context, req dto.Suppl
 		return nil, err
 	}
 
-	doc, err := s.repo.Create(ctx, orderID, req.Name, req.Description, req.FilePath)
+	// Basic validation and normalization for document fields
+	name := strings.TrimSpace(req.Name)
+	if name == "" {
+		return nil, repository.ErrInvalidDocumentName
+	}
+	name = truncateRunes(name, 255)
+
+	var desc *string
+	if req.Description != nil {
+		trimmed := strings.TrimSpace(*req.Description)
+		if trimmed != "" {
+			trimmed = truncateRunes(trimmed, 500)
+			desc = &trimmed
+		}
+	}
+
+	doc, err := s.repo.Create(ctx, orderID, name, desc, req.FilePath)
 	if err != nil {
 		log.Error().Err(err).Str("orderId", req.OrderID).Str("name", req.Name).Msg("Failed to create supplier order document")
 		return nil, err
@@ -107,7 +137,23 @@ func (s *SupplierOrderDocumentService) Update(ctx context.Context, documentID uu
 		return nil, err
 	}
 
-	doc, err := s.repo.Update(ctx, documentID, orderID, req.Name, req.Description, req.FilePath)
+	// Basic validation and normalization for document fields
+	name := strings.TrimSpace(req.Name)
+	if name == "" {
+		return nil, repository.ErrInvalidDocumentName
+	}
+	name = truncateRunes(name, 255)
+
+	var desc *string
+	if req.Description != nil {
+		trimmed := strings.TrimSpace(*req.Description)
+		if trimmed != "" {
+			trimmed = truncateRunes(trimmed, 500)
+			desc = &trimmed
+		}
+	}
+
+	doc, err := s.repo.Update(ctx, documentID, orderID, name, desc, req.FilePath)
 	if err != nil {
 		log.Error().Err(err).Str("documentId", documentID.String()).Msg("Failed to update supplier order document")
 		return nil, err

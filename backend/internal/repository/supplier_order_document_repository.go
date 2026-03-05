@@ -13,6 +13,7 @@ import (
 var (
 	ErrSupplierOrderDocumentNotFound = errors.New("supplier order document not found")
 	ErrSupplierOrderDocumentExists   = errors.New("supplier order document already exists")
+	ErrInvalidDocumentName           = errors.New("invalid document name")
 )
 
 type SupplierOrderDocument struct {

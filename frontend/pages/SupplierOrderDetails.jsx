@@ -468,7 +468,19 @@ export default function SupplierOrderDetails() {
     },
     onError: (err) => {
       if (err instanceof ApiError) {
-        setUploadError(err.message || t('supplierOrderDetails.documents.uploadFailed'));
+        switch (err.code) {
+          case 'ORDER_NOT_FOUND':
+            setUploadError(t('supplierOrderDetails.itemErrors.orderNotFound'));
+            break;
+          case 'INVALID_DOCUMENT_NAME':
+            setUploadError(t('supplierOrderDetails.documents.nameRequired'));
+            break;
+          case 'DOCUMENT_CREATE_FAILED':
+          case 'INVALID_REQUEST':
+          default:
+            setUploadError(t('supplierOrderDetails.documents.uploadFailed'));
+            break;
+        }
       } else {
         setUploadError(t('supplierOrderDetails.documents.uploadFailed'));
       }
@@ -502,16 +514,27 @@ export default function SupplierOrderDetails() {
       return;
     }
 
-    const name = documentForm.name.trim() || documentForm.file.name;
-    if (!name) {
+    const rawName = (documentForm.name || documentForm.file.name || '').trim();
+    if (!rawName) {
       setUploadError(t('supplierOrderDetails.documents.nameRequired'));
+      return;
+    }
+
+    if (rawName.length > 255) {
+      setUploadError(t('supplierOrderDetails.documents.nameTooLong'));
+      return;
+    }
+
+    const rawDescription = documentForm.description?.trim() || '';
+    if (rawDescription.length > 500) {
+      setUploadError(t('supplierOrderDetails.documents.descriptionTooLong'));
       return;
     }
 
     uploadDocumentMutation.mutate({
       file: documentForm.file,
-      name,
-      description: documentForm.description?.trim() || null,
+      name: rawName,
+      description: rawDescription || null,
     });
   };
 
@@ -898,7 +921,7 @@ export default function SupplierOrderDetails() {
       </div>
 
       {/* Order Summary */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Block 1: Order Date */}
         <Card className="dark:bg-slate-900 dark:border-slate-800">
           <CardContent className="pt-6">
@@ -951,7 +974,21 @@ export default function SupplierOrderDetails() {
           </CardContent>
         </Card>
 
-        {/* Block 5: Total Logistics */}
+        {/* Block 5: Order Weight (total) */}
+        <Card className="dark:bg-slate-900 dark:border-slate-800">
+          <CardContent className="pt-6">
+            <p className="text-sm text-slate-500 dark:text-slate-400">
+              {t('supplierOrderDetails.summaryWeight')}
+            </p>
+            <p className="mt-1 text-base font-semibold text-slate-900 dark:text-slate-100">
+              {order.orderItemWeight != null
+                ? `${Number(order.orderItemWeight).toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${t('supplierOrderDetails.weight.unitKg')}`
+                : '—'}
+            </p>
+          </CardContent>
+        </Card>
+
+        {/* Block 6: Total Logistics */}
         <Card className="dark:bg-slate-900 dark:border-slate-800">
           <CardContent className="pt-6">
             <p className="text-sm text-slate-500 dark:text-slate-400">
@@ -963,7 +1000,7 @@ export default function SupplierOrderDetails() {
           </CardContent>
         </Card>
 
-        {/* Block 6: Items Cost */}
+        {/* Block 7: Items Cost */}
         <Card className="dark:bg-slate-900 dark:border-slate-800">
           <CardContent className="pt-6">
             <p className="text-sm text-slate-500 dark:text-slate-400">
@@ -975,7 +1012,7 @@ export default function SupplierOrderDetails() {
           </CardContent>
         </Card>
 
-        {/* Block 7: Order Total */}
+        {/* Block 8: Order Total */}
         <Card className="dark:bg-slate-900 dark:border-slate-800">
           <CardContent className="pt-6">
             <div className="flex items-center gap-2">
@@ -1325,7 +1362,7 @@ export default function SupplierOrderDetails() {
                   </span>
                   <span className="font-semibold tabular-nums text-slate-900 dark:text-slate-100 max-w-[10rem] text-right truncate">
                     {itemForm.totalWeight
-                      ? `${itemForm.totalWeight.toLocaleString('ru-RU')} ${t('supplierOrderDetails.weight.unitGrams')}`
+                      ? `${(itemForm.totalWeight / 1000).toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${t('supplierOrderDetails.weight.unitKg')}`
                       : '—'}
                   </span>
                 </div>
@@ -1438,11 +1475,15 @@ export default function SupplierOrderDetails() {
               <Input
                 id="doc-name"
                 value={documentForm.name}
-                onChange={(e) => setDocumentForm({ ...documentForm, name: e.target.value })}
+                onChange={(e) => {
+                  const value = e.target.value.slice(0, 255);
+                  setDocumentForm({ ...documentForm, name: value });
+                }}
                 placeholder={
                   documentForm.file?.name ||
                   t('supplierOrderDetails.documents.namePlaceholder')
                 }
+                maxLength={255}
                 required
               />
             </div>
@@ -1453,10 +1494,14 @@ export default function SupplierOrderDetails() {
               <Input
                 id="doc-description"
                 value={documentForm.description || ''}
-                onChange={(e) => setDocumentForm({ ...documentForm, description: e.target.value })}
+                onChange={(e) => {
+                  const value = e.target.value.slice(0, 500);
+                  setDocumentForm({ ...documentForm, description: value });
+                }}
                 placeholder={t(
                   'supplierOrderDetails.documents.descriptionPlaceholder'
                 )}
+                maxLength={500}
               />
             </div>
             <DialogFooter>

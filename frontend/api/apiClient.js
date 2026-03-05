@@ -377,6 +377,13 @@ const api = {
     getDocuments: async (orderId) => {
       return await request(`/supplier-orders/${orderId}/documents`);
     },
+
+    createSubOrder: async (orderId, data) => {
+      return await request(`/supplier-orders/${orderId}/suborders`, {
+        method: 'POST',
+        body: data,
+      });
+    },
   },
 
   supplierOrderItems: {

@@ -12,7 +12,8 @@ import {
   Warehouse,
   MoreHorizontal,
   ExternalLink,
-  HelpCircle
+  HelpCircle,
+  Copy,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -111,6 +112,9 @@ export default function SupplierOrderDetails() {
   const [currentItem, setCurrentItem] = useState(null);
   const [itemForm, setItemForm] = useState(emptyItem);
   const [error, setError] = useState('');
+  const [subOrderDialogOpen, setSubOrderDialogOpen] = useState(false);
+  const [subOrderError, setSubOrderError] = useState('');
+  const [subOrderTransfers, setSubOrderTransfers] = useState({});
 
   const { data: orderData, isLoading: loadingOrder } = useQuery({
     queryKey: ['supplierOrder', orderId],
@@ -868,6 +872,118 @@ export default function SupplierOrderDetails() {
     }), { totalQty: 0, receivedQty: 0, totalPrice: 0, totalWeight: 0 });
   }, [orderItems]);
 
+  const handleToggleSubOrderItem = (itemId, checked, available) => {
+    setSubOrderTransfers((prev) => {
+      // Если позиции нет доступного количества, всегда снимаем выбор
+      if (available <= 0) {
+        const { [itemId]: _removed, ...rest } = prev;
+        return rest;
+      }
+      const existing = prev[itemId] || {};
+      if (!checked) {
+        const { [itemId]: _removed, ...rest } = prev;
+        return rest;
+      }
+      return {
+        ...prev,
+        [itemId]: {
+          ...existing,
+          selected: true,
+        },
+      };
+    });
+  };
+
+  const handleChangeSubOrderQty = (itemId, value) => {
+    const normalized = value.replace(/[^\d]/g, '');
+    setSubOrderTransfers((prev) => {
+      const existing = prev[itemId] || {};
+      return {
+        ...prev,
+        [itemId]: {
+          ...existing,
+          quantity: normalized,
+        },
+      };
+    });
+  };
+
+  const createSubOrderMutation = useMutation({
+    mutationFn: (payload) => api.supplierOrders.createSubOrder(orderId, payload),
+    onSuccess: async () => {
+      setSubOrderDialogOpen(false);
+      setSubOrderError('');
+      setSubOrderTransfers({});
+      await refetchItems();
+      await queryClient.invalidateQueries({ queryKey: ['supplierOrder', orderId] });
+      await queryClient.invalidateQueries({ queryKey: ['supplierOrders'] });
+    },
+    onError: (err) => {
+      if (err instanceof ApiError) {
+        let message = err.message || t('supplierOrderDetails.subOrder.errors.createFailed');
+        if (err.code === 'ORDER_NOT_FOUND') {
+          message = t('supplierOrderDetails.subOrder.errors.orderNotFound');
+        } else if (err.code === 'ORDER_ITEM_NOT_FOUND') {
+          message = t('supplierOrderDetails.subOrder.errors.orderItemNotFound');
+        } else if (err.code === 'INVALID_QUANTITY') {
+          message = t('supplierOrderDetails.subOrder.errors.invalidQuantity');
+        }
+        setSubOrderError(message);
+      } else {
+        setSubOrderError(t('supplierOrderDetails.subOrder.errors.createFailed'));
+      }
+    },
+  });
+
+  const handleCreateSubOrderSubmit = (e) => {
+    e.preventDefault();
+    setSubOrderError('');
+
+    if (!orderId) {
+      setSubOrderError(t('supplierOrderDetails.itemErrors.orderRequired'));
+      return;
+    }
+
+    const transfers = [];
+    for (const item of orderItems) {
+      const tx = subOrderTransfers[item.orderItemId];
+      if (!tx || !tx.selected) continue;
+
+      const ordered = item.orderedQty || 0;
+      const received = item.receivedQty || 0;
+      const available = Math.max(0, ordered - received);
+      if (available <= 0) {
+        continue;
+      }
+
+      let quantity = null;
+      if (tx.quantity && tx.quantity.trim() !== '') {
+        const parsed = parseInt(tx.quantity, 10);
+        if (!Number.isFinite(parsed) || parsed <= 0) {
+          setSubOrderError(t('supplierOrderDetails.subOrder.errors.invalidQuantity'));
+          return;
+        }
+        if (parsed > available) {
+          setSubOrderError(t('supplierOrderDetails.subOrder.errors.quantityExceedsAvailable'));
+          return;
+        }
+        quantity = parsed;
+      }
+
+      transfers.push({
+        orderItemId: item.orderItemId,
+        quantity: quantity != null ? quantity : undefined,
+      });
+    }
+
+    if (transfers.length === 0) {
+      setSubOrderError(t('supplierOrderDetails.subOrder.errors.nothingSelected'));
+      return;
+    }
+
+    createSubOrderMutation.mutate({ itemsToMove: transfers });
+  };
+
   if (!orderId) {
     return (
       <div className="p-8 text-center">
@@ -1054,10 +1170,24 @@ export default function SupplierOrderDetails() {
           </TabsList>
           <div className="flex items-center gap-2">
             {activeTab === 'items' && (
-              <Button onClick={() => { resetItemForm(); setItemDialogOpen(true); }}>
-                <Plus className="w-4 h-4 mr-2" />
-                {t('supplierOrderDetails.addItem')}
-              </Button>
+              <>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setSubOrderError('');
+                    setSubOrderTransfers({});
+                    setSubOrderDialogOpen(true);
+                  }}
+                  disabled={orderItems.length === 0}
+                >
+                  <Copy className="w-4 h-4 mr-2" />
+                  {t('supplierOrders.createSubOrder')}
+                </Button>
+                <Button onClick={() => { resetItemForm(); setItemDialogOpen(true); }}>
+                  <Plus className="w-4 h-4 mr-2" />
+                  {t('supplierOrderDetails.addItem')}
+                </Button>
+              </>
             )}
             {activeTab === 'documents' && (
               <Button onClick={() => { resetDocumentForm(); setDocumentDialogOpen(true); }}>
@@ -1388,6 +1518,178 @@ export default function SupplierOrderDetails() {
                 {currentItem
                   ? t('supplierOrderDetails.itemForm.submitUpdate')
                   : t('supplierOrderDetails.itemForm.submitCreate')}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Sub-order Dialog */}
+      <Dialog
+        open={subOrderDialogOpen}
+        onOpenChange={(open) => {
+          setSubOrderDialogOpen(open);
+          if (!open) {
+            setSubOrderError('');
+            setSubOrderTransfers({});
+          }
+        }}
+      >
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{t('supplierOrderDetails.subOrder.title')}</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleCreateSubOrderSubmit} className="space-y-4">
+            <p className="text-sm text-slate-600 dark:text-slate-300">
+              {t('supplierOrderDetails.subOrder.description')}
+            </p>
+
+            {subOrderError && (
+              <div className="p-3 text-sm text-red-600 bg-red-50 dark:bg-red-900/20 dark:text-red-400 rounded-lg">
+                {subOrderError}
+              </div>
+            )}
+
+            <div className="space-y-3">
+              <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                {t('supplierOrderDetails.subOrder.itemsTitle')}
+              </p>
+              {orderItems.length === 0 ? (
+                <p className="text-sm text-slate-500">
+                  {t('supplierOrderDetails.subOrder.noItems')}
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {orderItems.map((item) => {
+                    const product = productsMap.get(item.productId);
+                    const ordered = item.orderedQty || 0;
+                    const received = item.receivedQty || 0;
+                    const available = Math.max(0, ordered - received);
+                    const totalWeightGrams = item.totalWeight || 0;
+                    const unitWeightGrams =
+                      ordered > 0 ? totalWeightGrams / ordered : product?.unitWeight || 0;
+                    const totalWeightKg = totalWeightGrams / 1000;
+                    const transferState = subOrderTransfers[item.orderItemId] || {};
+                    const isDisabled = available <= 0;
+
+                    return (
+                      <div
+                        key={item.orderItemId}
+                        className="flex items-center gap-4 rounded-lg border bg-slate-50/60 dark:bg-slate-900/40 dark:border-slate-800 px-4 py-3"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <p className="font-medium text-slate-900 dark:text-slate-100 truncate">
+                            {product?.article || product?.name || t('common.notSpecified')}
+                          </p>
+                          <p className="text-xs text-slate-500">
+                            {product?.barcode || `ID: ${item.productId}`}
+                          </p>
+                        </div>
+                        <div className="flex flex-col text-xs text-slate-600 dark:text-slate-300 gap-1">
+                          <span>
+                            {t('supplierOrderDetails.subOrder.columnQty')}: {ordered.toLocaleString()} /{' '}
+                            {received.toLocaleString()}
+                          </span>
+                          <span>
+                            {t('supplierOrderDetails.subOrder.columnPrice')}:&nbsp;
+                            {item.purchasePrice != null
+                              ? `₽${item.purchasePrice.toFixed(2)}`
+                              : '—'}{' '}
+                            /{' '}
+                            {item.totalPrice != null
+                              ? `₽${item.totalPrice.toLocaleString('ru-RU', {
+                                  minimumFractionDigits: 2,
+                                })}`
+                              : '—'}
+                          </span>
+                          <span>
+                            {t('supplierOrderDetails.subOrder.columnWeight')}:&nbsp;
+                            {unitWeightGrams
+                              ? `${unitWeightGrams.toFixed(0)} ${t(
+                                  'supplierOrderDetails.weight.unitGrams',
+                                )}`
+                              : '—'}{' '}
+                            /{' '}
+                            {totalWeightGrams
+                              ? `${totalWeightKg.toFixed(2)} ${t(
+                                  'supplierOrderDetails.weight.unitKg',
+                                )}`
+                              : '—'}
+                          </span>
+                          <span className="text-[11px] text-slate-500">
+                            {t('supplierOrderDetails.subOrder.available')}:{' '}
+                            {available.toLocaleString()} {t('supplierOrderDetails.summaryUnits')}
+                          </span>
+                        </div>
+                        <div className="flex flex-col items-end gap-2">
+                          <div className="flex items-center gap-2">
+                            <Label
+                              htmlFor={`moveQty-${item.orderItemId}`}
+                              className="text-xs text-slate-600 dark:text-slate-300"
+                            >
+                              {t('supplierOrderDetails.subOrder.columnMoveQty')}
+                            </Label>
+                            <Input
+                              id={`moveQty-${item.orderItemId}`}
+                              type="text"
+                              inputMode="numeric"
+                              className="w-20 h-8 text-right"
+                              value={transferState.quantity || ''}
+                              onChange={(e) =>
+                                handleChangeSubOrderQty(item.orderItemId, e.target.value)
+                              }
+                              disabled={isDisabled}
+                            />
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <input
+                              id={`moveSelect-${item.orderItemId}`}
+                              type="checkbox"
+                              className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                              checked={!!transferState.selected && !isDisabled}
+                              onChange={(e) =>
+                                handleToggleSubOrderItem(
+                                  item.orderItemId,
+                                  e.target.checked,
+                                  available,
+                                )
+                              }
+                              disabled={isDisabled}
+                            />
+                            <Label
+                              htmlFor={`moveSelect-${item.orderItemId}`}
+                              className="text-xs text-slate-600 dark:text-slate-300"
+                            >
+                              {t('supplierOrderDetails.subOrder.columnSelect')}
+                            </Label>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setSubOrderDialogOpen(false);
+                  setSubOrderError('');
+                  setSubOrderTransfers({});
+                }}
+              >
+                {t('common.cancel')}
+              </Button>
+              <Button
+                type="submit"
+                disabled={createSubOrderMutation.isPending || orderItems.length === 0}
+              >
+                {createSubOrderMutation.isPending
+                  ? t('common.loading')
+                  : t('supplierOrderDetails.subOrder.submit')}
               </Button>
             </DialogFooter>
           </form>

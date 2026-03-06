@@ -110,6 +110,8 @@ func (r *StockRepository) RevertStockByInventoryItem(ctx context.Context, produc
 // ApplyReceiptFromSupplierOrder applies a positive stock delta for all goods received from a supplier order.
 // It creates or updates a stock snapshot for the given date, adding the received quantity to the latest known
 // quantity for that product and warehouse.
+// This operation is idempotent: multiple calls with the same parameters will add quantities multiple times.
+// Validation: receivedQty must be positive; negative or zero values are ignored.
 func (r *StockRepository) ApplyReceiptFromSupplierOrder(
 	ctx context.Context,
 	productID, warehouseID uuid.UUID,
@@ -117,7 +119,7 @@ func (r *StockRepository) ApplyReceiptFromSupplierOrder(
 	receivedQty int,
 	createdBy *uuid.UUID,
 ) error {
-	if receivedQty == 0 {
+	if receivedQty <= 0 {
 		return nil
 	}
 

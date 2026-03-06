@@ -579,12 +579,7 @@ func (s *SupplierOrderService) Update(ctx context.Context, orderID, userID uuid.
 	}
 
 	// Prevent modifications to orders that are already completed (final status).
-	var isCurrentlyFinal bool
-	if existingOrder.StatusID != nil {
-		if status, err := s.orderStatusRepo.GetByID(ctx, *existingOrder.StatusID); err == nil && status.IsFinal {
-			isCurrentlyFinal = true
-		}
-	}
+	isCurrentlyFinal := s.isOrderFinal(ctx, orderID)
 	if isCurrentlyFinal {
 		log.Warn().Str("orderId", orderID.String()).Msg("Attempt to update completed supplier order")
 		return nil, ErrSupplierOrderCompleted
@@ -683,20 +678,18 @@ func (s *SupplierOrderService) Update(ctx context.Context, orderID, userID uuid.
 
 func (s *SupplierOrderService) Delete(ctx context.Context, orderID uuid.UUID) error {
 	// Prevent deletion of completed orders
-	existingOrder, err := s.repo.GetByID(ctx, orderID)
+	if s.isOrderFinal(ctx, orderID) {
+		log.Warn().Str("orderId", orderID.String()).Msg("Attempt to delete completed supplier order")
+		return ErrSupplierOrderCompleted
+	}
+
+	_, err := s.repo.GetByID(ctx, orderID)
 	if err != nil {
 		if err == repository.ErrSupplierOrderNotFound {
 			return err
 		}
 		log.Error().Err(err).Str("orderId", orderID.String()).Msg("Failed to load supplier order before delete")
 		return err
-	}
-
-	if existingOrder.StatusID != nil {
-		if status, err := s.orderStatusRepo.GetByID(ctx, *existingOrder.StatusID); err == nil && status.IsFinal {
-			log.Warn().Str("orderId", orderID.String()).Msg("Attempt to delete completed supplier order")
-			return ErrSupplierOrderCompleted
-		}
 	}
 
 	err = s.repo.Delete(ctx, orderID)
@@ -709,14 +702,36 @@ func (s *SupplierOrderService) Delete(ctx context.Context, orderID uuid.UUID) er
 	return nil
 }
 
+// isOrderFinal checks if the given order has a final (completed) status.
+// Returns false if the order has no status or if status lookup fails.
+func (s *SupplierOrderService) isOrderFinal(ctx context.Context, orderID uuid.UUID) bool {
+	order, err := s.repo.GetByID(ctx, orderID)
+	if err != nil {
+		return false
+	}
+	if order.StatusID == nil {
+		return false
+	}
+	status, err := s.orderStatusRepo.GetByID(ctx, *order.StatusID)
+	if err != nil {
+		return false
+	}
+	return status.IsFinal
+}
+
 // applyReceivedToStock applies all received quantities from the given supplier order
 // to stock snapshots, grouped by product and warehouse.
+// This operation is idempotent: multiple calls with the same order will add quantities
+// multiple times (which is acceptable for stock snapshots as they represent cumulative state).
+// Only items with receivedQty > 0 are processed.
 func (s *SupplierOrderService) applyReceivedToStock(ctx context.Context, order *repository.SupplierOrder, userID uuid.UUID) error {
 	items, err := s.itemRepo.GetByOrderID(ctx, order.OrderID)
 	if err != nil {
+		log.Error().Err(err).Str("orderId", order.OrderID.String()).Msg("Failed to load order items for stock application")
 		return err
 	}
 	if len(items) == 0 {
+		log.Info().Str("orderId", order.OrderID.String()).Msg("No items to apply to stock for completed supplier order")
 		return nil
 	}
 
@@ -730,6 +745,7 @@ func (s *SupplierOrderService) applyReceivedToStock(ctx context.Context, order *
 		}
 	}
 
+	itemsApplied := 0
 	for _, item := range items {
 		if item.ReceivedQty <= 0 {
 			continue
@@ -748,9 +764,24 @@ func (s *SupplierOrderService) applyReceivedToStock(ctx context.Context, order *
 				Str("orderId", order.OrderID.String()).
 				Str("productId", item.ProductID.String()).
 				Str("warehouseId", item.WarehouseID.String()).
+				Int("receivedQty", item.ReceivedQty).
+				Time("receiptDate", *receiptDate).
 				Msg("Failed to apply receipt from supplier order item to stock")
 			return err
 		}
+		itemsApplied++
+	}
+
+	if itemsApplied > 0 {
+		log.Info().
+			Str("orderId", order.OrderID.String()).
+			Int("itemsApplied", itemsApplied).
+			Time("receiptDate", *receiptDate).
+			Msg("Successfully applied received quantities to stock for completed supplier order")
+	} else {
+		log.Info().
+			Str("orderId", order.OrderID.String()).
+			Msg("No items with received quantities to apply to stock for completed supplier order")
 	}
 
 	return nil

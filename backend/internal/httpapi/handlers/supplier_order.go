@@ -202,6 +202,11 @@ func (h *SupplierOrderHandler) Update(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusBadRequest, "INVALID_DATE_RANGE", "invalid date range: planned receipt date must be after purchase date, actual receipt date must be after planned receipt date")
 			return
 		}
+		if err == service.ErrSupplierOrderCompleted {
+			log.Warn().Str("orderId", orderID.String()).Msg("Attempt to update completed supplier order")
+			writeError(w, http.StatusBadRequest, "ORDER_COMPLETED", "Завершённый заказ поставщику нельзя изменять, так как он уже применён к остаткам склада")
+			return
+		}
 		log.Error().Err(err).Str("orderId", orderID.String()).Str("userId", userID.String()).Msg("Failed to update supplier order")
 		writeError(w, http.StatusInternalServerError, "ORDER_UPDATE_FAILED", "failed to update supplier order")
 		return
@@ -295,6 +300,14 @@ func (h *SupplierOrderHandler) CreateSubOrder(w http.ResponseWriter, r *http.Req
 		}
 
 		if err := h.itemService.TransferItemsToSubOrder(r.Context(), parentOrderID, subOrderID, userID, req.ItemsToMove); err != nil {
+			if err == service.ErrSupplierOrderCompleted {
+				log.Warn().
+					Str("parentOrderId", parentOrderID.String()).
+					Str("subOrderId", subOrderID.String()).
+					Msg("Attempt to transfer items involving completed supplier order")
+				writeError(w, http.StatusBadRequest, "ORDER_COMPLETED", "Нельзя переносить позиции из завершённого или в завершённый заказ поставщику")
+				return
+			}
 			if err == repository.ErrSupplierOrderItemNotFound {
 				log.Warn().
 					Str("parentOrderId", parentOrderID.String()).
@@ -342,6 +355,11 @@ func (h *SupplierOrderHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		if err == repository.ErrSupplierOrderNotFound {
 			log.Warn().Str("orderId", orderID.String()).Msg("Supplier order not found for deletion")
 			writeError(w, http.StatusNotFound, "ORDER_NOT_FOUND", "supplier order not found")
+			return
+		}
+		if err == service.ErrSupplierOrderCompleted {
+			log.Warn().Str("orderId", orderID.String()).Msg("Attempt to delete completed supplier order")
+			writeError(w, http.StatusBadRequest, "ORDER_COMPLETED", "Завершённый заказ поставщику нельзя удалить, так как он уже применён к остаткам склада")
 			return
 		}
 		log.Error().Err(err).Str("orderId", orderID.String()).Msg("Failed to delete supplier order")

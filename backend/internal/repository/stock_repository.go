@@ -106,3 +106,42 @@ func (r *StockRepository) UpdateStockByInventoryItem(ctx context.Context, produc
 func (r *StockRepository) RevertStockByInventoryItem(ctx context.Context, productID *uuid.UUID, warehouseID uuid.UUID, adjustmentDate *time.Time) error {
 	return nil
 }
+
+// ApplyReceiptFromSupplierOrder applies a positive stock delta for all goods received from a supplier order.
+// It creates or updates a stock snapshot for the given date, adding the received quantity to the latest known
+// quantity for that product and warehouse.
+func (r *StockRepository) ApplyReceiptFromSupplierOrder(
+	ctx context.Context,
+	productID, warehouseID uuid.UUID,
+	receiptDate time.Time,
+	receivedQty int,
+	createdBy *uuid.UUID,
+) error {
+	if receivedQty == 0 {
+		return nil
+	}
+
+	query := `
+		INSERT INTO stock_snapshots (product_id, warehouse_id, snapshot_date, quantity, created_by)
+		VALUES (
+			$1,
+			$2,
+			$3,
+			COALESCE(
+				(SELECT quantity FROM stock_snapshots 
+				 WHERE product_id = $1 AND warehouse_id = $2 
+				 ORDER BY snapshot_date DESC LIMIT 1),
+				0
+			) + $4,
+			$5
+		)
+		ON CONFLICT (product_id, warehouse_id, snapshot_date)
+		DO UPDATE SET quantity = stock_snapshots.quantity + EXCLUDED.quantity
+	`
+
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	_, err := r.pool.Exec(ctx, query, productID, warehouseID, receiptDate, receivedQty, createdBy)
+	return err
+}

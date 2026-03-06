@@ -2,7 +2,9 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 	"warehouse-backend/internal/dto"
@@ -11,15 +13,26 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+var ErrSupplierOrderCompleted = errors.New("supplier order is completed and cannot be modified")
+
 type SupplierOrderService struct {
 	repo            *repository.SupplierOrderRepository
 	orderStatusRepo *repository.OrderStatusRepository
+	itemRepo        *repository.SupplierOrderItemRepository
+	stockRepo       *repository.StockRepository
 }
 
-func NewSupplierOrderService(repo *repository.SupplierOrderRepository, orderStatusRepo *repository.OrderStatusRepository) *SupplierOrderService {
+func NewSupplierOrderService(
+	repo *repository.SupplierOrderRepository,
+	orderStatusRepo *repository.OrderStatusRepository,
+	itemRepo *repository.SupplierOrderItemRepository,
+	stockRepo *repository.StockRepository,
+) *SupplierOrderService {
 	return &SupplierOrderService{
 		repo:            repo,
 		orderStatusRepo: orderStatusRepo,
+		itemRepo:        itemRepo,
+		stockRepo:       stockRepo,
 	}
 }
 
@@ -494,6 +507,7 @@ func (s *SupplierOrderService) CreateSubOrder(ctx context.Context, userID, paren
 
 func (s *SupplierOrderService) Update(ctx context.Context, orderID, userID uuid.UUID, req dto.SupplierOrderUpdateRequest) (*dto.SupplierOrderResponse, error) {
 	var statusID *uuid.UUID
+	var newStatus *repository.OrderStatus
 	if req.StatusID != nil && *req.StatusID != "" {
 		id, err := uuid.Parse(*req.StatusID)
 		if err != nil {
@@ -502,7 +516,7 @@ func (s *SupplierOrderService) Update(ctx context.Context, orderID, userID uuid.
 		}
 		statusID = &id
 
-		_, err = s.orderStatusRepo.GetByID(ctx, id)
+		status, err := s.orderStatusRepo.GetByID(ctx, id)
 		if err != nil {
 			if err == repository.ErrOrderStatusNotFound {
 				log.Warn().Str("statusId", *req.StatusID).Msg("Order status not found")
@@ -511,6 +525,7 @@ func (s *SupplierOrderService) Update(ctx context.Context, orderID, userID uuid.
 			log.Error().Err(err).Str("statusId", *req.StatusID).Msg("Failed to validate order status")
 			return nil, err
 		}
+		newStatus = status
 	}
 
 	var parentOrderID *uuid.UUID
@@ -563,10 +578,31 @@ func (s *SupplierOrderService) Update(ctx context.Context, orderID, userID uuid.
 		return nil, err
 	}
 
+	// Prevent modifications to orders that are already completed (final status).
+	var isCurrentlyFinal bool
+	if existingOrder.StatusID != nil {
+		if status, err := s.orderStatusRepo.GetByID(ctx, *existingOrder.StatusID); err == nil && status.IsFinal {
+			isCurrentlyFinal = true
+		}
+	}
+	if isCurrentlyFinal {
+		log.Warn().Str("orderId", orderID.String()).Msg("Attempt to update completed supplier order")
+		return nil, ErrSupplierOrderCompleted
+	}
+
 	// Aggregated fields (positions_qty, total_qty, order_item_weight, order_item_cost)
 	// are derived from order items and must NOT be overridden from the request.
 	// We always preserve the existing values here; they are updated exclusively
 	// via SupplierOrderItemService.recalcAndUpdateOrderAggregates.
+	// If the new status is final and the order did not have a final status before,
+	// ensure that ActualReceiptDate is populated so that stock snapshots have a
+	// meaningful receipt date.
+	becomesFinal := newStatus != nil && newStatus.IsFinal && !isCurrentlyFinal
+	if becomesFinal && req.ActualReceiptDate == nil && existingOrder.ActualReceiptDate == nil {
+		now := time.Now().UTC()
+		req.ActualReceiptDate = &now
+	}
+
 	order, err := s.repo.Update(ctx, orderID,
 		existingOrder.OrderNumber,
 		req.Buyer,
@@ -588,6 +624,15 @@ func (s *SupplierOrderService) Update(ctx context.Context, orderID, userID uuid.
 	if err != nil {
 		log.Error().Err(err).Str("orderId", orderID.String()).Str("userId", userID.String()).Msg("Failed to update supplier order")
 		return nil, err
+	}
+
+	// If the order has just transitioned to a final status, apply all received
+	// quantities to stock snapshots in a single, idempotent operation.
+	if becomesFinal {
+		if applyErr := s.applyReceivedToStock(ctx, order, userID); applyErr != nil {
+			log.Error().Err(applyErr).Str("orderId", orderID.String()).Msg("Failed to apply received quantities to stock for completed supplier order")
+			return nil, applyErr
+		}
 	}
 
 	var statusIDStr *string
@@ -637,12 +682,76 @@ func (s *SupplierOrderService) Update(ctx context.Context, orderID, userID uuid.
 }
 
 func (s *SupplierOrderService) Delete(ctx context.Context, orderID uuid.UUID) error {
-	err := s.repo.Delete(ctx, orderID)
+	// Prevent deletion of completed orders
+	existingOrder, err := s.repo.GetByID(ctx, orderID)
+	if err != nil {
+		if err == repository.ErrSupplierOrderNotFound {
+			return err
+		}
+		log.Error().Err(err).Str("orderId", orderID.String()).Msg("Failed to load supplier order before delete")
+		return err
+	}
+
+	if existingOrder.StatusID != nil {
+		if status, err := s.orderStatusRepo.GetByID(ctx, *existingOrder.StatusID); err == nil && status.IsFinal {
+			log.Warn().Str("orderId", orderID.String()).Msg("Attempt to delete completed supplier order")
+			return ErrSupplierOrderCompleted
+		}
+	}
+
+	err = s.repo.Delete(ctx, orderID)
 	if err != nil {
 		log.Error().Err(err).Str("orderId", orderID.String()).Msg("Failed to delete supplier order")
 		return err
 	}
 
 	log.Info().Str("orderId", orderID.String()).Msg("Supplier order deleted successfully")
+	return nil
+}
+
+// applyReceivedToStock applies all received quantities from the given supplier order
+// to stock snapshots, grouped by product and warehouse.
+func (s *SupplierOrderService) applyReceivedToStock(ctx context.Context, order *repository.SupplierOrder, userID uuid.UUID) error {
+	items, err := s.itemRepo.GetByOrderID(ctx, order.OrderID)
+	if err != nil {
+		return err
+	}
+	if len(items) == 0 {
+		return nil
+	}
+
+	receiptDate := order.ActualReceiptDate
+	if receiptDate == nil {
+		if order.PurchaseDate != nil {
+			receiptDate = order.PurchaseDate
+		} else {
+			now := time.Now().UTC()
+			receiptDate = &now
+		}
+	}
+
+	for _, item := range items {
+		if item.ReceivedQty <= 0 {
+			continue
+		}
+
+		if err := s.stockRepo.ApplyReceiptFromSupplierOrder(
+			ctx,
+			item.ProductID,
+			item.WarehouseID,
+			*receiptDate,
+			item.ReceivedQty,
+			&userID,
+		); err != nil {
+			log.Error().
+				Err(err).
+				Str("orderId", order.OrderID.String()).
+				Str("productId", item.ProductID.String()).
+				Str("warehouseId", item.WarehouseID.String()).
+				Msg("Failed to apply receipt from supplier order item to stock")
+			return err
+		}
+	}
+
 	return nil
 }

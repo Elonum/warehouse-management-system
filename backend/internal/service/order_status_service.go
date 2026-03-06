@@ -28,6 +28,7 @@ func (s *OrderStatusService) GetByID(ctx context.Context, statusID uuid.UUID) (*
 	return &dto.OrderStatusResponse{
 		OrderStatusID: status.OrderStatusID.String(),
 		Name:          status.Name,
+		IsFinal:       status.IsFinal,
 	}, nil
 }
 
@@ -43,6 +44,7 @@ func (s *OrderStatusService) List(ctx context.Context, limit, offset int) ([]dto
 		result = append(result, dto.OrderStatusResponse{
 			OrderStatusID: status.OrderStatusID.String(),
 			Name:          status.Name,
+			IsFinal:       status.IsFinal,
 		})
 	}
 
@@ -60,6 +62,7 @@ func (s *OrderStatusService) Create(ctx context.Context, req dto.OrderStatusCrea
 	return &dto.OrderStatusResponse{
 		OrderStatusID: status.OrderStatusID.String(),
 		Name:          status.Name,
+		IsFinal:       status.IsFinal,
 	}, nil
 }
 
@@ -74,6 +77,7 @@ func (s *OrderStatusService) Update(ctx context.Context, statusID uuid.UUID, req
 	return &dto.OrderStatusResponse{
 		OrderStatusID: status.OrderStatusID.String(),
 		Name:          status.Name,
+		IsFinal:       status.IsFinal,
 	}, nil
 }
 

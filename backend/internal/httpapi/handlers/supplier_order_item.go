@@ -131,6 +131,11 @@ func (h *SupplierOrderItemHandler) Create(w http.ResponseWriter, r *http.Request
 
 	item, err := h.service.Create(r.Context(), userID, req)
 	if err != nil {
+		if err == service.ErrSupplierOrderCompleted {
+			log.Warn().Str("orderId", req.OrderID).Msg("Attempt to create supplier order item for completed order")
+			writeError(w, http.StatusBadRequest, "ORDER_COMPLETED", "Завершённый заказ поставщику нельзя изменять, так как он уже применён к остаткам склада")
+			return
+		}
 		if err == repository.ErrSupplierOrderItemExists {
 			log.Warn().Str("orderId", req.OrderID).Str("productId", req.ProductID).Msg("Supplier order item already exists")
 			writeError(w, http.StatusConflict, "ITEM_EXISTS", "supplier order item already exists")
@@ -233,6 +238,11 @@ func (h *SupplierOrderItemHandler) Update(w http.ResponseWriter, r *http.Request
 
 	item, err := h.service.Update(r.Context(), itemID, userID, req)
 	if err != nil {
+		if err == service.ErrSupplierOrderCompleted {
+			log.Warn().Str("orderId", req.OrderID).Str("itemId", itemID.String()).Msg("Attempt to update supplier order item for completed order")
+			writeError(w, http.StatusBadRequest, "ORDER_COMPLETED", "Завершённый заказ поставщику нельзя изменять, так как он уже применён к остаткам склада")
+			return
+		}
 		if err == repository.ErrSupplierOrderItemNotFound {
 			log.Warn().Str("itemId", itemID.String()).Msg("Supplier order item not found for update")
 			writeError(w, http.StatusNotFound, "ITEM_NOT_FOUND", "supplier order item not found")
@@ -296,6 +306,11 @@ func (h *SupplierOrderItemHandler) Delete(w http.ResponseWriter, r *http.Request
 		if err == repository.ErrSupplierOrderItemNotFound {
 			log.Warn().Str("itemId", itemID.String()).Msg("Supplier order item not found for deletion")
 			writeError(w, http.StatusNotFound, "ITEM_NOT_FOUND", "supplier order item not found")
+			return
+		}
+		if err == service.ErrSupplierOrderCompleted {
+			log.Warn().Str("itemId", itemID.String()).Msg("Attempt to delete supplier order item for completed order")
+			writeError(w, http.StatusBadRequest, "ORDER_COMPLETED", "Завершённый заказ поставщику нельзя изменять, так как он уже применён к остаткам склада")
 			return
 		}
 		log.Error().Err(err).Str("itemId", itemID.String()).Msg("Failed to delete supplier order item")

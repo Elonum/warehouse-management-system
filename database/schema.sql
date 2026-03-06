@@ -106,7 +106,8 @@ CREATE INDEX IF NOT EXISTS idx_product_images_display_order ON product_images(pr
 
 CREATE TABLE IF NOT EXISTS order_statuses (
     order_status_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    name VARCHAR(50) UNIQUE NOT NULL
+    name VARCHAR(50) UNIQUE NOT NULL,
+	is_final boolean NOT NULL DEFAULT FALSE;
 );
 
 CREATE TABLE IF NOT EXISTS supplier_orders (

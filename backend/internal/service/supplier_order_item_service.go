@@ -13,18 +13,26 @@ import (
 )
 
 type SupplierOrderItemService struct {
-	repo          *repository.SupplierOrderItemRepository
-	orderRepo     *repository.SupplierOrderRepository
-	productRepo   *repository.ProductRepository
-	warehouseRepo *repository.WarehouseRepository
+	repo            *repository.SupplierOrderItemRepository
+	orderRepo       *repository.SupplierOrderRepository
+	orderStatusRepo *repository.OrderStatusRepository
+	productRepo     *repository.ProductRepository
+	warehouseRepo   *repository.WarehouseRepository
 }
 
-func NewSupplierOrderItemService(repo *repository.SupplierOrderItemRepository, orderRepo *repository.SupplierOrderRepository, productRepo *repository.ProductRepository, warehouseRepo *repository.WarehouseRepository) *SupplierOrderItemService {
+func NewSupplierOrderItemService(
+	repo *repository.SupplierOrderItemRepository,
+	orderRepo *repository.SupplierOrderRepository,
+	orderStatusRepo *repository.OrderStatusRepository,
+	productRepo *repository.ProductRepository,
+	warehouseRepo *repository.WarehouseRepository,
+) *SupplierOrderItemService {
 	return &SupplierOrderItemService{
-		repo:          repo,
-		orderRepo:     orderRepo,
-		productRepo:   productRepo,
-		warehouseRepo: warehouseRepo,
+		repo:            repo,
+		orderRepo:       orderRepo,
+		orderStatusRepo: orderStatusRepo,
+		productRepo:     productRepo,
+		warehouseRepo:   warehouseRepo,
 	}
 }
 
@@ -247,7 +255,7 @@ func (s *SupplierOrderItemService) Create(ctx context.Context, userID uuid.UUID,
 		log.Warn().Str("orderId", req.OrderID).Msg("Invalid order ID format")
 		return nil, repository.ErrSupplierOrderNotFound
 	}
-	_, err = s.orderRepo.GetByID(ctx, orderID)
+	order, err := s.orderRepo.GetByID(ctx, orderID)
 	if err != nil {
 		if err == repository.ErrSupplierOrderNotFound {
 			log.Warn().Str("orderId", req.OrderID).Msg("Supplier order not found")
@@ -255,6 +263,14 @@ func (s *SupplierOrderItemService) Create(ctx context.Context, userID uuid.UUID,
 		}
 		log.Error().Err(err).Str("orderId", req.OrderID).Msg("Failed to validate supplier order")
 		return nil, err
+	}
+
+	// Prevent modifications for completed orders
+	if order.StatusID != nil {
+		if status, err := s.orderStatusRepo.GetByID(ctx, *order.StatusID); err == nil && status.IsFinal {
+			log.Warn().Str("orderId", orderID.String()).Msg("Attempt to create item for completed supplier order")
+			return nil, ErrSupplierOrderCompleted
+		}
 	}
 
 	productID, err := uuid.Parse(req.ProductID)
@@ -332,7 +348,7 @@ func (s *SupplierOrderItemService) Update(ctx context.Context, itemID, userID uu
 		log.Warn().Str("orderId", req.OrderID).Msg("Invalid order ID format")
 		return nil, repository.ErrSupplierOrderNotFound
 	}
-	_, err = s.orderRepo.GetByID(ctx, orderID)
+	order, err := s.orderRepo.GetByID(ctx, orderID)
 	if err != nil {
 		if err == repository.ErrSupplierOrderNotFound {
 			log.Warn().Str("orderId", req.OrderID).Msg("Supplier order not found")
@@ -340,6 +356,14 @@ func (s *SupplierOrderItemService) Update(ctx context.Context, itemID, userID uu
 		}
 		log.Error().Err(err).Str("orderId", req.OrderID).Msg("Failed to validate supplier order")
 		return nil, err
+	}
+
+	// Prevent modifications for completed orders
+	if order.StatusID != nil {
+		if status, err := s.orderStatusRepo.GetByID(ctx, *order.StatusID); err == nil && status.IsFinal {
+			log.Warn().Str("orderId", orderID.String()).Msg("Attempt to update item for completed supplier order")
+			return nil, ErrSupplierOrderCompleted
+		}
 	}
 
 	productID, err := uuid.Parse(req.ProductID)
@@ -418,6 +442,15 @@ func (s *SupplierOrderItemService) Delete(ctx context.Context, itemID, userID uu
 		return err
 	}
 
+	// Prevent modifications for completed orders
+	order, err := s.orderRepo.GetByID(ctx, item.OrderID)
+	if err == nil && order.StatusID != nil {
+		if status, sErr := s.orderStatusRepo.GetByID(ctx, *order.StatusID); sErr == nil && status.IsFinal {
+			log.Warn().Str("orderId", item.OrderID.String()).Str("itemId", itemID.String()).Msg("Attempt to delete item from completed supplier order")
+			return ErrSupplierOrderCompleted
+		}
+	}
+
 	err = s.repo.Delete(ctx, itemID)
 	if err != nil {
 		log.Error().Err(err).Str("itemId", itemID.String()).Msg("Failed to delete supplier order item")
@@ -445,6 +478,20 @@ func (s *SupplierOrderItemService) TransferItemsToSubOrder(
 ) error {
 	if len(transfers) == 0 {
 		return nil
+	}
+
+	// Prevent transfers if parent or sub-order is already completed
+	if parent, err := s.orderRepo.GetByID(ctx, parentOrderID); err == nil && parent.StatusID != nil {
+		if status, sErr := s.orderStatusRepo.GetByID(ctx, *parent.StatusID); sErr == nil && status.IsFinal {
+			log.Warn().Str("parentOrderId", parentOrderID.String()).Msg("Attempt to transfer items from completed parent supplier order")
+			return ErrSupplierOrderCompleted
+		}
+	}
+	if sub, err := s.orderRepo.GetByID(ctx, subOrderID); err == nil && sub.StatusID != nil {
+		if status, sErr := s.orderStatusRepo.GetByID(ctx, *sub.StatusID); sErr == nil && status.IsFinal {
+			log.Warn().Str("subOrderId", subOrderID.String()).Msg("Attempt to transfer items into completed sub-order")
+			return ErrSupplierOrderCompleted
+		}
 	}
 
 	items, err := s.repo.GetByOrderID(ctx, parentOrderID)

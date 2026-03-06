@@ -104,6 +104,7 @@ export default function SupplierOrderDetails() {
   const urlParams = new URLSearchParams(window.location.search);
   const orderIdParam = urlParams.get('id');
   const orderId = orderIdParam || null;
+  const subOrderFromUrl = urlParams.get('suborder') === '1';
   const queryClient = useQueryClient();
 
   const [activeTab, setActiveTab] = useState('items');
@@ -112,7 +113,7 @@ export default function SupplierOrderDetails() {
   const [currentItem, setCurrentItem] = useState(null);
   const [itemForm, setItemForm] = useState(emptyItem);
   const [error, setError] = useState('');
-  const [subOrderDialogOpen, setSubOrderDialogOpen] = useState(false);
+  const [subOrderDialogOpen, setSubOrderDialogOpen] = useState(subOrderFromUrl && !!orderId);
   const [subOrderError, setSubOrderError] = useState('');
   const [subOrderTransfers, setSubOrderTransfers] = useState({});
 
@@ -894,7 +895,7 @@ export default function SupplierOrderDetails() {
     });
   };
 
-  const handleChangeSubOrderQty = (itemId, value) => {
+  const handleChangeSubOrderQty = (itemId, value, available) => {
     const normalized = value.replace(/[^\d]/g, '');
     setSubOrderTransfers((prev) => {
       const existing = prev[itemId] || {};
@@ -907,6 +908,29 @@ export default function SupplierOrderDetails() {
       };
     });
   };
+
+  const subOrderSelectionSummary = useMemo(() => {
+    let items = 0;
+    let qty = 0;
+    orderItems.forEach((item) => {
+      const state = subOrderTransfers[item.orderItemId];
+      if (!state || !state.selected) return;
+      items += 1;
+
+      const ordered = item.orderedQty || 0;
+      const received = item.receivedQty || 0;
+      const available = Math.max(0, ordered - received);
+      if (state.quantity && state.quantity.trim() !== '') {
+        const parsed = parseInt(state.quantity, 10);
+        if (Number.isFinite(parsed) && parsed > 0) {
+          qty += Math.min(parsed, available);
+          return;
+        }
+      }
+      qty += available;
+    });
+    return { items, qty };
+  }, [orderItems, subOrderTransfers]);
 
   const createSubOrderMutation = useMutation({
     mutationFn: (payload) => api.supplierOrders.createSubOrder(orderId, payload),
@@ -1534,8 +1558,9 @@ export default function SupplierOrderDetails() {
             setSubOrderTransfers({});
           }
         }}
+        className="max-w-4xl lg:max-w-5xl xl:max-w-6xl 2xl:max-w-[1500px]"
       >
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="w-full max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{t('supplierOrderDetails.subOrder.title')}</DialogTitle>
           </DialogHeader>
@@ -1551,122 +1576,225 @@ export default function SupplierOrderDetails() {
             )}
 
             <div className="space-y-3">
-              <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                {t('supplierOrderDetails.subOrder.itemsTitle')}
-              </p>
+              <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                  {t('supplierOrderDetails.subOrder.itemsTitle')}
+                </p>
+                <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500 dark:text-slate-400">
+                  {orderItems.length > 0 && (
+                    <span className="whitespace-nowrap">
+                      {t('supplierOrderDetails.subOrder.available')}:{' '}
+                      {orderItems
+                        .reduce(
+                          (sum, it) =>
+                            sum + Math.max(0, (it.orderedQty || 0) - (it.receivedQty || 0)),
+                          0,
+                        )
+                        .toLocaleString()}{' '}
+                      {t('supplierOrderDetails.summaryUnits')}
+                    </span>
+                  )}
+                  {subOrderSelectionSummary.items > 0 && (
+                    <span className="whitespace-nowrap">
+                      {subOrderSelectionSummary.items}{' '}
+                      {t('supplierOrderDetails.summaryPositionsLabel')},{' '}
+                      {subOrderSelectionSummary.qty.toLocaleString()}{' '}
+                      {t('supplierOrderDetails.summaryUnits')}
+                    </span>
+                  )}
+                </div>
+              </div>
+
               {orderItems.length === 0 ? (
                 <p className="text-sm text-slate-500">
                   {t('supplierOrderDetails.subOrder.noItems')}
                 </p>
               ) : (
-                <div className="space-y-2">
-                  {orderItems.map((item) => {
-                    const product = productsMap.get(item.productId);
-                    const ordered = item.orderedQty || 0;
-                    const received = item.receivedQty || 0;
-                    const available = Math.max(0, ordered - received);
-                    const totalWeightGrams = item.totalWeight || 0;
-                    const unitWeightGrams =
-                      ordered > 0 ? totalWeightGrams / ordered : product?.unitWeight || 0;
-                    const totalWeightKg = totalWeightGrams / 1000;
-                    const transferState = subOrderTransfers[item.orderItemId] || {};
-                    const isDisabled = available <= 0;
+                <div className="rounded-xl border bg-white/70 shadow-sm dark:bg-slate-900/60 dark:border-slate-800 overflow-hidden">
+                  <table className="min-w-full table-fixed border-collapse text-xs">
+                    <thead>
+                      <tr className="border-b bg-slate-50 text-[11px] uppercase tracking-wide text-slate-500 dark:border-slate-800 dark:bg-slate-900/70 dark:text-slate-400">
+                        <th className="px-4 py-2 text-left w-56">
+                          {t('supplierOrderDetails.subOrder.columnProduct')}
+                        </th>
+                        <th className="px-4 py-2 text-left w-40">
+                          {t('supplierOrderDetails.subOrder.columnQty')}
+                        </th>
+                        <th className="px-4 py-2 text-left w-44">
+                          {t('supplierOrderDetails.subOrder.columnPrice')}
+                        </th>
+                        <th className="px-4 py-2 text-left w-44">
+                          {t('supplierOrderDetails.subOrder.columnWeight')}
+                        </th>
+                        <th className="px-4 py-2 text-left w-40">
+                          {t('supplierOrderDetails.subOrder.available')}
+                        </th>
+                        <th className="px-4 py-2 text-left w-32">
+                          {t('supplierOrderDetails.subOrder.columnMoveQty')}
+                        </th>
+                        <th className="px-4 py-2 text-left w-32">
+                          {t('supplierOrderDetails.subOrder.columnSelect')}
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {orderItems.map((item) => {
+                        const product = productsMap.get(item.productId);
+                        const ordered = item.orderedQty || 0;
+                        const received = item.receivedQty || 0;
+                        const available = Math.max(0, ordered - received);
+                        const totalWeightGrams = item.totalWeight || 0;
+                        const unitWeightGrams =
+                          ordered > 0 ? totalWeightGrams / ordered : product?.unitWeight || 0;
+                        const totalWeightKg = totalWeightGrams / 1000;
+                        const transferState = subOrderTransfers[item.orderItemId] || {};
+                        const isDisabled = available <= 0;
+                        const isSelected = !!transferState.selected && !isDisabled;
 
-                    return (
-                      <div
-                        key={item.orderItemId}
-                        className="flex items-center gap-4 rounded-lg border bg-slate-50/60 dark:bg-slate-900/40 dark:border-slate-800 px-4 py-3"
-                      >
-                        <div className="min-w-0 flex-1">
-                          <p className="font-medium text-slate-900 dark:text-slate-100 truncate">
-                            {product?.article || product?.name || t('common.notSpecified')}
-                          </p>
-                          <p className="text-xs text-slate-500">
-                            {product?.barcode || `ID: ${item.productId}`}
-                          </p>
-                        </div>
-                        <div className="flex flex-col text-xs text-slate-600 dark:text-slate-300 gap-1">
-                          <span>
-                            {t('supplierOrderDetails.subOrder.columnQty')}: {ordered.toLocaleString()} /{' '}
-                            {received.toLocaleString()}
-                          </span>
-                          <span>
-                            {t('supplierOrderDetails.subOrder.columnPrice')}:&nbsp;
-                            {item.purchasePrice != null
-                              ? `₽${item.purchasePrice.toFixed(2)}`
-                              : '—'}{' '}
-                            /{' '}
-                            {item.totalPrice != null
-                              ? `₽${item.totalPrice.toLocaleString('ru-RU', {
-                                  minimumFractionDigits: 2,
-                                })}`
-                              : '—'}
-                          </span>
-                          <span>
-                            {t('supplierOrderDetails.subOrder.columnWeight')}:&nbsp;
-                            {unitWeightGrams
-                              ? `${unitWeightGrams.toFixed(0)} ${t(
-                                  'supplierOrderDetails.weight.unitGrams',
-                                )}`
-                              : '—'}{' '}
-                            /{' '}
-                            {totalWeightGrams
-                              ? `${totalWeightKg.toFixed(2)} ${t(
-                                  'supplierOrderDetails.weight.unitKg',
-                                )}`
-                              : '—'}
-                          </span>
-                          <span className="text-[11px] text-slate-500">
-                            {t('supplierOrderDetails.subOrder.available')}:{' '}
-                            {available.toLocaleString()} {t('supplierOrderDetails.summaryUnits')}
-                          </span>
-                        </div>
-                        <div className="flex flex-col items-end gap-2">
-                          <div className="flex items-center gap-2">
-                            <Label
-                              htmlFor={`moveQty-${item.orderItemId}`}
-                              className="text-xs text-slate-600 dark:text-slate-300"
-                            >
-                              {t('supplierOrderDetails.subOrder.columnMoveQty')}
-                            </Label>
-                            <Input
-                              id={`moveQty-${item.orderItemId}`}
-                              type="text"
-                              inputMode="numeric"
-                              className="w-20 h-8 text-right"
-                              value={transferState.quantity || ''}
-                              onChange={(e) =>
-                                handleChangeSubOrderQty(item.orderItemId, e.target.value)
-                              }
-                              disabled={isDisabled}
-                            />
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <input
-                              id={`moveSelect-${item.orderItemId}`}
-                              type="checkbox"
-                              className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-                              checked={!!transferState.selected && !isDisabled}
-                              onChange={(e) =>
-                                handleToggleSubOrderItem(
-                                  item.orderItemId,
-                                  e.target.checked,
-                                  available,
-                                )
-                              }
-                              disabled={isDisabled}
-                            />
-                            <Label
-                              htmlFor={`moveSelect-${item.orderItemId}`}
-                              className="text-xs text-slate-600 dark:text-slate-300"
-                            >
-                              {t('supplierOrderDetails.subOrder.columnSelect')}
-                            </Label>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
+                        return (
+                          <tr
+                            key={item.orderItemId}
+                            className={`border-b last:border-0 dark:border-slate-800 hover:bg-slate-50/60 dark:hover:bg-slate-900/70 ${
+                              isSelected ? 'bg-indigo-50/60 dark:bg-indigo-500/10' : ''
+                            }`}
+                          >
+                            {/* Product */}
+                            <td className="px-4 py-3 align-top">
+                              <div className="max-w-xs">
+                                <p className="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">
+                                  {product?.article || product?.name || t('common.notSpecified')}
+                                </p>
+                                <p className="mt-0.5 text-[11px] text-slate-500 truncate">
+                                  {product?.barcode || `ID: ${item.productId}`}
+                                </p>
+                              </div>
+                            </td>
+
+                            {/* Qty */}
+                            <td className="px-4 py-3 align-top whitespace-nowrap">
+                              <p className="text-[11px] text-slate-400 dark:text-slate-500">
+                                {t('supplierOrderDetails.table.orderedQty')} /{' '}
+                                {t('supplierOrderDetails.table.receivedQty')}
+                              </p>
+                              <p className="mt-0.5 text-sm font-semibold tabular-nums text-slate-900 dark:text-slate-100">
+                                {ordered.toLocaleString()} / {received.toLocaleString()}{' '}
+                                <span className="ml-1 text-[11px] font-normal text-slate-500">
+                                  {t('supplierOrderDetails.summaryUnits')}
+                                </span>
+                              </p>
+                            </td>
+
+                            {/* Price */}
+                            <td className="px-4 py-3 align-top whitespace-nowrap">
+                              <p className="text-[11px] text-slate-400 dark:text-slate-500">
+                                {t('supplierOrderDetails.table.purchasePriceLabel')} /{' '}
+                                {t('supplierOrderDetails.table.totalPriceLabel')}
+                              </p>
+                              <p className="mt-0.5 text-sm tabular-nums">
+                                <span className="text-slate-600 dark:text-slate-300">
+                                  {item.purchasePrice != null
+                                    ? `₽${item.purchasePrice.toFixed(2)}`
+                                    : '—'}
+                                </span>
+                                <span className="mx-1 text-slate-400">/</span>
+                                <span className="font-semibold text-slate-900 dark:text-slate-100">
+                                  {item.totalPrice != null
+                                    ? `₽${item.totalPrice.toLocaleString('ru-RU', {
+                                        minimumFractionDigits: 2,
+                                      })}`
+                                    : '—'}
+                                </span>
+                              </p>
+                            </td>
+
+                            {/* Weight */}
+                            <td className="px-4 py-3 align-top whitespace-nowrap">
+                              <p className="text-[11px] text-slate-400 dark:text-slate-500">
+                                {t('supplierOrderDetails.weight.perUnit')} /{' '}
+                                {t('supplierOrderDetails.weight.total')}
+                              </p>
+                              <p className="mt-0.5 text-sm tabular-nums">
+                                <span className="text-slate-600 dark:text-slate-300">
+                                  {unitWeightGrams
+                                    ? `${unitWeightGrams.toFixed(0)} ${t(
+                                        'supplierOrderDetails.weight.unitGrams',
+                                      )}`
+                                    : '—'}
+                                </span>
+                                <span className="mx-1 text-slate-400">/</span>
+                                <span className="font-semibold text-slate-900 dark:text-slate-100">
+                                  {totalWeightGrams
+                                    ? `${totalWeightKg.toFixed(2)} ${t(
+                                        'supplierOrderDetails.weight.unitKg',
+                                      )}`
+                                    : '—'}
+                                </span>
+                              </p>
+                            </td>
+
+                            {/* Available */}
+                            <td className="px-4 py-3 align-top whitespace-nowrap">
+                              <span
+                                className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-medium ${
+                                  isDisabled
+                                    ? 'bg-slate-100 text-slate-400 dark:bg-slate-800 dark:text-slate-500'
+                                    : 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300'
+                                }`}
+                              >
+                                {available.toLocaleString()} {t('supplierOrderDetails.summaryUnits')}
+                              </span>
+                            </td>
+
+                            {/* Move qty */}
+                            <td className="px-4 py-3 align-top">
+                              <Input
+                                id={`moveQty-${item.orderItemId}`}
+                                type="text"
+                                inputMode="numeric"
+                                className="h-9 w-full text-right"
+                                placeholder={isDisabled ? '' : String(available)}
+                                value={transferState.quantity || ''}
+                                onChange={(e) =>
+                                  handleChangeSubOrderQty(
+                                    item.orderItemId,
+                                    e.target.value,
+                                    available,
+                                  )
+                                }
+                                disabled={isDisabled}
+                              />
+                              <p className="mt-1 text-[11px] text-slate-400 dark:text-slate-500">
+                                {t('supplierOrderDetails.subOrder.moveAllLabel')}
+                              </p>
+                            </td>
+
+                            {/* Select */}
+                            <td className="px-4 py-3 align-top">
+                              <label className="inline-flex items-center gap-2 text-xs text-slate-700 dark:text-slate-200">
+                                <input
+                                  id={`moveSelect-${item.orderItemId}`}
+                                  type="checkbox"
+                                  className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                                  checked={isSelected}
+                                  onChange={(e) =>
+                                    handleToggleSubOrderItem(
+                                      item.orderItemId,
+                                      e.target.checked,
+                                      available,
+                                    )
+                                  }
+                                  disabled={isDisabled}
+                                />
+                                <span className="whitespace-nowrap">
+                                  {t('supplierOrderDetails.subOrder.columnSelect')}
+                                </span>
+                              </label>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
                 </div>
               )}
             </div>

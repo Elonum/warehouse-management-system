@@ -3,7 +3,7 @@ import { cn } from '@/lib/utils'
 import { X } from 'lucide-react'
 import { Button } from './button'
 
-export function Dialog({ open, onOpenChange, children }) {
+export function Dialog({ open, onOpenChange, children, className }) {
   if (!open) return null
 
   return (
@@ -13,7 +13,7 @@ export function Dialog({ open, onOpenChange, children }) {
         onClick={() => onOpenChange?.(false)}
       />
       <div 
-        className="relative z-50 w-full max-w-lg mx-4"
+        className={cn('relative z-50 w-full max-w-lg mx-4', className)}
         onClick={(e) => e.stopPropagation()}
       >
         {children}

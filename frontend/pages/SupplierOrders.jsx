@@ -406,21 +406,9 @@ export default function SupplierOrders() {
   };
 
   const handleCreateSubOrder = (parentOrder) => {
-    setCurrentOrder(null);
-    setFormData({
-      orderNumber: `${parentOrder.orderNumber}-SUB`,
-      buyer: parentOrder.buyer || null,
-      statusId: parentOrder.statusId || null,
-      purchaseDate: parentOrder.purchaseDate ? format(new Date(parentOrder.purchaseDate), 'yyyy-MM-dd') : null,
-      plannedReceiptDate: parentOrder.plannedReceiptDate ? format(new Date(parentOrder.plannedReceiptDate), 'yyyy-MM-dd') : null,
-      actualReceiptDate: null,
-      logisticsChinaMsk: parentOrder.logisticsChinaMsk || null,
-      logisticsMskKzn: parentOrder.logisticsMskKzn || null,
-      logisticsAdditional: parentOrder.logisticsAdditional || null,
-      logisticsTotal: parentOrder.logisticsTotal || null,
-      parentOrderId: parentOrder.orderId,
-    });
-    setDialogOpen(true);
+    // Для подзаказов используем единый UX: детальная страница заказа
+    // с специализированным диалогом переноса позиций в подзаказ.
+    navigate(`${createPageUrl('SupplierOrderDetails')}?id=${parentOrder.orderId}&suborder=1`);
   };
 
   const handleSubmit = (e) => {

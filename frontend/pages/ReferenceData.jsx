@@ -66,6 +66,7 @@ export default function ReferenceData() {
   const [orderStatusName, setOrderStatusName] = useState('');
   const [orderStatusError, setOrderStatusError] = useState('');
   const [orderStatusDeleteError, setOrderStatusDeleteError] = useState('');
+  const [orderStatusIsFinal, setOrderStatusIsFinal] = useState(false);
   
   // Shipment Status states
   const [shipmentStatusDialogOpen, setShipmentStatusDialogOpen] = useState(false);
@@ -309,12 +310,14 @@ export default function ReferenceData() {
     setOrderStatusName('');
     setCurrentOrderStatus(null);
     setOrderStatusError('');
+    setOrderStatusIsFinal(false);
   };
 
   const handleOpenOrderStatusDialog = (orderStatus = null) => {
     if (orderStatus) {
       setCurrentOrderStatus(orderStatus);
       setOrderStatusName(orderStatus.name || '');
+      setOrderStatusIsFinal(!!orderStatus.isFinal);
     } else {
       resetOrderStatusForm();
     }
@@ -342,7 +345,7 @@ export default function ReferenceData() {
       return;
     }
 
-    const data = { name };
+    const data = { name, isFinal: orderStatusIsFinal };
 
     if (currentOrderStatus) {
       updateOrderStatusMutation.mutate({ id: currentOrderStatus.orderStatusId, data });
@@ -910,6 +913,22 @@ export default function ReferenceData() {
       ),
     },
     {
+      accessorKey: 'isFinal',
+      header: t('referenceData.orderStatuses.table.isFinal'),
+      cell: ({ row }) => (
+        <span className={cn(
+          "inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium",
+          row.original.isFinal
+            ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400'
+            : 'bg-slate-50 text-slate-600 dark:bg-slate-700/30 dark:text-slate-300'
+        )}>
+          {row.original.isFinal
+            ? t('referenceData.orderStatuses.table.isFinalYes')
+            : t('referenceData.orderStatuses.table.isFinalNo')}
+        </span>
+      ),
+    },
+    {
       id: 'actions',
       header: '',
       sortable: false,
@@ -1299,6 +1318,23 @@ export default function ReferenceData() {
                 <p className="text-xs text-slate-500 dark:text-slate-400">
                   {t('referenceData.orderStatuses.form.nameHint')}
                 </p>
+              </div>
+              <div className="flex items-center justify-between border rounded-md px-3 py-2">
+                <div className="space-y-0.5">
+                  <Label htmlFor="orderStatusIsFinal" className="text-xs font-medium text-slate-700 dark:text-slate-200">
+                    {t('referenceData.orderStatuses.form.isFinal')}
+                  </Label>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    {t('referenceData.orderStatuses.form.isFinalHint')}
+                  </p>
+                </div>
+                <input
+                  id="orderStatusIsFinal"
+                  type="checkbox"
+                  className="h-4 w-4 accent-emerald-600"
+                  checked={orderStatusIsFinal}
+                  onChange={(e) => setOrderStatusIsFinal(e.target.checked)}
+                />
               </div>
               <DialogFooter>
                 <Button type="button" variant="outline" onClick={handleCloseOrderStatusDialog}>

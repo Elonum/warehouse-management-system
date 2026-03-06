@@ -89,11 +89,16 @@ const translations = {
         emptyMessage: 'Статусы заказов не найдены',
         table: {
           name: 'Название статуса',
+          isFinal: 'Финальный статус',
+          isFinalYes: 'Да',
+          isFinalNo: 'Нет',
         },
         form: {
           name: 'Название статуса',
           namePlaceholder: 'Введите название статуса',
           nameHint: 'Минимум 2 символа, максимум 100 символов',
+          isFinal: 'Финальный статус',
+          isFinalHint: 'Финальные статусы считаются завершёнными и блокируют изменение заказов, применяя принятые товары к остаткам склада',
         },
         deleteConfirm: {
           title: 'Удалить статус',
@@ -847,11 +852,16 @@ const translations = {
         emptyMessage: 'No order statuses found',
         table: {
           name: 'Status Name',
+          isFinal: 'Final status',
+          isFinalYes: 'Yes',
+          isFinalNo: 'No',
         },
         form: {
           name: 'Status Name',
           namePlaceholder: 'Enter status name',
           nameHint: 'Minimum 2 characters, maximum 100 characters',
+          isFinal: 'Final status',
+          isFinalHint: 'Final statuses are treated as completed and prevent further order edits, applying received items to stock',
         },
         deleteConfirm: {
           title: 'Delete Status',

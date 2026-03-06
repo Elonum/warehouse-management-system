@@ -95,10 +95,10 @@ func (r *OrderStatusRepository) List(ctx context.Context, limit, offset int) ([]
 	return statuses, nil
 }
 
-func (r *OrderStatusRepository) Create(ctx context.Context, name string) (*OrderStatus, error) {
+func (r *OrderStatusRepository) Create(ctx context.Context, name string, isFinal bool) (*OrderStatus, error) {
 	query := `
 		INSERT INTO order_statuses (name, is_final)
-		VALUES ($1, FALSE)
+		VALUES ($1, $2)
 		RETURNING order_status_id, name, is_final
 	`
 
@@ -106,7 +106,7 @@ func (r *OrderStatusRepository) Create(ctx context.Context, name string) (*Order
 	defer cancel()
 
 	var status OrderStatus
-	err := r.pool.QueryRow(ctx, query, name).Scan(
+	err := r.pool.QueryRow(ctx, query, name, isFinal).Scan(
 		&status.OrderStatusID,
 		&status.Name,
 		&status.IsFinal,
@@ -125,11 +125,11 @@ func (r *OrderStatusRepository) Create(ctx context.Context, name string) (*Order
 	return &status, nil
 }
 
-func (r *OrderStatusRepository) Update(ctx context.Context, statusID uuid.UUID, name string) (*OrderStatus, error) {
+func (r *OrderStatusRepository) Update(ctx context.Context, statusID uuid.UUID, name string, isFinal bool) (*OrderStatus, error) {
 	query := `
 		UPDATE order_statuses
-		SET name = $1
-		WHERE order_status_id = $2
+		SET name = $1, is_final = $2
+		WHERE order_status_id = $3
 		RETURNING order_status_id, name, is_final
 	`
 
@@ -137,7 +137,7 @@ func (r *OrderStatusRepository) Update(ctx context.Context, statusID uuid.UUID, 
 	defer cancel()
 
 	var status OrderStatus
-	err := r.pool.QueryRow(ctx, query, name, statusID).Scan(
+	err := r.pool.QueryRow(ctx, query, name, isFinal, statusID).Scan(
 		&status.OrderStatusID,
 		&status.Name,
 		&status.IsFinal,

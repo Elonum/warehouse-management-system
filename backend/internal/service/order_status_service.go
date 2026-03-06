@@ -52,13 +52,13 @@ func (s *OrderStatusService) List(ctx context.Context, limit, offset int) ([]dto
 }
 
 func (s *OrderStatusService) Create(ctx context.Context, req dto.OrderStatusCreateRequest) (*dto.OrderStatusResponse, error) {
-	status, err := s.repo.Create(ctx, req.Name)
+	status, err := s.repo.Create(ctx, req.Name, req.IsFinal)
 	if err != nil {
-		log.Error().Err(err).Str("name", req.Name).Msg("Failed to create order status")
+		log.Error().Err(err).Str("name", req.Name).Bool("isFinal", req.IsFinal).Msg("Failed to create order status")
 		return nil, err
 	}
 
-	log.Info().Str("statusId", status.OrderStatusID.String()).Str("name", status.Name).Msg("Order status created successfully")
+	log.Info().Str("statusId", status.OrderStatusID.String()).Str("name", status.Name).Bool("isFinal", status.IsFinal).Msg("Order status created successfully")
 	return &dto.OrderStatusResponse{
 		OrderStatusID: status.OrderStatusID.String(),
 		Name:          status.Name,
@@ -67,13 +67,13 @@ func (s *OrderStatusService) Create(ctx context.Context, req dto.OrderStatusCrea
 }
 
 func (s *OrderStatusService) Update(ctx context.Context, statusID uuid.UUID, req dto.OrderStatusUpdateRequest) (*dto.OrderStatusResponse, error) {
-	status, err := s.repo.Update(ctx, statusID, req.Name)
+	status, err := s.repo.Update(ctx, statusID, req.Name, req.IsFinal)
 	if err != nil {
-		log.Error().Err(err).Str("statusId", statusID.String()).Msg("Failed to update order status")
+		log.Error().Err(err).Str("statusId", statusID.String()).Bool("isFinal", req.IsFinal).Msg("Failed to update order status")
 		return nil, err
 	}
 
-	log.Info().Str("statusId", statusID.String()).Msg("Order status updated successfully")
+	log.Info().Str("statusId", statusID.String()).Bool("isFinal", status.IsFinal).Msg("Order status updated successfully")
 	return &dto.OrderStatusResponse{
 		OrderStatusID: status.OrderStatusID.String(),
 		Name:          status.Name,

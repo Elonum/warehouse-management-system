@@ -118,6 +118,8 @@ export default function SupplierOrders() {
   const queryClient = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleteErrorDialogOpen, setDeleteErrorDialogOpen] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
   const [currentOrder, setCurrentOrder] = useState(null);
   const [formData, setFormData] = useState(emptyOrder);
   const [expandedOrders, setExpandedOrders] = useState({});
@@ -157,13 +159,22 @@ export default function SupplierOrders() {
 
   const orderStatusesMap = useMemo(() => {
     const map = new Map();
-    orderStatuses.forEach(s => map.set(s.orderStatusId, s.name));
+    orderStatuses.forEach(s => {
+      map.set(s.orderStatusId, s);
+    });
     return map;
   }, [orderStatuses]);
 
   const getOrderStatusName = (statusId) => {
     if (!statusId) return '—';
-    return orderStatusesMap.get(statusId) || '—';
+    const status = orderStatusesMap.get(statusId);
+    return status?.name || '—';
+  };
+
+  const isOrderFinal = (order) => {
+    if (!order?.statusId) return false;
+    const status = orderStatusesMap.get(order.statusId);
+    return !!status?.isFinal;
   };
 
   // Group orders by parent
@@ -358,9 +369,17 @@ export default function SupplierOrders() {
         if (err.code === 'ORDER_NOT_FOUND') {
           message = t('supplierOrders.errors.notFound');
         }
-        setError(message);
+        if (err.code === 'ORDER_COMPLETED') {
+          message = t('supplierOrderDetails.errors.cannotDeleteCompleted');
+        }
+        if (err.code === 'ORDER_HAS_SUB_ORDERS') {
+          message = t('supplierOrders.errors.hasSubOrders');
+        }
+        setDeleteError(message);
+        setDeleteErrorDialogOpen(true);
       } else {
-        setError(t('supplierOrders.errors.deleteFailed'));
+        setDeleteError(t('supplierOrders.errors.deleteFailed'));
+        setDeleteErrorDialogOpen(true);
       }
       setDeleteDialogOpen(false);
     },
@@ -388,6 +407,10 @@ export default function SupplierOrders() {
   }, []);
 
   const handleEdit = (order) => {
+    if (isOrderFinal(order)) {
+      setError(t('supplierOrderDetails.errors.cannotEditCompleted'));
+      return;
+    }
     setCurrentOrder(order);
     setFormData({
       orderNumber: order.orderNumber || '',
@@ -513,7 +536,10 @@ export default function SupplierOrders() {
             {order.buyer || '—'}
           </td>
           <td className="px-4 py-3">
-            <StatusBadge status={getOrderStatusName(order.statusId)} />
+            <StatusBadge 
+              status={getOrderStatusName(order.statusId)} 
+              className={isOrderFinal(order) ? 'border-emerald-300 bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400' : ''}
+            />
           </td>
           <td className="px-4 py-3 text-slate-600 dark:text-slate-400">
             {order.purchaseDate ? format(new Date(order.purchaseDate), 'dd.MM.yyyy') : '—'}
@@ -592,19 +618,34 @@ export default function SupplierOrders() {
                     {t('common.details')}
                   </Link>
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleEdit(order)}>
+                <DropdownMenuItem 
+                  onClick={() => handleEdit(order)}
+                  disabled={isOrderFinal(order)}
+                >
                   <Edit2 className="w-4 h-4 mr-2" />
                   {t('common.edit')}
                 </DropdownMenuItem>
                 {!isChild && (
-                  <DropdownMenuItem onClick={() => handleCreateSubOrder(order)}>
+                  <DropdownMenuItem 
+                    onClick={() => handleCreateSubOrder(order)}
+                    disabled={isOrderFinal(order)}
+                  >
                     <Copy className="w-4 h-4 mr-2" />
                     {t('supplierOrders.createSubOrder')}
                   </DropdownMenuItem>
                 )}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem 
-                  onClick={() => { setCurrentOrder(order); setDeleteDialogOpen(true); }}
+                  onClick={() => {
+                    if (isOrderFinal(order)) {
+                      setDeleteError(t('supplierOrderDetails.errors.cannotDeleteCompleted'));
+                      setDeleteErrorDialogOpen(true);
+                      return;
+                    }
+                    setCurrentOrder(order);
+                    setDeleteError('');
+                    setDeleteDialogOpen(true);
+                  }}
                   className="text-red-600"
                 >
                   <Trash2 className="w-4 h-4 mr-2" />
@@ -1004,6 +1045,30 @@ export default function SupplierOrders() {
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Error Dialog */}
+      <AlertDialog open={deleteErrorDialogOpen} onOpenChange={setDeleteErrorDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t('supplierOrders.deleteConfirm.title')}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {deleteError}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setDeleteErrorDialogOpen(false);
+                setDeleteError('');
+              }}
+            >
+              {t('common.ok')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Delete Confirmation */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>

@@ -13,7 +13,9 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-var ErrSupplierOrderCompleted = errors.New("supplier order is completed and cannot be modified")
+var (
+	ErrSupplierOrderCompleted = errors.New("supplier order is completed and cannot be modified")
+)
 
 type SupplierOrderService struct {
 	repo            *repository.SupplierOrderRepository
@@ -692,8 +694,22 @@ func (s *SupplierOrderService) Delete(ctx context.Context, orderID uuid.UUID) er
 		return err
 	}
 
+	// Check if order has sub-orders before attempting deletion
+	hasSubOrders, checkErr := s.repo.HasSubOrders(ctx, orderID)
+	if checkErr != nil {
+		log.Error().Err(checkErr).Str("orderId", orderID.String()).Msg("Failed to check for sub-orders before deletion")
+		return checkErr
+	}
+	if hasSubOrders {
+		log.Warn().Str("orderId", orderID.String()).Msg("Attempt to delete supplier order with sub-orders")
+		return repository.ErrSupplierOrderHasSubOrders
+	}
+
 	err = s.repo.Delete(ctx, orderID)
 	if err != nil {
+		if err == repository.ErrSupplierOrderHasSubOrders {
+			return err
+		}
 		log.Error().Err(err).Str("orderId", orderID.String()).Msg("Failed to delete supplier order")
 		return err
 	}

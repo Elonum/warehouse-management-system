@@ -362,6 +362,11 @@ func (h *SupplierOrderHandler) Delete(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusBadRequest, "ORDER_COMPLETED", "Завершённый заказ поставщику нельзя удалить, так как он уже применён к остаткам склада")
 			return
 		}
+		if err == repository.ErrSupplierOrderHasSubOrders {
+			log.Warn().Str("orderId", orderID.String()).Msg("Attempt to delete supplier order with sub-orders")
+			writeError(w, http.StatusBadRequest, "ORDER_HAS_SUB_ORDERS", "Невозможно удалить заказ, у которого есть подзаказы. Сначала удалите все подзаказы")
+			return
+		}
 		log.Error().Err(err).Str("orderId", orderID.String()).Msg("Failed to delete supplier order")
 		writeError(w, http.StatusInternalServerError, "ORDER_DELETE_FAILED", "failed to delete supplier order")
 		return

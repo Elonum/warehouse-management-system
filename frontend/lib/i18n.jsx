@@ -409,6 +409,7 @@ const translations = {
           invalidParentOrder: 'Заказ не может быть родителем сам себе',
           invalidDateRange: 'Неверный диапазон дат: плановая дата должна быть после даты покупки, фактическая — после плановой',
           notFound: 'Заказ не найден или был удалён',
+          hasSubOrders: 'Невозможно удалить заказ, у которого есть подзаказы. Сначала удалите все подзаказы',
       },
       filters: {
         statusesLabel: 'Статусы заказов',
@@ -627,6 +628,8 @@ const translations = {
         warehouseNotFound: 'Склад не найден или был удалён',
         itemNotFound: 'Позиция не найдена или была удалена',
       },
+      deleteItemTitle: 'Удалить позицию',
+      deleteItemDescription: 'Вы уверены, что хотите удалить эту позицию? Это действие нельзя отменить.',
       documents: {
         uploadTitle: 'Загрузить документ',
         name: 'Название документа',
@@ -668,6 +671,14 @@ const translations = {
           orderItemNotFound: 'Одна или несколько позиций заказа не найдены или были изменены',
           createFailed: 'Не удалось создать подзаказ',
         },
+      },
+      completeButton: 'Завершить заказ',
+      completing: 'Завершение...',
+      errors: {
+        cannotEditCompleted: 'Завершённый заказ нельзя редактировать, так как он уже применён к остаткам склада',
+        cannotUpdateCompleted: 'Завершённый заказ нельзя изменять, так как он уже применён к остаткам склада',
+        cannotDeleteCompleted: 'Завершённый заказ нельзя удалить, так как он уже применён к остаткам склада',
+        completeFailed: 'Ошибка завершения заказа',
       },
     },
     settings: {
@@ -1172,6 +1183,7 @@ const translations = {
         invalidParentOrder: 'Order cannot be a parent of itself',
         invalidDateRange: 'Invalid date range: planned receipt must be after purchase date, actual receipt must be after planned receipt date',
         notFound: 'Order was not found or was deleted',
+        hasSubOrders: 'Cannot delete order that has sub-orders. Delete all sub-orders first',
       },
       filters: {
         statusesLabel: 'Order statuses',
@@ -1430,6 +1442,14 @@ const translations = {
           orderItemNotFound: 'One or more order items to move were not found or were changed',
           createFailed: 'Failed to create sub-order',
         },
+      },
+      completeButton: 'Complete order',
+      completing: 'Completing...',
+      errors: {
+        cannotEditCompleted: 'Completed order cannot be edited as it has already been applied to stock',
+        cannotUpdateCompleted: 'Completed order cannot be modified as it has already been applied to stock',
+        cannotDeleteCompleted: 'Completed order cannot be deleted as it has already been applied to stock',
+        completeFailed: 'Failed to complete order',
       },
     },
     settings: {

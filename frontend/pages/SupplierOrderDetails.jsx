@@ -14,6 +14,7 @@ import {
   ExternalLink,
   HelpCircle,
   Copy,
+  CheckCircle2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -110,6 +111,8 @@ export default function SupplierOrderDetails() {
   const [activeTab, setActiveTab] = useState('items');
   const [itemDialogOpen, setItemDialogOpen] = useState(false);
   const [deleteItemDialogOpen, setDeleteItemDialogOpen] = useState(false);
+  const [deleteItemErrorDialogOpen, setDeleteItemErrorDialogOpen] = useState(false);
+  const [deleteItemError, setDeleteItemError] = useState('');
   const [currentItem, setCurrentItem] = useState(null);
   const [itemForm, setItemForm] = useState(emptyItem);
   const [error, setError] = useState('');
@@ -189,14 +192,27 @@ export default function SupplierOrderDetails() {
 
   const orderStatusesMap = useMemo(() => {
     const map = new Map();
-    orderStatuses.forEach(s => map.set(s.orderStatusId, s.name));
+    orderStatuses.forEach(s => {
+      map.set(s.orderStatusId, s);
+    });
     return map;
   }, [orderStatuses]);
 
   const getOrderStatusName = (statusId) => {
     if (!statusId) return '—';
-    return orderStatusesMap.get(statusId) || '—';
+    const status = orderStatusesMap.get(statusId);
+    return status?.name || '—';
   };
+
+  const isFinalStatus = useMemo(() => {
+    if (!order?.statusId) return false;
+    const status = orderStatusesMap.get(order.statusId);
+    return !!status?.isFinal;
+  }, [order, orderStatusesMap]);
+
+  const finalStatus = useMemo(() => {
+    return orderStatuses.find(s => s.isFinal) || null;
+  }, [orderStatuses]);
 
   const applyOptimisticOrderAggregates = (nextItems) => {
     const agg = computeOrderAggregatesFromItems(nextItems);
@@ -300,6 +316,8 @@ export default function SupplierOrderDetails() {
         message = t('supplierOrderDetails.itemErrors.warehouseNotFound');
       } else if (err.code === 'ITEM_EXISTS') {
         message = t('supplierOrderDetails.itemErrors.invalidQuantity');
+      } else if (err.code === 'ORDER_COMPLETED') {
+        message = t('supplierOrderDetails.errors.cannotEditCompleted');
       }
       setError(message);
     } else {
@@ -422,10 +440,14 @@ export default function SupplierOrderDetails() {
         let message = err.message || t('supplierOrderDetails.itemErrors.deleteFailed');
         if (err.code === 'ITEM_NOT_FOUND') {
           message = t('supplierOrderDetails.itemErrors.itemNotFound');
+        } else if (err.code === 'ORDER_COMPLETED') {
+          message = t('supplierOrderDetails.errors.cannotEditCompleted');
         }
-        setError(message);
+        setDeleteItemError(message);
+        setDeleteItemErrorDialogOpen(true);
       } else {
-        setError(t('supplierOrderDetails.itemErrors.deleteFailed'));
+        setDeleteItemError(t('supplierOrderDetails.itemErrors.deleteFailed'));
+        setDeleteItemErrorDialogOpen(true);
       }
       setDeleteItemDialogOpen(false);
     },
@@ -433,6 +455,8 @@ export default function SupplierOrderDetails() {
 
   const [documentDialogOpen, setDocumentDialogOpen] = useState(false);
   const [deleteDocumentDialogOpen, setDeleteDocumentDialogOpen] = useState(false);
+  const [deleteDocumentErrorDialogOpen, setDeleteDocumentErrorDialogOpen] = useState(false);
+  const [deleteDocumentError, setDeleteDocumentError] = useState('');
   const [currentDocument, setCurrentDocument] = useState(null);
   const [documentForm, setDocumentForm] = useState({ name: '', description: '', file: null });
   const [uploadError, setUploadError] = useState('');
@@ -502,9 +526,15 @@ export default function SupplierOrderDetails() {
     },
     onError: (err) => {
       if (err instanceof ApiError) {
-        setUploadError(err.message || t('supplierOrderDetails.documents.deleteFailed'));
+        let message = err.message || t('supplierOrderDetails.documents.deleteFailed');
+        if (err.code === 'ORDER_COMPLETED') {
+          message = t('supplierOrderDetails.errors.cannotEditCompleted');
+        }
+        setDeleteDocumentError(message);
+        setDeleteDocumentErrorDialogOpen(true);
       } else {
-        setUploadError(t('supplierOrderDetails.documents.deleteFailed'));
+        setDeleteDocumentError(t('supplierOrderDetails.documents.deleteFailed'));
+        setDeleteDocumentErrorDialogOpen(true);
       }
       setDeleteDocumentDialogOpen(false);
     },
@@ -543,7 +573,48 @@ export default function SupplierOrderDetails() {
     });
   };
 
+  const completeOrderMutation = useMutation({
+    mutationFn: async () => {
+      if (!order || !finalStatus) return;
+      await api.supplierOrders.update(order.orderId, {
+        buyer: order.buyer,
+        statusId: finalStatus.orderStatusId,
+        purchaseDate: order.purchaseDate,
+        plannedReceiptDate: order.plannedReceiptDate,
+        actualReceiptDate: order.actualReceiptDate,
+        logisticsChinaMsk: order.logisticsChinaMsk,
+        logisticsMskKzn: order.logisticsMskKzn,
+        logisticsAdditional: order.logisticsAdditional,
+        logisticsTotal: order.logisticsTotal,
+      });
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['supplierOrder', orderId] });
+      await queryClient.invalidateQueries({ queryKey: ['supplierOrders'] });
+      // If this is a sub-order, also invalidate parent order to refresh sub-orders list
+      if (order?.parentOrderId) {
+        await queryClient.invalidateQueries({ queryKey: ['supplierOrder', order.parentOrderId] });
+      }
+    },
+    onError: (err) => {
+      if (err instanceof ApiError) {
+        let message = err.message || t('supplierOrderDetails.errors.completeFailed');
+        if (err.code === 'ORDER_COMPLETED') {
+          message = t('supplierOrderDetails.errors.cannotUpdateCompleted');
+        }
+        setError(message);
+      } else {
+        setError(t('supplierOrderDetails.errors.completeFailed'));
+      }
+    },
+  });
+
   const handleEditItem = (item) => {
+    if (isFinalStatus) {
+      setDeleteItemError(t('supplierOrderDetails.errors.cannotEditCompleted'));
+      setDeleteItemErrorDialogOpen(true);
+      return;
+    }
     setCurrentItem(item);
 
     // Reverse-calculate the per-unit weight that was used when saving this item.
@@ -847,12 +918,24 @@ export default function SupplierOrderDetails() {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => handleEditItem(row.original)}>
+            <DropdownMenuItem 
+              onClick={() => handleEditItem(row.original)}
+              disabled={isFinalStatus}
+            >
               <Edit2 className="w-4 h-4 mr-2" />
               {t('common.edit')}
             </DropdownMenuItem>
             <DropdownMenuItem 
-              onClick={() => { setCurrentItem(row.original); setDeleteItemDialogOpen(true); }}
+              onClick={() => {
+                if (isFinalStatus) {
+                  setDeleteItemError(t('supplierOrderDetails.errors.cannotEditCompleted'));
+                  setDeleteItemErrorDialogOpen(true);
+                  return;
+                }
+                setCurrentItem(row.original);
+                setDeleteItemError('');
+                setDeleteItemDialogOpen(true);
+              }}
               className="text-red-600"
             >
               <Trash2 className="w-4 h-4 mr-2" />
@@ -1056,7 +1139,27 @@ export default function SupplierOrderDetails() {
           title={order.orderNumber || t('supplierOrderDetails.title')}
           description={order.buyer || ''}
         >
-          <StatusBadge status={getOrderStatusName(order.statusId)} />
+          <div className="flex items-center gap-3">
+            <StatusBadge 
+              status={getOrderStatusName(order.statusId)} 
+              className={isFinalStatus ? 'border-emerald-300 bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400' : ''}
+            />
+            {!isFinalStatus && finalStatus && (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="inline-flex items-center gap-2"
+                onClick={() => completeOrderMutation.mutate()}
+                disabled={completeOrderMutation.isPending}
+              >
+                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                {completeOrderMutation.isPending
+                  ? t('supplierOrderDetails.completing')
+                  : t('supplierOrderDetails.completeButton')}
+              </Button>
+            )}
+          </div>
         </PageHeader>
       </div>
 
@@ -1198,23 +1301,50 @@ export default function SupplierOrderDetails() {
                 <Button
                   variant="outline"
                   onClick={() => {
+                    if (isFinalStatus) {
+                      setDeleteItemError(t('supplierOrderDetails.errors.cannotEditCompleted'));
+                      setDeleteItemErrorDialogOpen(true);
+                      return;
+                    }
                     setSubOrderError('');
                     setSubOrderTransfers({});
                     setSubOrderDialogOpen(true);
                   }}
-                  disabled={orderItems.length === 0}
+                  disabled={orderItems.length === 0 || isFinalStatus}
                 >
                   <Copy className="w-4 h-4 mr-2" />
                   {t('supplierOrders.createSubOrder')}
                 </Button>
-                <Button onClick={() => { resetItemForm(); setItemDialogOpen(true); }}>
+                <Button 
+                  onClick={() => {
+                    if (isFinalStatus) {
+                      setDeleteItemError(t('supplierOrderDetails.errors.cannotEditCompleted'));
+                      setDeleteItemErrorDialogOpen(true);
+                      return;
+                    }
+                    resetItemForm();
+                    setItemDialogOpen(true);
+                  }}
+                  disabled={isFinalStatus}
+                >
                   <Plus className="w-4 h-4 mr-2" />
                   {t('supplierOrderDetails.addItem')}
                 </Button>
               </>
             )}
             {activeTab === 'documents' && (
-              <Button onClick={() => { resetDocumentForm(); setDocumentDialogOpen(true); }}>
+              <Button 
+                onClick={() => {
+                  if (isFinalStatus) {
+                    setDeleteDocumentError(t('supplierOrderDetails.errors.cannotEditCompleted'));
+                    setDeleteDocumentErrorDialogOpen(true);
+                    return;
+                  }
+                  resetDocumentForm();
+                  setDocumentDialogOpen(true);
+                }}
+                disabled={isFinalStatus}
+              >
                 <Upload className="w-4 h-4 mr-2" />
                 {t('supplierOrderDetails.documents.upload')}
               </Button>
@@ -1279,10 +1409,16 @@ export default function SupplierOrderDetails() {
                             variant="ghost" 
                             size="icon"
                             onClick={() => {
+                              if (isFinalStatus) {
+                                setDeleteDocumentError(t('supplierOrderDetails.errors.cannotEditCompleted'));
+                                setDeleteDocumentErrorDialogOpen(true);
+                                return;
+                              }
                               setCurrentDocument(doc);
+                              setDeleteDocumentError('');
                               setDeleteDocumentDialogOpen(true);
                             }}
-                            disabled={deleteDocumentMutation.isPending}
+                            disabled={deleteDocumentMutation.isPending || isFinalStatus}
                           >
                             <Trash2 className="w-4 h-4 text-red-500" />
                           </Button>
@@ -1842,15 +1978,41 @@ export default function SupplierOrderDetails() {
         </DialogContent>
       </Dialog>
 
+      {/* Delete Item Error Dialog */}
+      <AlertDialog open={deleteItemErrorDialogOpen} onOpenChange={setDeleteItemErrorDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {t('supplierOrderDetails.deleteItemTitle')}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {deleteItemError}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setDeleteItemErrorDialogOpen(false);
+                setDeleteItemError('');
+              }}
+            >
+              {t('common.ok')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* Delete Item Dialog */}
       <AlertDialog open={deleteItemDialogOpen} onOpenChange={setDeleteItemDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              {t('supplierOrderDetails.itemErrors.deleteFailed')}
+              {t('supplierOrderDetails.deleteItemTitle')}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              {t('supplierOrderDetails.itemErrors.deleteFailed')}
+              {t('supplierOrderDetails.deleteItemDescription')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -1977,6 +2139,32 @@ export default function SupplierOrderDetails() {
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Document Error Dialog */}
+      <AlertDialog open={deleteDocumentErrorDialogOpen} onOpenChange={setDeleteDocumentErrorDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {t('supplierOrderDetails.documents.deleteTitle')}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {deleteDocumentError}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setDeleteDocumentErrorDialogOpen(false);
+                setDeleteDocumentError('');
+              }}
+            >
+              {t('common.ok')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Delete Document Dialog */}
       <AlertDialog open={deleteDocumentDialogOpen} onOpenChange={setDeleteDocumentDialogOpen}>

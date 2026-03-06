@@ -13,10 +13,11 @@ import (
 )
 
 var (
-	ErrSupplierOrderNotFound = errors.New("supplier order not found")
-	ErrSupplierOrderExists   = errors.New("supplier order already exists")
-	ErrInvalidDateRange      = errors.New("invalid date range")
-	ErrInvalidParentOrder    = errors.New("invalid parent order")
+	ErrSupplierOrderNotFound     = errors.New("supplier order not found")
+	ErrSupplierOrderExists       = errors.New("supplier order already exists")
+	ErrInvalidDateRange          = errors.New("invalid date range")
+	ErrInvalidParentOrder        = errors.New("invalid parent order")
+	ErrSupplierOrderHasSubOrders = errors.New("supplier order has sub-orders and cannot be deleted")
 )
 
 type SupplierOrder struct {
@@ -301,6 +302,26 @@ func (r *SupplierOrderRepository) Update(ctx context.Context, orderID uuid.UUID,
 	return &order, nil
 }
 
+// HasSubOrders checks if the given order has any sub-orders.
+func (r *SupplierOrderRepository) HasSubOrders(ctx context.Context, orderID uuid.UUID) (bool, error) {
+	query := `
+		SELECT COUNT(*) > 0
+		FROM supplier_orders
+		WHERE parent_order_id = $1
+	`
+
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	var hasSubOrders bool
+	err := r.pool.QueryRow(ctx, query, orderID).Scan(&hasSubOrders)
+	if err != nil {
+		return false, err
+	}
+
+	return hasSubOrders, nil
+}
+
 func (r *SupplierOrderRepository) Delete(ctx context.Context, orderID uuid.UUID) error {
 	query := `
 		DELETE FROM supplier_orders
@@ -312,6 +333,13 @@ func (r *SupplierOrderRepository) Delete(ctx context.Context, orderID uuid.UUID)
 
 	result, err := r.pool.Exec(ctx, query, orderID)
 	if err != nil {
+		errMsg := err.Error()
+		// Check for foreign key constraint violation (sub-orders exist)
+		if strings.Contains(errMsg, "supplier_orders_parent_order_id_fkey") ||
+			strings.Contains(errMsg, "foreign key") ||
+			strings.Contains(errMsg, "23503") {
+			return ErrSupplierOrderHasSubOrders
+		}
 		return err
 	}
 

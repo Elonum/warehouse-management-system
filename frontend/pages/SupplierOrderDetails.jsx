@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError } from '@/api';
 import { 
@@ -119,6 +119,18 @@ export default function SupplierOrderDetails() {
   const [subOrderDialogOpen, setSubOrderDialogOpen] = useState(subOrderFromUrl && !!orderId);
   const [subOrderError, setSubOrderError] = useState('');
   const [subOrderTransfers, setSubOrderTransfers] = useState({});
+  const [subOrderActiveTab, setSubOrderActiveTab] = useState('order');
+  const [subOrderForm, setSubOrderForm] = useState({
+    buyer: '',
+    statusId: '',
+    purchaseDate: '',
+    plannedReceiptDate: '',
+    actualReceiptDate: '',
+    logisticsChinaMsk: '',
+    logisticsMskKzn: '',
+    logisticsAdditional: '',
+    logisticsTotal: '',
+  });
 
   const { data: orderData, isLoading: loadingOrder } = useQuery({
     queryKey: ['supplierOrder', orderId],
@@ -213,6 +225,38 @@ export default function SupplierOrderDetails() {
   const finalStatus = useMemo(() => {
     return orderStatuses.find(s => s.isFinal) || null;
   }, [orderStatuses]);
+
+  // Инициализация формы подзаказа при открытии диалога:
+  // основные поля (покупатель, статус, даты) подтягиваются из родительского заказа,
+  // логистика по умолчанию остаётся пустой (у подзаказа своя логистика).
+  useEffect(() => {
+    if (!subOrderDialogOpen || !order) return;
+
+    setSubOrderForm({
+      buyer: order.buyer || '',
+      statusId: order.statusId || '',
+      purchaseDate: order.purchaseDate ? format(new Date(order.purchaseDate), 'yyyy-MM-dd') : '',
+      plannedReceiptDate: order.plannedReceiptDate
+        ? format(new Date(order.plannedReceiptDate), 'yyyy-MM-dd')
+        : '',
+      actualReceiptDate: order.actualReceiptDate
+        ? format(new Date(order.actualReceiptDate), 'yyyy-MM-dd')
+        : '',
+      logisticsChinaMsk: '',
+      logisticsMskKzn: '',
+      logisticsAdditional: '',
+      logisticsTotal: '',
+    });
+    setSubOrderActiveTab('order');
+  }, [subOrderDialogOpen, order]);
+
+  const parseMoneyInput = (value) => {
+    if (!value) return null;
+    const normalized = String(value).replace(',', '.').replace(/[^0-9.]/g, '');
+    if (!normalized) return null;
+    const num = parseFloat(normalized);
+    return Number.isFinite(num) ? num : null;
+  };
 
   const applyOptimisticOrderAggregates = (nextItems) => {
     const agg = computeOrderAggregatesFromItems(nextItems);
@@ -1021,6 +1065,7 @@ export default function SupplierOrderDetails() {
       setSubOrderDialogOpen(false);
       setSubOrderError('');
       setSubOrderTransfers({});
+      setSubOrderActiveTab('order');
       await refetchItems();
       await queryClient.invalidateQueries({ queryKey: ['supplierOrder', orderId] });
       await queryClient.invalidateQueries({ queryKey: ['supplierOrders'] });
@@ -1088,7 +1133,28 @@ export default function SupplierOrderDetails() {
       return;
     }
 
-    createSubOrderMutation.mutate({ itemsToMove: transfers });
+    const buyerTrimmed = (subOrderForm.buyer || '').trim();
+
+    const payload = {
+      buyer: buyerTrimmed ? buyerTrimmed : null,
+      statusId: subOrderForm.statusId || null,
+      purchaseDate: subOrderForm.purchaseDate
+        ? new Date(subOrderForm.purchaseDate).toISOString()
+        : null,
+      plannedReceiptDate: subOrderForm.plannedReceiptDate
+        ? new Date(subOrderForm.plannedReceiptDate).toISOString()
+        : null,
+      actualReceiptDate: subOrderForm.actualReceiptDate
+        ? new Date(subOrderForm.actualReceiptDate).toISOString()
+        : null,
+      logisticsChinaMsk: parseMoneyInput(subOrderForm.logisticsChinaMsk),
+      logisticsMskKzn: parseMoneyInput(subOrderForm.logisticsMskKzn),
+      logisticsAdditional: parseMoneyInput(subOrderForm.logisticsAdditional),
+      logisticsTotal: parseMoneyInput(subOrderForm.logisticsTotal),
+      itemsToMove: transfers,
+    };
+
+    createSubOrderMutation.mutate(payload);
   };
 
   if (!orderId) {
@@ -1164,7 +1230,7 @@ export default function SupplierOrderDetails() {
       </div>
 
       {/* Order Summary */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {/* Block 1: Order Date */}
         <Card className="dark:bg-slate-900 dark:border-slate-800">
           <CardContent className="pt-6">
@@ -1268,7 +1334,7 @@ export default function SupplierOrderDetails() {
                 onMouseDown={(e) => e.stopPropagation()}
               >
                 <HelpCircle className="w-3 h-3 text-slate-400" />
-                <span className="pointer-events-none absolute left-1/2 top-full z-20 mt-2 w-72 -translate-x-1/2 rounded-md border bg-white px-2 py-1 text-xs font-normal text-slate-700 opacity-0 shadow-sm transition-opacity group-hover:opacity-100 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200">
+                <span className="absolute z-20 px-2 py-1 mt-2 text-xs font-normal transition-opacity -translate-x-1/2 bg-white border rounded-md shadow-sm opacity-0 pointer-events-none left-1/2 top-full w-72 text-slate-700 group-hover:opacity-100 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200">
                   {t('supplierOrderDetails.summaryTotalHint')}
                 </span>
               </span>
@@ -1364,7 +1430,7 @@ export default function SupplierOrderDetails() {
 
         <TabsContent value="documents" className="space-y-4">
           {uploadError && (
-            <div className="p-3 text-sm text-red-600 bg-red-50 dark:bg-red-900/20 dark:text-red-400 rounded-lg">
+            <div className="p-3 text-sm text-red-600 rounded-lg bg-red-50 dark:bg-red-900/20 dark:text-red-400">
               {uploadError}
             </div>
           )}
@@ -1453,7 +1519,7 @@ export default function SupplierOrderDetails() {
           </DialogHeader>
           <form onSubmit={handleItemSubmit} className="space-y-4">
             {error && (
-              <div className="p-3 text-sm text-red-600 bg-red-50 dark:bg-red-900/20 dark:text-red-400 rounded-lg">
+              <div className="p-3 text-sm text-red-600 rounded-lg bg-red-50 dark:bg-red-900/20 dark:text-red-400">
                 {error}
               </div>
             )}
@@ -1633,11 +1699,11 @@ export default function SupplierOrderDetails() {
               </div>
             </div>
             {/* Calculated fields preview: only values, без «пустых» логистики и себестоимости */}
-            <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-lg space-y-3">
-              <p className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">
+            <div className="p-4 space-y-3 rounded-lg bg-slate-50 dark:bg-slate-800">
+              <p className="text-xs font-medium tracking-wide uppercase text-slate-500 dark:text-slate-400">
                 {t('common.calculated')}
               </p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-2 text-sm">
+              <div className="grid grid-cols-1 text-sm sm:grid-cols-2 gap-x-8 gap-y-2">
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-slate-500 dark:text-slate-400">
                     {t('supplierOrderDetails.itemForm.totalPrice')}:
@@ -1692,6 +1758,7 @@ export default function SupplierOrderDetails() {
           if (!open) {
             setSubOrderError('');
             setSubOrderTransfers({});
+            setSubOrderActiveTab('order');
           }
         }}
         className="max-w-4xl lg:max-w-5xl xl:max-w-6xl 2xl:max-w-[1500px]"
@@ -1700,260 +1767,456 @@ export default function SupplierOrderDetails() {
           <DialogHeader>
             <DialogTitle>{t('supplierOrderDetails.subOrder.title')}</DialogTitle>
           </DialogHeader>
+
           <form onSubmit={handleCreateSubOrderSubmit} className="space-y-4">
             <p className="text-sm text-slate-600 dark:text-slate-300">
               {t('supplierOrderDetails.subOrder.description')}
             </p>
 
             {subOrderError && (
-              <div className="p-3 text-sm text-red-600 bg-red-50 dark:bg-red-900/20 dark:text-red-400 rounded-lg">
+              <div className="p-3 text-sm text-red-600 rounded-lg bg-red-50 dark:bg-red-900/20 dark:text-red-400">
                 {subOrderError}
               </div>
             )}
 
-            <div className="space-y-3">
-              <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-                <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                  {t('supplierOrderDetails.subOrder.itemsTitle')}
-                </p>
-                <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500 dark:text-slate-400">
-                  {orderItems.length > 0 && (
-                    <span className="whitespace-nowrap">
-                      {t('supplierOrderDetails.subOrder.available')}:{' '}
-                      {orderItems
-                        .reduce(
-                          (sum, it) =>
-                            sum + Math.max(0, (it.orderedQty || 0) - (it.receivedQty || 0)),
-                          0,
-                        )
-                        .toLocaleString()}{' '}
-                      {t('supplierOrderDetails.summaryUnits')}
-                    </span>
-                  )}
-                  {subOrderSelectionSummary.items > 0 && (
-                    <span className="whitespace-nowrap">
-                      {subOrderSelectionSummary.items}{' '}
-                      {t(
-                        (t('common.language') === 'Русский' || t('common.language') === 'Russian')
-                          ? (() => {
-                              const n = subOrderSelectionSummary.items;
-                              const mod10 = n % 10;
-                              const mod100 = n % 100;
-                              if (mod10 === 1 && mod100 !== 11) {
-                                return 'supplierOrderDetails.summaryPositionsOne';
-                              }
-                              if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) {
-                                return 'supplierOrderDetails.summaryPositionsFew';
-                              }
-                              return 'supplierOrderDetails.summaryPositionsMany';
-                            })()
-                          : subOrderSelectionSummary.items === 1
-                          ? 'supplierOrderDetails.summaryPositionsOne'
-                          : 'supplierOrderDetails.summaryPositionsMany',
-                      )}
-                      ,{' '}
-                      {subOrderSelectionSummary.qty.toLocaleString()}{' '}
-                      {t('supplierOrderDetails.summaryUnits')}
-                    </span>
-                  )}
-                </div>
-              </div>
+            <Tabs value={subOrderActiveTab} onValueChange={setSubOrderActiveTab}>
+              <TabsList className="mb-4">
+                <TabsTrigger value="order">
+                  {t('supplierOrderDetails.subOrder.tabSettings')}
+                </TabsTrigger>
+                <TabsTrigger value="items">
+                  {t('supplierOrderDetails.subOrder.tabItems')}
+                </TabsTrigger>
+              </TabsList>
 
-              {orderItems.length === 0 ? (
-                <p className="text-sm text-slate-500">
-                  {t('supplierOrderDetails.subOrder.noItems')}
-                </p>
-              ) : (
-                <div className="rounded-xl border bg-white/70 shadow-sm dark:bg-slate-900/60 dark:border-slate-800 overflow-hidden">
-                  <table className="min-w-full table-fixed border-collapse text-xs">
-                    <thead>
-                      <tr className="border-b bg-slate-50 text-[11px] uppercase tracking-wide text-slate-500 dark:border-slate-800 dark:bg-slate-900/70 dark:text-slate-400">
-                        <th className="px-4 py-2 text-left w-56">
-                          {t('supplierOrderDetails.subOrder.columnProduct')}
-                        </th>
-                        <th className="px-4 py-2 text-left w-40">
-                          {t('supplierOrderDetails.subOrder.columnQty')}
-                        </th>
-                        <th className="px-4 py-2 text-left w-44">
-                          {t('supplierOrderDetails.subOrder.columnPrice')}
-                        </th>
-                        <th className="px-4 py-2 text-left w-44">
-                          {t('supplierOrderDetails.subOrder.columnWeight')}
-                        </th>
-                        <th className="px-4 py-2 text-left w-40">
-                          {t('supplierOrderDetails.subOrder.available')}
-                        </th>
-                        <th className="px-4 py-2 text-left w-32">
-                          {t('supplierOrderDetails.subOrder.columnMoveQty')}
-                        </th>
-                        <th className="px-4 py-2 text-left w-32">
-                          {t('supplierOrderDetails.subOrder.columnSelect')}
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {orderItems.map((item) => {
-                        const product = productsMap.get(item.productId);
-                        const ordered = item.orderedQty || 0;
-                        const received = item.receivedQty || 0;
-                        const available = Math.max(0, ordered - received);
-                        const totalWeightGrams = item.totalWeight || 0;
-                        const unitWeightGrams =
-                          ordered > 0 ? totalWeightGrams / ordered : product?.unitWeight || 0;
-                        const totalWeightKg = totalWeightGrams / 1000;
-                        const transferState = subOrderTransfers[item.orderItemId] || {};
-                        const isDisabled = available <= 0;
-                        const isSelected = !!transferState.selected && !isDisabled;
+              {/* Вкладка "Подзаказ" — настройки заказа */}
+              <TabsContent value="order" className="space-y-4">
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-1">
+                    <Label htmlFor="suborder-buyer">
+                      {t('supplierOrders.form.buyer')}
+                    </Label>
+                    <Input
+                      id="suborder-buyer"
+                      value={subOrderForm.buyer}
+                      onChange={(e) =>
+                        setSubOrderForm((prev) => ({ ...prev, buyer: e.target.value }))
+                      }
+                      placeholder={t('supplierOrders.form.buyer')}
+                    />
+                  </div>
 
-                        return (
-                          <tr
-                            key={item.orderItemId}
-                            className={`border-b last:border-0 dark:border-slate-800 hover:bg-slate-50/60 dark:hover:bg-slate-900/70 ${
-                              isSelected ? 'bg-indigo-50/60 dark:bg-indigo-500/10' : ''
-                            }`}
+                  <div className="space-y-1">
+                    <Label htmlFor="suborder-status">
+                      {t('supplierOrders.form.status')}
+                    </Label>
+                    <Select
+                      value={subOrderForm.statusId || ''}
+                      onValueChange={(value) =>
+                        setSubOrderForm((prev) => ({ ...prev, statusId: value }))
+                      }
+                    >
+                      <SelectTrigger id="suborder-status">
+                        <SelectValue placeholder={t('supplierOrders.form.status')} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {orderStatuses.map((status) => (
+                          <SelectItem
+                            key={status.orderStatusId}
+                            value={String(status.orderStatusId)}
                           >
-                            {/* Product */}
-                            <td className="px-4 py-3 align-top">
-                              <div className="max-w-xs">
-                                <p className="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">
-                                  {product?.article || product?.name || t('common.notSpecified')}
-                                </p>
-                                <p className="mt-0.5 text-[11px] text-slate-500 truncate">
-                                  {product?.barcode || `ID: ${item.productId}`}
-                                </p>
-                              </div>
-                            </td>
+                            {status.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
 
-                            {/* Qty */}
-                            <td className="px-4 py-3 align-top whitespace-nowrap">
-                              <p className="text-[11px] text-slate-400 dark:text-slate-500">
-                                {t('supplierOrderDetails.table.orderedQty')} /{' '}
-                                {t('supplierOrderDetails.table.receivedQty')}
-                              </p>
-                              <p className="mt-0.5 text-sm font-semibold tabular-nums text-slate-900 dark:text-slate-100">
-                                {ordered.toLocaleString()} / {received.toLocaleString()}{' '}
-                                <span className="ml-1 text-[11px] font-normal text-slate-500">
+                <div className="grid gap-4 md:grid-cols-3">
+                  <div className="space-y-1">
+                    <Label htmlFor="suborder-purchase-date">
+                      {t('supplierOrders.form.purchaseDate')}
+                    </Label>
+                    <Input
+                      id="suborder-purchase-date"
+                      type="date"
+                      value={subOrderForm.purchaseDate || ''}
+                      onChange={(e) =>
+                        setSubOrderForm((prev) => ({
+                          ...prev,
+                          purchaseDate: e.target.value,
+                        }))
+                      }
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label htmlFor="suborder-planned-date">
+                      {t('supplierOrders.form.plannedReceiptDate')}
+                    </Label>
+                    <Input
+                      id="suborder-planned-date"
+                      type="date"
+                      value={subOrderForm.plannedReceiptDate || ''}
+                      onChange={(e) =>
+                        setSubOrderForm((prev) => ({
+                          ...prev,
+                          plannedReceiptDate: e.target.value,
+                        }))
+                      }
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label htmlFor="suborder-actual-date">
+                      {t('supplierOrders.form.actualReceiptDate')}
+                    </Label>
+                    <Input
+                      id="suborder-actual-date"
+                      type="date"
+                      value={subOrderForm.actualReceiptDate || ''}
+                      onChange={(e) =>
+                        setSubOrderForm((prev) => ({
+                          ...prev,
+                          actualReceiptDate: e.target.value,
+                        }))
+                      }
+                    />
+                  </div>
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-4">
+                  <div className="space-y-1">
+                    <Label htmlFor="suborder-logistics-china-msk">
+                      {t('supplierOrders.form.logisticsChinaMsk')}
+                    </Label>
+                    <Input
+                      id="suborder-logistics-china-msk"
+                      value={subOrderForm.logisticsChinaMsk}
+                      onChange={(e) =>
+                        setSubOrderForm((prev) => ({
+                          ...prev,
+                          logisticsChinaMsk: e.target.value,
+                        }))
+                      }
+                      placeholder="0"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label htmlFor="suborder-logistics-msk-kzn">
+                      {t('supplierOrders.form.logisticsMskKzn')}
+                    </Label>
+                    <Input
+                      id="suborder-logistics-msk-kzn"
+                      value={subOrderForm.logisticsMskKzn}
+                      onChange={(e) =>
+                        setSubOrderForm((prev) => ({
+                          ...prev,
+                          logisticsMskKzn: e.target.value,
+                        }))
+                      }
+                      placeholder="0"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label htmlFor="suborder-logistics-additional">
+                      {t('supplierOrders.form.logisticsAdditional')}
+                    </Label>
+                    <Input
+                      id="suborder-logistics-additional"
+                      value={subOrderForm.logisticsAdditional}
+                      onChange={(e) =>
+                        setSubOrderForm((prev) => ({
+                          ...prev,
+                          logisticsAdditional: e.target.value,
+                        }))
+                      }
+                      placeholder="0"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label htmlFor="suborder-logistics-total">
+                      {t('supplierOrders.form.logisticsTotal')}
+                    </Label>
+                    <Input
+                      id="suborder-logistics-total"
+                      value={subOrderForm.logisticsTotal}
+                      onChange={(e) =>
+                        setSubOrderForm((prev) => ({
+                          ...prev,
+                          logisticsTotal: e.target.value,
+                        }))
+                      }
+                      placeholder="0"
+                    />
+                  </div>
+                </div>
+              </TabsContent>
+
+              {/* Вкладка "Позиции" — перенос позиций (твой текущий блок таблицы) */}
+              <TabsContent value="items" className="space-y-3">
+                <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                  <p className="text-xs font-medium tracking-wide uppercase text-slate-500 dark:text-slate-400">
+                    {t('supplierOrderDetails.subOrder.itemsTitle')}
+                  </p>
+                  <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500 dark:text-slate-400">
+                    {orderItems.length > 0 && (
+                      <span className="whitespace-nowrap">
+                        {t('supplierOrderDetails.subOrder.available')}{' '}
+                        {orderItems
+                          .reduce(
+                            (sum, it) =>
+                              sum +
+                              Math.max(
+                                0,
+                                (it.orderedQty || 0) - (it.receivedQty || 0)
+                              ),
+                            0,
+                          )
+                          .toLocaleString()}{' '}
+                        {t('supplierOrderDetails.summaryUnits')}
+                      </span>
+                    )}
+                    {subOrderSelectionSummary.items > 0 && (
+                      <span className="whitespace-nowrap">
+                        {subOrderSelectionSummary.items}{' '}
+                        {t(
+                          (t('common.language') === 'Русский' ||
+                            t('common.language') === 'Russian')
+                            ? (() => {
+                                const n = subOrderSelectionSummary.items;
+                                const mod10 = n % 10;
+                                const mod100 = n % 100;
+                                if (mod10 === 1 && mod100 !== 11) {
+                                  return 'supplierOrderDetails.summaryPositionsOne';
+                                }
+                                if (
+                                  mod10 >= 2 &&
+                                  mod10 <= 4 &&
+                                  (mod100 < 12 || mod100 > 14)
+                                ) {
+                                  return 'supplierOrderDetails.summaryPositionsFew';
+                                }
+                                return 'supplierOrderDetails.summaryPositionsMany';
+                              })()
+                            : subOrderSelectionSummary.items === 1
+                            ? 'supplierOrderDetails.summaryPositionsOne'
+                            : 'supplierOrderDetails.summaryPositionsMany',
+                        )}
+                        , {subOrderSelectionSummary.qty.toLocaleString()}{' '}
+                        {t('supplierOrderDetails.summaryUnits')}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {orderItems.length === 0 ? (
+                  <p className="text-sm text-slate-500">
+                    {t('supplierOrderDetails.subOrder.noItems')}
+                  </p>
+                ) : (
+                  <div className="overflow-hidden border shadow-sm rounded-xl bg-white/70 dark:bg-slate-900/60 dark:border-slate-800">
+                    <table className="min-w-full text-xs border-collapse table-fixed">
+                      <thead>
+                        <tr className="border-b bg-slate-50 text-[11px] uppercase tracking-wide text-slate-500 dark:border-slate-800 dark:bg-slate-900/70 dark:text-slate-400">
+                          <th className="w-56 px-4 py-2 text-left">
+                            {t('supplierOrderDetails.subOrder.columnProduct')}
+                          </th>
+                          <th className="w-40 px-4 py-2 text-left">
+                            {t('supplierOrderDetails.subOrder.columnQty')}
+                          </th>
+                          <th className="px-4 py-2 text-left w-44">
+                            {t('supplierOrderDetails.subOrder.columnPrice')}
+                          </th>
+                          <th className="px-4 py-2 text-left w-44">
+                            {t('supplierOrderDetails.subOrder.columnWeight')}
+                          </th>
+                          <th className="w-40 px-4 py-2 text-left">
+                            {t('supplierOrderDetails.subOrder.available')}
+                          </th>
+                          <th className="w-32 px-4 py-2 text-left">
+                            {t('supplierOrderDetails.subOrder.columnMoveQty')}
+                          </th>
+                          <th className="w-32 px-4 py-2 text-left">
+                            {t('supplierOrderDetails.subOrder.columnSelect')}
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {orderItems.map((item) => {
+                          const product = productsMap.get(item.productId);
+                          const ordered = item.orderedQty || 0;
+                          const received = item.receivedQty || 0;
+                          const available = Math.max(0, ordered - received);
+                          const totalWeightGrams = item.totalWeight || 0;
+                          const unitWeightGrams =
+                            ordered > 0
+                              ? totalWeightGrams / ordered
+                              : product?.unitWeight || 0;
+                          const totalWeightKg = totalWeightGrams / 1000;
+                          const transferState =
+                            subOrderTransfers[item.orderItemId] || {};
+                          const isDisabled = available <= 0;
+                          const isSelected =
+                            !!transferState.selected && !isDisabled;
+
+                          return (
+                            <tr
+                              key={item.orderItemId}
+                              className={`border-b last:border-0 dark:border-slate-800 hover:bg-slate-50/60 dark:hover:bg-slate-900/70 ${
+                                isSelected
+                                  ? 'bg-indigo-50/60 dark:bg-indigo-500/10'
+                                  : ''
+                              }`}
+                            >
+                              <td className="px-4 py-3 align-top">
+                                <div className="max-w-xs">
+                                  <p className="text-sm font-medium truncate text-slate-900 dark:text-slate-100">
+                                    {product?.article ||
+                                      product?.name ||
+                                      t('common.notSpecified')}
+                                  </p>
+                                  <p className="mt-0.5 text-[11px] text-slate-500 truncate">
+                                    {product?.barcode || `ID: ${item.productId}`}
+                                  </p>
+                                </div>
+                              </td>
+
+                              <td className="px-4 py-3 align-top whitespace-nowrap">
+                                <p className="text-[11px] text-slate-400 dark:text-slate-500">
+                                  {t('supplierOrderDetails.table.orderedQty')} /{' '}
+                                  {t('supplierOrderDetails.table.receivedQty')}
+                                </p>
+                                <p className="mt-0.5 text-sm font-semibold tabular-nums text-slate-900 dark:text-slate-100">
+                                  {ordered.toLocaleString()} /{' '}
+                                  {received.toLocaleString()}{' '}
+                                  <span className="ml-1 text-[11px] font-normal text-slate-500">
+                                    {t('supplierOrderDetails.summaryUnits')}
+                                  </span>
+                                </p>
+                              </td>
+
+                              <td className="px-4 py-3 align-top whitespace-nowrap">
+                                <p className="text-[11px] text-slate-400 dark:text-slate-500">
+                                  {t(
+                                    'supplierOrderDetails.table.purchasePriceLabel',
+                                  )}{' '}
+                                  /{' '}
+                                  {t(
+                                    'supplierOrderDetails.table.totalPriceLabel',
+                                  )}
+                                </p>
+                                <p className="mt-0.5 text-sm tabular-nums">
+                                  <span className="text-slate-600 dark:text-slate-300">
+                                    {item.purchasePrice != null
+                                      ? `₽${item.purchasePrice.toFixed(2)}`
+                                      : '—'}
+                                  </span>
+                                  <span className="mx-1 text-slate-400">/</span>
+                                  <span className="font-semibold text-slate-900 dark:text-slate-100">
+                                    {item.totalPrice != null
+                                      ? `₽${item.totalPrice.toLocaleString('ru-RU', {
+                                          minimumFractionDigits: 2,
+                                        })}`
+                                      : '—'}
+                                  </span>
+                                </p>
+                              </td>
+
+                              <td className="px-4 py-3 align-top whitespace-nowrap">
+                                <p className="text-[11px] text-slate-400 dark:text-slate-500">
+                                  {t('supplierOrderDetails.weight.perUnit')} /{' '}
+                                  {t('supplierOrderDetails.weight.total')}
+                                </p>
+                                <p className="mt-0.5 text-sm tabular-nums">
+                                  <span className="text-slate-600 dark:text-slate-300">
+                                    {unitWeightGrams
+                                      ? `${unitWeightGrams.toFixed(0)} ${t(
+                                          'supplierOrderDetails.weight.unitGrams',
+                                        )}`
+                                      : '—'}
+                                  </span>
+                                  <span className="mx-1 text-slate-400">/</span>
+                                  <span className="font-semibold text-slate-900 dark:text-slate-100">
+                                    {totalWeightGrams
+                                      ? `${totalWeightKg.toFixed(2)} ${t(
+                                          'supplierOrderDetails.weight.unitKg',
+                                        )}`
+                                      : '—'}
+                                  </span>
+                                </p>
+                              </td>
+
+                              <td className="px-4 py-3 align-top whitespace-nowrap">
+                                <span
+                                  className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-medium ${
+                                    isDisabled
+                                      ? 'bg-slate-100 text-slate-400 dark:bg-slate-800 dark:text-slate-500'
+                                      : 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300'
+                                  }`}
+                                >
+                                  {available.toLocaleString()}{' '}
                                   {t('supplierOrderDetails.summaryUnits')}
                                 </span>
-                              </p>
-                            </td>
+                              </td>
 
-                            {/* Price */}
-                            <td className="px-4 py-3 align-top whitespace-nowrap">
-                              <p className="text-[11px] text-slate-400 dark:text-slate-500">
-                                {t('supplierOrderDetails.table.purchasePriceLabel')} /{' '}
-                                {t('supplierOrderDetails.table.totalPriceLabel')}
-                              </p>
-                              <p className="mt-0.5 text-sm tabular-nums">
-                                <span className="text-slate-600 dark:text-slate-300">
-                                  {item.purchasePrice != null
-                                    ? `₽${item.purchasePrice.toFixed(2)}`
-                                    : '—'}
-                                </span>
-                                <span className="mx-1 text-slate-400">/</span>
-                                <span className="font-semibold text-slate-900 dark:text-slate-100">
-                                  {item.totalPrice != null
-                                    ? `₽${item.totalPrice.toLocaleString('ru-RU', {
-                                        minimumFractionDigits: 2,
-                                      })}`
-                                    : '—'}
-                                </span>
-                              </p>
-                            </td>
-
-                            {/* Weight */}
-                            <td className="px-4 py-3 align-top whitespace-nowrap">
-                              <p className="text-[11px] text-slate-400 dark:text-slate-500">
-                                {t('supplierOrderDetails.weight.perUnit')} /{' '}
-                                {t('supplierOrderDetails.weight.total')}
-                              </p>
-                              <p className="mt-0.5 text-sm tabular-nums">
-                                <span className="text-slate-600 dark:text-slate-300">
-                                  {unitWeightGrams
-                                    ? `${unitWeightGrams.toFixed(0)} ${t(
-                                        'supplierOrderDetails.weight.unitGrams',
-                                      )}`
-                                    : '—'}
-                                </span>
-                                <span className="mx-1 text-slate-400">/</span>
-                                <span className="font-semibold text-slate-900 dark:text-slate-100">
-                                  {totalWeightGrams
-                                    ? `${totalWeightKg.toFixed(2)} ${t(
-                                        'supplierOrderDetails.weight.unitKg',
-                                      )}`
-                                    : '—'}
-                                </span>
-                              </p>
-                            </td>
-
-                            {/* Available */}
-                            <td className="px-4 py-3 align-top whitespace-nowrap">
-                              <span
-                                className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-medium ${
-                                  isDisabled
-                                    ? 'bg-slate-100 text-slate-400 dark:bg-slate-800 dark:text-slate-500'
-                                    : 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300'
-                                }`}
-                              >
-                                {available.toLocaleString()} {t('supplierOrderDetails.summaryUnits')}
-                              </span>
-                            </td>
-
-                            {/* Move qty */}
-                            <td className="px-4 py-3 align-top">
-                              <Input
-                                id={`moveQty-${item.orderItemId}`}
-                                type="text"
-                                inputMode="numeric"
-                                className="h-9 w-full text-right"
-                                placeholder={isDisabled ? '' : String(available)}
-                                value={transferState.quantity || ''}
-                                onChange={(e) =>
-                                  handleChangeSubOrderQty(
-                                    item.orderItemId,
-                                    e.target.value,
-                                    available,
-                                  )
-                                }
-                                disabled={isDisabled}
-                              />
-                              <p className="mt-1 text-[11px] text-slate-400 dark:text-slate-500">
-                                {t('supplierOrderDetails.subOrder.moveAllLabel')}
-                              </p>
-                            </td>
-
-                            {/* Select */}
-                            <td className="px-4 py-3 align-top">
-                              <label className="inline-flex items-center gap-2 text-xs text-slate-700 dark:text-slate-200">
-                                <input
-                                  id={`moveSelect-${item.orderItemId}`}
-                                  type="checkbox"
-                                  className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-                                  checked={isSelected}
+                              <td className="px-4 py-3 align-top">
+                                <Input
+                                  type="text"
+                                  inputMode="numeric"
+                                  pattern="[0-9]*"
+                                  className="h-8 text-xs"
+                                  value={
+                                    subOrderTransfers[item.orderItemId]?.quantity ??
+                                    ''
+                                  }
                                   onChange={(e) =>
-                                    handleToggleSubOrderItem(
+                                    handleChangeSubOrderQty(
                                       item.orderItemId,
-                                      e.target.checked,
+                                      e.target.value,
                                       available,
                                     )
                                   }
                                   disabled={isDisabled}
+                                  placeholder="Все"
                                 />
-                                <span className="whitespace-nowrap">
-                                  {t('supplierOrderDetails.subOrder.columnSelect')}
-                                </span>
-                              </label>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
+                              </td>
 
-            <DialogFooter>
+                              <td className="px-4 py-3 align-top">
+                                <label className="inline-flex items-center gap-2 text-xs">
+                                  <input
+                                    type="checkbox"
+                                    className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500"
+                                    checked={isSelected}
+                                    disabled={isDisabled}
+                                    onChange={(e) =>
+                                      handleToggleSubOrderItem(
+                                        item.orderItemId,
+                                        e.target.checked,
+                                        available,
+                                      )
+                                    }
+                                  />
+                                  <span className="text-slate-600 dark:text-slate-300">
+                                    {t('supplierOrderDetails.subOrder.moveAllLabel')}
+                                  </span>
+                                </label>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </TabsContent>
+            </Tabs>
+
+            <DialogFooter className="mt-6">
               <Button
                 type="button"
                 variant="outline"
@@ -1961,6 +2224,7 @@ export default function SupplierOrderDetails() {
                   setSubOrderDialogOpen(false);
                   setSubOrderError('');
                   setSubOrderTransfers({});
+                  setSubOrderActiveTab('order');
                 }}
               >
                 {t('common.cancel')}
@@ -2052,7 +2316,7 @@ export default function SupplierOrderDetails() {
           </DialogHeader>
           <form onSubmit={handleDocumentSubmit} className="space-y-4">
             {uploadError && (
-              <div className="p-3 text-sm text-red-600 bg-red-50 dark:bg-red-900/20 dark:text-red-400 rounded-lg">
+              <div className="p-3 text-sm text-red-600 rounded-lg bg-red-50 dark:bg-red-900/20 dark:text-red-400">
                 {uploadError}
               </div>
             )}

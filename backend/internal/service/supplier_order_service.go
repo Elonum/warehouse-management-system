@@ -372,25 +372,13 @@ func (s *SupplierOrderService) CreateSubOrder(ctx context.Context, userID, paren
 		actualReceiptDate = req.ActualReceiptDate
 	}
 
-	logisticsChinaMsk := parentOrder.LogisticsChinaMsk
-	if req.LogisticsChinaMsk != nil {
-		logisticsChinaMsk = req.LogisticsChinaMsk
-	}
-
-	logisticsMskKzn := parentOrder.LogisticsMskKzn
-	if req.LogisticsMskKzn != nil {
-		logisticsMskKzn = req.LogisticsMskKzn
-	}
-
-	logisticsAdditional := parentOrder.LogisticsAdditional
-	if req.LogisticsAdditional != nil {
-		logisticsAdditional = req.LogisticsAdditional
-	}
-
-	logisticsTotal := parentOrder.LogisticsTotal
-	if req.LogisticsTotal != nil {
-		logisticsTotal = req.LogisticsTotal
-	}
+	// --- logistics: sub-order has its own logistics, not inherited from parent ---
+	// If values are not provided, they start as nil/zero and can be entered later
+	// when editing the sub-order.
+	logisticsChinaMsk := req.LogisticsChinaMsk
+	logisticsMskKzn := req.LogisticsMskKzn
+	logisticsAdditional := req.LogisticsAdditional
+	logisticsTotal := req.LogisticsTotal
 
 	// --- validate dates ---
 	if plannedReceiptDate != nil && purchaseDate != nil {
@@ -424,7 +412,15 @@ func (s *SupplierOrderService) CreateSubOrder(ctx context.Context, userID, paren
 	orderNumber := fmt.Sprintf("%d.%d", mainNumber, nextSub)
 
 	// Sub-order starts with zero aggregates; they will be recalculated after items are moved.
+	// Parent-child relationship:
+	//   - Root order: ParentOrderID == nil
+	//   - Any sub-order (1.1, 1.2, 1.3, ...) should have ParentOrderID pointing to the root.
+	//     Even if the user creates a sub-order from an existing sub-order, we keep the
+	//     hierarchy flat under the root order instead of nesting multiple levels.
 	parentIDCopy := parentOrderID
+	if parentOrder.ParentOrderID != nil {
+		parentIDCopy = *parentOrder.ParentOrderID
+	}
 	order, err := s.repo.Create(ctx,
 		orderNumber,
 		mainNumber,
@@ -578,6 +574,13 @@ func (s *SupplierOrderService) Update(ctx context.Context, orderID, userID uuid.
 		}
 		log.Error().Err(err).Str("orderId", orderID.String()).Msg("Failed to load existing supplier order for update")
 		return nil, err
+	}
+
+	// If parentOrderID was not provided in the request, keep the existing parent relationship.
+	// This is critical for sub-orders: the "complete order" action should not detach a sub-order
+	// from its parent just because parentOrderId was not explicitly sent from the client.
+	if parentOrderID == nil && existingOrder.ParentOrderID != nil {
+		parentOrderID = existingOrder.ParentOrderID
 	}
 
 	// Prevent modifications to orders that are already completed (final status).

@@ -126,8 +126,8 @@ export default function SupplierOrders() {
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
-  // Keep the default backend order (no active sort indicator) until user explicitly sorts.
-  const [sortConfig, setSortConfig] = useState({ field: null, direction: 'asc' });
+  // По умолчанию показываем последние заказы по номеру (убывание).
+  const [sortConfig, setSortConfig] = useState({ field: 'orderNumber', direction: 'desc' });
 
   const moneyLocale = language === 'en' ? 'en-US' : 'ru-RU';
   const formatMoney = (value) => {

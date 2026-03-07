@@ -651,7 +651,9 @@ const translations = {
       },
       subOrder: {
         title: 'Создать подзаказ',
-        description: 'Выберите позиции, которые нужно перенести в подзаказ. Если количество не указано, будет перенесено всё доступное (ещё не принятое) количество позиции.',
+        description: 'Настройте параметры подзаказа и выберите позиции для переноса. Если количество не указано, будет перенесено всё доступное (ещё не принятое) количество позиции.',
+        tabSettings: 'Подзаказ',
+        tabItems: 'Позиции',
         itemsTitle: 'Позиции основного заказа',
         columnProduct: 'Товар / Баркод',
         columnQty: 'Заказано / Принято',
@@ -1422,7 +1424,9 @@ const translations = {
       },
       subOrder: {
         title: 'Create sub-order',
-        description: 'Select items to move into a sub-order. If quantity is not specified, the entire available (not yet received) quantity will be moved.',
+        description: 'Configure sub-order settings and select items to move. If quantity is not specified, the entire available (not yet received) quantity will be moved.',
+        tabSettings: 'Sub-order',
+        tabItems: 'Items',
         itemsTitle: 'Parent order items',
         columnProduct: 'Product / Barcode',
         columnQty: 'Ordered / Received',

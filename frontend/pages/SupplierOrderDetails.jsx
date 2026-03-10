@@ -100,8 +100,26 @@ const computeOrderAggregatesFromItems = (items) => {
   };
 };
 
+const getPositionsLabelKey = (language, count) => {
+  if (language === 'ru') {
+    const n = count;
+    const mod10 = n % 10;
+    const mod100 = n % 100;
+    if (mod10 === 1 && mod100 !== 11) {
+      return 'supplierOrderDetails.summaryPositionsOne';
+    }
+    if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) {
+      return 'supplierOrderDetails.summaryPositionsFew';
+    }
+    return 'supplierOrderDetails.summaryPositionsMany';
+  }
+  return count === 1
+    ? 'supplierOrderDetails.summaryPositionsOne'
+    : 'supplierOrderDetails.summaryPositionsMany';
+};
+
 export default function SupplierOrderDetails() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const urlParams = new URLSearchParams(window.location.search);
   const orderIdParam = urlParams.get('id');
   const orderId = orderIdParam || null;
@@ -1985,27 +2003,10 @@ export default function SupplierOrderDetails() {
                       <span className="whitespace-nowrap">
                         {subOrderSelectionSummary.items}{' '}
                         {t(
-                          (t('common.language') === 'Русский' ||
-                            t('common.language') === 'Russian')
-                            ? (() => {
-                                const n = subOrderSelectionSummary.items;
-                                const mod10 = n % 10;
-                                const mod100 = n % 100;
-                                if (mod10 === 1 && mod100 !== 11) {
-                                  return 'supplierOrderDetails.summaryPositionsOne';
-                                }
-                                if (
-                                  mod10 >= 2 &&
-                                  mod10 <= 4 &&
-                                  (mod100 < 12 || mod100 > 14)
-                                ) {
-                                  return 'supplierOrderDetails.summaryPositionsFew';
-                                }
-                                return 'supplierOrderDetails.summaryPositionsMany';
-                              })()
-                            : subOrderSelectionSummary.items === 1
-                            ? 'supplierOrderDetails.summaryPositionsOne'
-                            : 'supplierOrderDetails.summaryPositionsMany',
+                          getPositionsLabelKey(
+                            language,
+                            subOrderSelectionSummary.items,
+                          ),
                         )}
                         , {subOrderSelectionSummary.qty.toLocaleString()}{' '}
                         {t('supplierOrderDetails.summaryUnits')}

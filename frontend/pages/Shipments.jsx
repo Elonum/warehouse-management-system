@@ -2,16 +2,6 @@ import React, { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError } from '@/api';
 import { useI18n } from '@/lib/i18n';
-import { 
-  Plus, 
-  Edit2, 
-  Trash2, 
-  ShoppingCart, 
-  MoreHorizontal, 
-  Eye,
-  Store,
-  Warehouse
-} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -46,13 +36,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import PageHeader from '@/components/ui/PageHeader';
-import DataTable from '@/components/ui/DataTable';
-import StatusBadge from '@/components/ui/StatusBadge';
 import { format } from 'date-fns';
-import { ru } from 'date-fns/locale';
-import { Link } from 'react-router-dom';
-import { createPageUrl } from '@/utils';
+import ShipmentsTable from '@/features/mpShipments/components/ShipmentsTable';
 
 const emptyShipment = {
   shipmentNumber: '',
@@ -115,7 +100,6 @@ export default function Shipments() {
   const warehouses = Array.isArray(warehousesData) ? warehousesData : [];
   const shipmentStatuses = Array.isArray(shipmentStatusesData) ? shipmentStatusesData : [];
 
-  // Enrich shipments with names
   const enrichedShipments = useMemo(() => {
     const storeMap = new Map(stores.map(s => [s.storeId, s.name]));
     const warehouseMap = new Map(warehouses.map(w => [w.warehouseId, w.name]));
@@ -253,141 +237,21 @@ export default function Shipments() {
     return status?.name || '';
   };
 
-  const columns = [
-    {
-      accessorKey: 'shipmentNumber',
-      header: t('shipments.table.shipmentNumber'),
-      cell: ({ row }) => (
-        <div className="flex items-center gap-3">
-          <div className="flex items-center justify-center w-10 h-10 bg-purple-100 rounded-lg dark:bg-purple-500/20">
-            <ShoppingCart className="w-5 h-5 text-purple-600 dark:text-purple-400" />
-          </div>
-          <span className="font-medium text-slate-900 dark:text-slate-100">
-            {row.original.shipmentNumber}
-          </span>
-        </div>
-      ),
-    },
-    {
-      accessorKey: 'storeName',
-      header: t('shipments.table.store'),
-      cell: ({ row }) => (
-        <div className="flex items-center gap-2">
-          <Store className="w-4 h-4 text-slate-400" />
-          <span className="text-slate-700 dark:text-slate-300">
-            {row.original.storeName || t('common.notSpecified')}
-          </span>
-        </div>
-      ),
-    },
-    {
-      accessorKey: 'warehouseName',
-      header: t('shipments.table.warehouse'),
-      cell: ({ row }) => (
-        <div className="flex items-center gap-2">
-          <Warehouse className="w-4 h-4 text-slate-400" />
-          <span className="text-slate-700 dark:text-slate-300">
-            {row.original.warehouseName || t('common.notSpecified')}
-          </span>
-        </div>
-      ),
-    },
-    {
-      accessorKey: 'statusName',
-      header: t('shipments.table.status'),
-      cell: ({ row }) => <StatusBadge status={row.original.statusName || t('common.notSpecified')} />,
-    },
-    {
-      accessorKey: 'shipmentDate',
-      header: t('shipments.table.shipmentDate'),
-      cell: ({ row }) => (
-        <span className="text-slate-600 dark:text-slate-400">
-          {row.original.shipmentDate ? format(new Date(row.original.shipmentDate), 'dd.MM.yyyy', { locale: ru }) : '—'}
-        </span>
-      ),
-    },
-    {
-      accessorKey: 'sentQty',
-      header: t('shipments.table.sentAccepted'),
-      cell: ({ row }) => (
-        <div>
-          <span className="font-medium text-slate-900 dark:text-slate-100">
-            {row.original.sentQty || 0}
-          </span>
-          <span className="text-slate-400"> / </span>
-          <span className={`font-medium ${
-            row.original.acceptedQty >= row.original.sentQty
-              ? 'text-emerald-600 dark:text-emerald-400'
-              : 'text-amber-600 dark:text-amber-400'
-          }`}>
-            {row.original.acceptedQty || 0}
-          </span>
-        </div>
-      ),
-    },
-    {
-      accessorKey: 'logisticsCost',
-      header: t('shipments.table.logistics'),
-      cell: ({ row }) => (
-        <span className="text-slate-600 dark:text-slate-400">
-          {row.original.logisticsCost ? `${row.original.logisticsCost.toFixed(2)} ₽` : '0.00 ₽'}
-        </span>
-      ),
-    },
-    {
-      id: 'actions',
-      header: '',
-      sortable: false,
-      cell: ({ row }) => (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="w-8 h-8">
-              <MoreHorizontal className="w-4 h-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem asChild>
-              <Link to={`${createPageUrl('ShipmentDetails')}?id=${row.original.shipmentId}`}>
-                <Eye className="w-4 h-4 mr-2" />
-                {t('common.details')}
-              </Link>
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => handleEdit(row.original)}>
-              <Edit2 className="w-4 h-4 mr-2" />
-              {t('common.edit')}
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem 
-              onClick={() => { setCurrentShipment(row.original); setDeleteDialogOpen(true); }}
-              className="text-red-600"
-            >
-              <Trash2 className="w-4 h-4 mr-2" />
-              {t('common.delete')}
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      ),
-    },
-  ];
-
   return (
     <div className="space-y-6">
-      <PageHeader 
-        title={t('shipments.title')} 
-        description={t('shipments.description')}
-      >
-        <Button onClick={() => { resetForm(); setDialogOpen(true); }}>
-          <Plus className="w-4 h-4 mr-2" />
-          {t('shipments.addShipment')}
-        </Button>
-      </PageHeader>
-
-      <DataTable
-        columns={columns}
-        data={enrichedShipments}
+      <ShipmentsTable
+        t={t}
+        shipments={enrichedShipments}
         isLoading={isLoading}
-        searchPlaceholder={t('shipments.searchPlaceholder')}
-        emptyMessage={t('shipments.emptyMessage')}
+        onCreateShipment={() => {
+          resetForm();
+          setDialogOpen(true);
+        }}
+        onEditShipment={handleEdit}
+        onRequestDelete={(shipment) => {
+          setCurrentShipment(shipment);
+          setDeleteDialogOpen(true);
+        }}
       />
 
       {/* Create/Edit Dialog */}

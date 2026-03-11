@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/api';
 import { useI18n } from '@/lib/i18n';
-import { Package, Warehouse, History, Filter, X } from 'lucide-react';
+import { Filter, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Select,
@@ -13,9 +13,7 @@ import {
 } from '@/components/ui/select';
 import { Card, CardContent } from '@/components/ui/card';
 import PageHeader from '@/components/ui/PageHeader';
-import DataTable from '@/components/ui/DataTable';
-import { Link } from 'react-router-dom';
-import { createPageUrl } from '@/utils';
+import StockTable from '@/features/stock/components/StockTable';
 
 export default function Stock() {
   const { t } = useI18n();
@@ -108,78 +106,6 @@ export default function Stock() {
   };
 
   const hasActiveFilters = productFilter !== 'all' || warehouseFilter !== 'all';
-
-  const columns = useMemo(() => {
-    const cols = [
-      {
-        accessorKey: 'productName',
-        header: t('stock.table.product'),
-        cell: ({ row }) => {
-          const product = productsMap.get(row.original.productId);
-          return (
-            <div className="flex items-center gap-3">
-              <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-slate-100 dark:bg-slate-800">
-                <Package className="w-5 h-5 text-slate-500" />
-              </div>
-              <div>
-                <p className="font-medium text-slate-900 dark:text-slate-100">
-                  {row.original.productName}
-                </p>
-                {product && (
-                  <p className="text-sm text-slate-500 dark:text-slate-400">
-                    {product.barcode || `ID: ${row.original.productId}`}
-                  </p>
-                )}
-              </div>
-            </div>
-          );
-        },
-      },
-    ];
-
-    // Показываем колонку склада только если не выбран конкретный склад
-    if (warehouseFilter === 'all') {
-      cols.push({
-        accessorKey: 'warehouseName',
-        header: t('stock.table.warehouse'),
-        cell: ({ row }) => (
-          <div className="flex items-center gap-2">
-            <Warehouse className="w-4 h-4 text-slate-400" />
-            <span className="text-slate-700 dark:text-slate-300">
-              {row.original.warehouseName}
-            </span>
-          </div>
-        ),
-      });
-    }
-
-    cols.push(
-      {
-        accessorKey: 'currentQuantity',
-        header: t('stock.table.quantity'),
-        cell: ({ row }) => (
-          <span className="font-semibold text-slate-900 dark:text-slate-100">
-            {row.original.currentQuantity?.toLocaleString() || 0}
-          </span>
-        ),
-      },
-      {
-        id: 'actions',
-        header: '',
-        sortable: false,
-        cell: ({ row }) => (
-          <Button variant="ghost" size="sm" asChild>
-            <Link to={`${createPageUrl('StockMovements')}?product=${row.original.productId}`}>
-              <History className="w-4 h-4 mr-2" />
-              {t('common.history')}
-            </Link>
-          </Button>
-        ),
-      }
-    );
-
-    return cols;
-  }, [warehouseFilter, productsMap, t]);
 
   return (
     <div className="space-y-6">
@@ -281,11 +207,11 @@ export default function Stock() {
         </CardContent>
       </Card>
 
-      <DataTable
-        columns={columns}
-        data={filteredStock}
-        searchPlaceholder={t('stock.searchPlaceholder')}
-        emptyMessage={t('stock.emptyMessage')}
+      <StockTable
+        t={t}
+        stock={filteredStock}
+        productsMap={productsMap}
+        warehouseFilter={warehouseFilter}
         isLoading={loadingStock}
       />
     </div>

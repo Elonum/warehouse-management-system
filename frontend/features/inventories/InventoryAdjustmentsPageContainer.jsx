@@ -32,6 +32,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import InventoryAdjustmentsTable from '@/features/inventories/components/InventoryAdjustmentsTable';
+import { useModalState } from '@/hooks/useModalState';
 
 const emptyAdjustment = {
   adjustmentDate: null,
@@ -43,8 +44,8 @@ function InventoryAdjustmentsPageContainer() {
   const { t } = useI18n();
   const queryClient = useQueryClient();
 
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const createEditModal = useModalState(null);
+  const deleteModal = useModalState(null);
   const [currentAdjustment, setCurrentAdjustment] = useState(null);
   const [formData, setFormData] = useState(emptyAdjustment);
   const [error, setError] = useState('');
@@ -129,7 +130,7 @@ function InventoryAdjustmentsPageContainer() {
     mutationFn: (data) => api.inventories.create(data),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['inventories'] });
-      setDialogOpen(false);
+      createEditModal.close();
       resetForm();
       setError('');
     },
@@ -156,7 +157,7 @@ function InventoryAdjustmentsPageContainer() {
     mutationFn: ({ id, data }) => api.inventories.update(id, data),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['inventories'] });
-      setDialogOpen(false);
+      createEditModal.close();
       resetForm();
       setError('');
     },
@@ -193,7 +194,7 @@ function InventoryAdjustmentsPageContainer() {
       return { previousData };
     },
     onSuccess: async () => {
-      setDeleteDialogOpen(false);
+      deleteModal.close();
       setCurrentAdjustment(null);
       setError('');
       setDeleteError('');
@@ -212,7 +213,7 @@ function InventoryAdjustmentsPageContainer() {
       } else {
         setError(t('inventoryAdjustments.errors.deleteFailed'));
       }
-      setDeleteDialogOpen(false);
+      deleteModal.close();
     },
   });
 
@@ -236,7 +237,7 @@ function InventoryAdjustmentsPageContainer() {
       notes: adjustment.notes || null,
     });
     setError('');
-    setDialogOpen(true);
+    createEditModal.open(adjustment);
   };
 
   const handleSubmit = (e) => {
@@ -278,7 +279,7 @@ function InventoryAdjustmentsPageContainer() {
         isLoading={isLoading}
         onCreateAdjustment={() => {
           resetForm();
-          setDialogOpen(true);
+          createEditModal.open();
         }}
         onEditAdjustment={handleEdit}
         onRequestDelete={(adjustment) => {
@@ -289,7 +290,7 @@ function InventoryAdjustmentsPageContainer() {
           }
           setCurrentAdjustment(adjustment);
           setDeleteError('');
-          setDeleteDialogOpen(true);
+          deleteModal.open(adjustment);
         }}
       />
 
@@ -314,9 +315,9 @@ function InventoryAdjustmentsPageContainer() {
       </AlertDialog>
 
       <Dialog
-        open={dialogOpen}
+        open={createEditModal.isOpen}
         onOpenChange={(open) => {
-          setDialogOpen(open);
+          createEditModal.setIsOpen(open);
           if (!open) {
             resetForm();
           }
@@ -405,7 +406,7 @@ function InventoryAdjustmentsPageContainer() {
                 type="button"
                 variant="outline"
                 onClick={() => {
-                  setDialogOpen(false);
+                  createEditModal.close();
                   resetForm();
                 }}
               >
@@ -428,7 +429,7 @@ function InventoryAdjustmentsPageContainer() {
         </DialogContent>
       </Dialog>
 
-      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+      <AlertDialog open={deleteModal.isOpen} onOpenChange={deleteModal.setIsOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>{t('inventoryAdjustments.deleteConfirm.title')}</AlertDialogTitle>
@@ -439,7 +440,7 @@ function InventoryAdjustmentsPageContainer() {
           <AlertDialogFooter>
             <AlertDialogCancel
               onClick={() => {
-                setDeleteDialogOpen(false);
+                deleteModal.close();
                 setCurrentAdjustment(null);
               }}
             >

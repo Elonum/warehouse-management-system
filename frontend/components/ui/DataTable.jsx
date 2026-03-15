@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   Table,
   TableBody,
@@ -25,6 +25,10 @@ import {
   X
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useI18n } from '@/lib/i18n';
+import { usePagination } from '@/hooks/usePagination';
+import { LoadingState } from '@/components/common/LoadingState';
+import { EmptyState } from '@/components/common/EmptyState';
 
 export default function DataTable({
   columns,
@@ -34,17 +38,16 @@ export default function DataTable({
   pageSize = 10,
   onRowClick,
   onRowDoubleClick,
-  emptyMessage = "Нет данных",
+  emptyMessage,
   isLoading = false,
   className
 }) {
+  const { t } = useI18n();
   const [searchQuery, setSearchQuery] = useState('');
-  const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(pageSize);
   const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
 
   // Filter data based on search
-  const filteredData = React.useMemo(() => {
+  const filteredData = useMemo(() => {
     if (!searchQuery) return data;
     return data.filter(row => 
       columns.some(col => {
@@ -55,7 +58,7 @@ export default function DataTable({
   }, [data, searchQuery, columns]);
 
   // Sort data
-  const sortedData = React.useMemo(() => {
+  const sortedData = useMemo(() => {
     if (!sortConfig.key) return filteredData;
     return [...filteredData].sort((a, b) => {
       const aValue = a[sortConfig.key];
@@ -66,11 +69,32 @@ export default function DataTable({
     });
   }, [filteredData, sortConfig]);
 
-  // Pagination
-  const totalPages = Math.ceil(sortedData.length / itemsPerPage);
-  const paginatedData = sortedData.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
+  const {
+    page,
+    pageSize: itemsPerPage,
+    setPage,
+    setPageSize,
+    totalPages,
+    canGoPrevious,
+    canGoNext,
+    goToFirst,
+    goToLast,
+    goToPrevious,
+    goToNext,
+    range,
+  } = usePagination({
+    totalItems: sortedData.length,
+    initialPage: 1,
+    initialPageSize: pageSize,
+  });
+
+  const paginatedData = useMemo(
+    () =>
+      sortedData.slice(
+        (page - 1) * itemsPerPage,
+        page * itemsPerPage,
+      ),
+    [sortedData, page, itemsPerPage],
   );
 
   const handleSort = (key) => {
@@ -92,7 +116,7 @@ export default function DataTable({
               value={searchQuery}
               onChange={(e) => {
                 setSearchQuery(e.target.value);
-                setCurrentPage(1);
+                setPage(1);
               }}
               className="pl-10 pr-10"
             />
@@ -110,8 +134,8 @@ export default function DataTable({
           <Select
             value={String(itemsPerPage)}
             onValueChange={(value) => {
-              setItemsPerPage(Number(value));
-              setCurrentPage(1);
+              setPageSize(Number(value));
+              setPage(1);
             }}
           >
             <SelectTrigger className="w-32">
@@ -161,20 +185,17 @@ export default function DataTable({
           <TableBody>
             {isLoading ? (
               <TableRow>
-                <TableCell 
-                  colSpan={columns.length} 
-                  className="h-32 text-center text-slate-500"
-                >
-                  Загрузка...
+                <TableCell colSpan={columns.length}>
+                  <LoadingState className="h-32" />
                 </TableCell>
               </TableRow>
             ) : paginatedData.length === 0 ? (
               <TableRow>
-                <TableCell 
-                  colSpan={columns.length} 
-                  className="h-32 text-center text-slate-500"
-                >
-                  {emptyMessage}
+                <TableCell colSpan={columns.length}>
+                  <EmptyState
+                    className="h-32"
+                    message={emptyMessage || t('common.noData')}
+                  />
                 </TableCell>
               </TableRow>
             ) : (
@@ -210,14 +231,18 @@ export default function DataTable({
       {totalPages > 1 && (
         <div className="flex items-center justify-between">
           <p className="text-sm text-slate-500">
-            Показано {((currentPage - 1) * itemsPerPage) + 1}–{Math.min(currentPage * itemsPerPage, sortedData.length)} из {sortedData.length}
+            {t('common.pagination.range', {
+              from: range.from,
+              to: range.to,
+              total: sortedData.length,
+            }) || `Показано ${range.from}–${range.to} из ${sortedData.length}`}
           </p>
           <div className="flex items-center gap-1">
             <Button
               variant="outline"
               size="icon"
-              onClick={() => setCurrentPage(1)}
-              disabled={currentPage === 1}
+              onClick={goToFirst}
+              disabled={!canGoPrevious}
               className="h-8 w-8"
             >
               <ChevronsLeft className="h-4 w-4" />
@@ -225,20 +250,20 @@ export default function DataTable({
             <Button
               variant="outline"
               size="icon"
-              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-              disabled={currentPage === 1}
+              onClick={goToPrevious}
+              disabled={!canGoPrevious}
               className="h-8 w-8"
             >
               <ChevronLeft className="h-4 w-4" />
             </Button>
             <span className="px-3 text-sm font-medium">
-              {currentPage} / {totalPages}
+              {page} / {totalPages}
             </span>
             <Button
               variant="outline"
               size="icon"
-              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-              disabled={currentPage === totalPages}
+              onClick={goToNext}
+              disabled={!canGoNext}
               className="h-8 w-8"
             >
               <ChevronRight className="h-4 w-4" />
@@ -246,8 +271,8 @@ export default function DataTable({
             <Button
               variant="outline"
               size="icon"
-              onClick={() => setCurrentPage(totalPages)}
-              disabled={currentPage === totalPages}
+              onClick={goToLast}
+              disabled={!canGoNext}
               className="h-8 w-8"
             >
               <ChevronsRight className="h-4 w-4" />

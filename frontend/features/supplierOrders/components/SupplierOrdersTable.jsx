@@ -8,6 +8,7 @@ import {
   ChevronRight,
   Copy,
   Search,
+  X,
   Eye,
   Edit2,
   Trash2,
@@ -437,8 +438,19 @@ function SupplierOrdersTable({
               placeholder={t('supplierOrders.searchPlaceholder')}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="pl-9"
+              className="pl-10 pr-10"
             />
+            {search && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
+                onClick={() => setSearch('')}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            )}
           </div>
         </div>
       </div>

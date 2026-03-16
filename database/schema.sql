@@ -166,8 +166,7 @@ CREATE TABLE IF NOT EXISTS supplier_order_items (
     total_logistics DECIMAL(10,2),
     unit_logistics DECIMAL(10,2),
     unit_self_cost DECIMAL(10,2),
-    total_self_cost DECIMAL(10,2),
-    fulfillment_cost DECIMAL(10,2)
+    total_self_cost DECIMAL(10,2)
 );
 
 CREATE TABLE IF NOT EXISTS supplier_order_documents (
@@ -195,7 +194,6 @@ CREATE TABLE IF NOT EXISTS mp_shipments (
     warehouse_id UUID REFERENCES warehouses(warehouse_id),
     status_id UUID REFERENCES shipment_statuses(shipment_status_id),
     logistics_cost DECIMAL(10,2),
-    unit_logistics DECIMAL(10,2),
     acceptance_cost DECIMAL(10,2),
     acceptance_date DATE,
     positions_qty INTEGER NOT NULL DEFAULT 0,
@@ -211,9 +209,9 @@ CREATE TABLE IF NOT EXISTS mp_shipment_items (
     shipment_item_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     shipment_id UUID NOT NULL REFERENCES mp_shipments(shipment_id) ON DELETE CASCADE,
     product_id UUID REFERENCES products(product_id),
-    warehouse_id UUID NOT NULL REFERENCES warehouses(warehouse_id),
     sent_qty INTEGER NOT NULL DEFAULT 0,
     accepted_qty INTEGER NOT NULL DEFAULT 0,
+	total_logistics_for_item DECIMAL(10,2),
     logistics_for_item DECIMAL(10,2)
 );
 
@@ -298,7 +296,6 @@ CREATE INDEX IF NOT EXISTS idx_mp_shipments_status ON mp_shipments(status_id);
 
 CREATE INDEX IF NOT EXISTS idx_mp_shipment_items_shipment ON mp_shipment_items(shipment_id);
 CREATE INDEX IF NOT EXISTS idx_mp_shipment_items_product ON mp_shipment_items(product_id);
-CREATE INDEX IF NOT EXISTS idx_mp_shipment_items_stock ON mp_shipment_items(product_id, warehouse_id);
 
 CREATE INDEX IF NOT EXISTS idx_inventories_status ON inventories(status_id);
 

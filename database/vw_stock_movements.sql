@@ -18,7 +18,7 @@ UNION ALL
 -- 2. Отгрузка на маркетплейсы
 SELECT
     msi.product_id,
-    msi.warehouse_id,
+    ms.warehouse_id,              -- склад берём из шапки отгрузки
     ms.acceptance_date AS movement_date,
     -msi.accepted_qty AS quantity,
     'MP_SHIPMENT' AS movement_type,

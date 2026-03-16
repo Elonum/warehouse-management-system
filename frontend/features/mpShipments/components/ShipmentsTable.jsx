@@ -22,7 +22,7 @@ import DataTable from '@/components/ui/DataTable';
 import StatusBadge from '@/components/ui/StatusBadge';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 
 function ShipmentsTable({
@@ -33,6 +33,7 @@ function ShipmentsTable({
   onEditShipment,
   onRequestDelete,
 }) {
+  const navigate = useNavigate();
   const columns = useMemo(
     () => [
       {
@@ -181,6 +182,10 @@ function ShipmentsTable({
         isLoading={isLoading}
         searchPlaceholder={t('shipments.searchPlaceholder')}
         emptyMessage={t('shipments.emptyMessage')}
+        onRowDoubleClick={(row) => {
+          if (!row.shipmentId) return;
+          navigate(`${createPageUrl('ShipmentDetails')}?id=${row.shipmentId}`);
+        }}
       />
     </div>
   );

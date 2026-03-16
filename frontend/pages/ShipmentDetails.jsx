@@ -57,7 +57,6 @@ import { createPageUrl } from '@/utils';
 
 const emptyItem = {
   productId: null,
-  warehouseId: null,
   sentQty: 0,
   acceptedQty: 0,
   logisticsForItem: null,
@@ -116,8 +115,8 @@ export default function ShipmentDetails() {
   const maps = useMemo(() => {
     return {
       productMap: new Map(products.map(p => [p.productId, p])),
-      warehouseMap: new Map(warehouses.map(w => [w.warehouseId, w])),
       storeMap: new Map(stores.map(s => [s.storeId, s])),
+      warehouseMap: new Map(warehouses.map(w => [w.warehouseId, w])),
       statusMap: new Map(shipmentStatuses.map(s => [s.shipmentStatusId, s.name])),
     };
   }, [products, warehouses, stores, shipmentStatuses]);
@@ -127,7 +126,6 @@ export default function ShipmentDetails() {
       ...item,
       productName: maps.productMap.get(item.productId)?.name || 'Неизвестный товар',
       productArticle: maps.productMap.get(item.productId)?.article || '',
-      warehouseName: maps.warehouseMap.get(item.warehouseId)?.name || 'Не указан',
     }));
   }, [shipmentItems, maps]);
 
@@ -203,7 +201,6 @@ export default function ShipmentDetails() {
     setCurrentItem(item);
     setItemForm({
       productId: item.productId || null,
-      warehouseId: item.warehouseId || shipment?.warehouseId || null,
       sentQty: item.sentQty ?? 0,
       acceptedQty: item.acceptedQty ?? 0,
       logisticsForItem: item.logisticsForItem?.toString() || null,
@@ -220,10 +217,14 @@ export default function ShipmentDetails() {
     const data = {
       shipmentId,
       productId: itemForm.productId || null,
-      warehouseId: itemForm.warehouseId || null,
       sentQty: itemForm.sentQty ? parseInt(itemForm.sentQty, 10) : 0,
       acceptedQty: itemForm.acceptedQty ? parseInt(itemForm.acceptedQty, 10) : 0,
       logisticsForItem: itemForm.logisticsForItem ? parseFloat(itemForm.logisticsForItem) : null,
+      totalLogisticsForItem:
+        itemForm.logisticsForItem && (itemForm.acceptedQty || itemForm.sentQty)
+          ? parseFloat(itemForm.logisticsForItem) *
+              parseInt(itemForm.acceptedQty || itemForm.sentQty, 10)
+          : null,
     };
 
     if (currentItem) {
@@ -254,16 +255,6 @@ export default function ShipmentDetails() {
       ),
     },
     {
-      accessorKey: 'warehouseName',
-      header: 'Склад',
-      cell: ({ row }) => (
-        <div className="flex items-center gap-2">
-          <Warehouse className="w-4 h-4 text-slate-400" />
-          <span className="text-slate-700 dark:text-slate-300">{row.original.warehouseName || 'Не указан'}</span>
-        </div>
-      ),
-    },
-    {
       accessorKey: 'sentQty',
       header: 'Отправлено',
       cell: ({ row }) => (
@@ -287,10 +278,12 @@ export default function ShipmentDetails() {
     },
     {
       accessorKey: 'logisticsForItem',
-      header: 'Логистика',
+      header: 'Логистика за единицу',
       cell: ({ row }) => (
         <span className="text-slate-600 dark:text-slate-400">
-          {row.original.logisticsForItem ? `${row.original.logisticsForItem.toFixed(2)} ₽` : '0.00 ₽'}
+          {row.original.logisticsForItem != null
+            ? `${row.original.logisticsForItem.toFixed(2)} ₽`
+            : '0.00 ₽'}
         </span>
       ),
     },
@@ -419,7 +412,7 @@ export default function ShipmentDetails() {
           <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
             Позиции отгрузки ({enrichedItems.length})
           </h2>
-          <Button onClick={() => { setCurrentItem(null); setItemForm({ ...emptyItem, warehouseId: shipment?.warehouseId || null }); setItemDialogOpen(true); }}>
+          <Button onClick={() => { setCurrentItem(null); setItemForm(emptyItem); setItemDialogOpen(true); }}>
             <Plus className="w-4 h-4 mr-2" />
             Добавить позицию
           </Button>
@@ -470,24 +463,6 @@ export default function ShipmentDetails() {
                   {products.map(product => (
                     <SelectItem key={product.productId} value={product.productId.toString()}>
                       {product.name} ({product.article})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="warehouseId">Склад *</Label>
-              <Select
-                value={itemForm.warehouseId?.toString() || ''}
-                onValueChange={(value) => setItemForm({ ...itemForm, warehouseId: value || null })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Выберите склад" />
-                </SelectTrigger>
-                <SelectContent>
-                  {warehouses.map(warehouse => (
-                    <SelectItem key={warehouse.warehouseId} value={warehouse.warehouseId.toString()}>
-                      {warehouse.name}
                     </SelectItem>
                   ))}
                 </SelectContent>

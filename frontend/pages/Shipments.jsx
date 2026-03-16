@@ -48,11 +48,7 @@ const emptyShipment = {
   shipmentDate: null,
   acceptanceDate: null,
   logisticsCost: null,
-  unitLogistics: null,
   acceptanceCost: null,
-  positionsQty: 0,
-  sentQty: 0,
-  acceptedQty: 0,
 };
 
 export default function Shipments() {
@@ -196,11 +192,7 @@ export default function Shipments() {
       shipmentDate: shipment.shipmentDate ? format(new Date(shipment.shipmentDate), 'yyyy-MM-dd') : null,
       acceptanceDate: shipment.acceptanceDate ? format(new Date(shipment.acceptanceDate), 'yyyy-MM-dd') : null,
       logisticsCost: shipment.logisticsCost?.toString() || null,
-      unitLogistics: shipment.unitLogistics?.toString() || null,
       acceptanceCost: shipment.acceptanceCost?.toString() || null,
-      positionsQty: shipment.positionsQty || 0,
-      sentQty: shipment.sentQty || 0,
-      acceptedQty: shipment.acceptedQty || 0,
     });
     setError('');
     createEditModal.open(shipment);
@@ -218,11 +210,7 @@ export default function Shipments() {
       shipmentDate: formData.shipmentDate ? new Date(formData.shipmentDate).toISOString() : null,
       acceptanceDate: formData.acceptanceDate ? new Date(formData.acceptanceDate).toISOString() : null,
       logisticsCost: formData.logisticsCost ? parseFloat(formData.logisticsCost) : null,
-      unitLogistics: formData.unitLogistics ? parseFloat(formData.unitLogistics) : null,
       acceptanceCost: formData.acceptanceCost ? parseFloat(formData.acceptanceCost) : null,
-      positionsQty: formData.positionsQty || 0,
-      sentQty: formData.sentQty || 0,
-      acceptedQty: formData.acceptedQty || 0,
     };
 
     if (currentShipment) {
@@ -234,8 +222,26 @@ export default function Shipments() {
 
   const getSelectedStatusName = () => {
     if (!formData.statusId) return '';
-    const status = shipmentStatuses.find(s => s.shipmentStatusId === formData.statusId);
+    const status = shipmentStatuses.find(
+      (s) => String(s.shipmentStatusId) === String(formData.statusId),
+    );
     return status?.name || '';
+  };
+
+  const getSelectedStoreName = () => {
+    if (!formData.storeId) return '';
+    const store = stores.find(
+      (s) => String(s.storeId) === String(formData.storeId),
+    );
+    return store?.name || '';
+  };
+
+  const getSelectedWarehouseName = () => {
+    if (!formData.warehouseId) return '';
+    const warehouse = warehouses.find(
+      (w) => String(w.warehouseId) === String(formData.warehouseId),
+    );
+    return warehouse?.name || '';
   };
 
   return (
@@ -314,7 +320,9 @@ export default function Shipments() {
                   onValueChange={(value) => setFormData({ ...formData, storeId: value || null })}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder={t('shipments.form.store')} />
+                    <SelectValue placeholder={t('shipments.form.store')}>
+                      {getSelectedStoreName()}
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     {stores.map(store => (
@@ -332,7 +340,9 @@ export default function Shipments() {
                   onValueChange={(value) => setFormData({ ...formData, warehouseId: value || null })}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder={t('shipments.form.warehouse')} />
+                    <SelectValue placeholder={t('shipments.form.warehouse')}>
+                      {getSelectedWarehouseName()}
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     {warehouses.map(warehouse => (
@@ -364,7 +374,7 @@ export default function Shipments() {
                 />
               </div>
             </div>
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="logisticsCost">Стоимость логистики (₽)</Label>
                 <Input
@@ -376,16 +386,6 @@ export default function Shipments() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="unitLogistics">Единичная логистика (₽)</Label>
-                <Input
-                  id="unitLogistics"
-                  type="number"
-                  step="0.01"
-                  value={formData.unitLogistics || ''}
-                  onChange={(e) => setFormData({ ...formData, unitLogistics: e.target.value || null })}
-                />
-              </div>
-              <div className="space-y-2">
                 <Label htmlFor="acceptanceCost">Стоимость приёмки (₽)</Label>
                 <Input
                   id="acceptanceCost"
@@ -393,35 +393,6 @@ export default function Shipments() {
                   step="0.01"
                   value={formData.acceptanceCost || ''}
                   onChange={(e) => setFormData({ ...formData, acceptanceCost: e.target.value || null })}
-                />
-              </div>
-            </div>
-            <div className="grid grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="positionsQty">Количество позиций</Label>
-                <Input
-                  id="positionsQty"
-                  type="number"
-                  value={formData.positionsQty || 0}
-                  onChange={(e) => setFormData({ ...formData, positionsQty: parseInt(e.target.value) || 0 })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="sentQty">Отправлено</Label>
-                <Input
-                  id="sentQty"
-                  type="number"
-                  value={formData.sentQty || 0}
-                  onChange={(e) => setFormData({ ...formData, sentQty: parseInt(e.target.value) || 0 })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="acceptedQty">Принято</Label>
-                <Input
-                  id="acceptedQty"
-                  type="number"
-                  value={formData.acceptedQty || 0}
-                  onChange={(e) => setFormData({ ...formData, acceptedQty: parseInt(e.target.value) || 0 })}
                 />
               </div>
             </div>

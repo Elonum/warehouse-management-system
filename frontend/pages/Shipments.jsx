@@ -11,13 +11,6 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -26,7 +19,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+} from '@/components/ui/alert-dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -102,11 +95,11 @@ export default function Shipments() {
     const warehouseMap = new Map(warehouses.map(w => [w.warehouseId, w.name]));
     const statusMap = new Map(shipmentStatuses.map(s => [s.shipmentStatusId, s.name]));
 
-    return shipments.map(shipment => ({
+    return shipments.map((shipment) => ({
       ...shipment,
-      storeName: shipment.storeId ? storeMap.get(shipment.storeId) || 'Не указан' : null,
-      warehouseName: shipment.warehouseId ? warehouseMap.get(shipment.warehouseId) || 'Не указан' : null,
-      statusName: shipment.statusId ? statusMap.get(shipment.statusId) || 'Не указан' : null,
+      storeName: shipment.storeId ? storeMap.get(shipment.storeId) || t('common.notSpecified') : null,
+      warehouseName: shipment.warehouseId ? warehouseMap.get(shipment.warehouseId) || t('common.notSpecified') : null,
+      statusName: shipment.statusId ? statusMap.get(shipment.statusId) || t('common.notSpecified') : null,
     }));
   }, [shipments, stores, warehouses, shipmentStatuses]);
 
@@ -120,9 +113,9 @@ export default function Shipments() {
     },
     onError: (err) => {
       if (err instanceof ApiError) {
-        setError(err.message || 'Ошибка создания отгрузки');
+        setError(err.message || t('shipments.errors.createFailed'));
       } else {
-        setError('Ошибка создания отгрузки');
+        setError(t('shipments.errors.createFailed'));
       }
     },
   });
@@ -137,9 +130,9 @@ export default function Shipments() {
     },
     onError: (err) => {
       if (err instanceof ApiError) {
-        setError(err.message || 'Ошибка обновления отгрузки');
+        setError(err.message || t('shipments.errors.updateFailed'));
       } else {
-        setError('Ошибка обновления отгрузки');
+        setError(t('shipments.errors.updateFailed'));
       }
     },
   });
@@ -168,9 +161,9 @@ export default function Shipments() {
         queryClient.setQueryData(['mpShipments'], context.previousData);
       }
       if (err instanceof ApiError) {
-        setError(err.message || 'Ошибка удаления отгрузки');
+        setError(err.message || t('shipments.errors.deleteFailed'));
       } else {
-        setError('Ошибка удаления отгрузки');
+        setError(t('shipments.errors.deleteFailed'));
       }
       deleteModal.close();
     },
@@ -250,6 +243,7 @@ export default function Shipments() {
         t={t}
         shipments={enrichedShipments}
         isLoading={isLoading}
+        shipmentStatuses={shipmentStatuses}
         onCreateShipment={() => {
           resetForm();
           createEditModal.open();
@@ -360,23 +354,35 @@ export default function Shipments() {
                 <Input
                   id="shipmentDate"
                   type="date"
+                  className="pl-3 pr-3"
                   value={formData.shipmentDate || ''}
-                  onChange={(e) => setFormData({ ...formData, shipmentDate: e.target.value || null })}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      shipmentDate: e.target.value || null,
+                    })
+                  }
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="acceptanceDate">Дата приёмки</Label>
+                <Label htmlFor="acceptanceDate">{t('shipments.form.acceptanceDate')}</Label>
                 <Input
                   id="acceptanceDate"
                   type="date"
+                  className="pl-3 pr-3"
                   value={formData.acceptanceDate || ''}
-                  onChange={(e) => setFormData({ ...formData, acceptanceDate: e.target.value || null })}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      acceptanceDate: e.target.value || null,
+                    })
+                  }
                 />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="logisticsCost">Стоимость логистики (₽)</Label>
+                <Label htmlFor="logisticsCost">{t('shipments.form.logisticsCost')}</Label>
                 <Input
                   id="logisticsCost"
                   type="number"
@@ -386,7 +392,7 @@ export default function Shipments() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="acceptanceCost">Стоимость приёмки (₽)</Label>
+                <Label htmlFor="acceptanceCost">{t('shipments.form.acceptanceCost')}</Label>
                 <Input
                   id="acceptanceCost"
                   type="number"

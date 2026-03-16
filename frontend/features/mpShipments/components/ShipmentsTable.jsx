@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   Plus,
   ShoppingCart,
@@ -17,6 +17,13 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import PageHeader from '@/components/ui/PageHeader';
 import DataTable from '@/components/ui/DataTable';
 import StatusBadge from '@/components/ui/StatusBadge';
@@ -32,8 +39,28 @@ function ShipmentsTable({
   onCreateShipment,
   onEditShipment,
   onRequestDelete,
+  shipmentStatuses = [],
 }) {
   const navigate = useNavigate();
+  const [statusFilter, setStatusFilter] = useState('all');
+
+  const getStatusFilterLabel = () => {
+    if (statusFilter === 'all') {
+      return t('shipments.filters.allStatuses');
+    }
+    const status = shipmentStatuses.find(
+      (s) => String(s.shipmentStatusId) === String(statusFilter),
+    );
+    return status?.name || t('shipments.filters.allStatuses');
+  };
+
+  const filteredShipments = useMemo(() => {
+    if (statusFilter === 'all') return shipments;
+    return shipments.filter(
+      (shipment) =>
+        shipment.statusId && String(shipment.statusId) === String(statusFilter),
+    );
+  }, [shipments, statusFilter]);
   const columns = useMemo(
     () => [
       {
@@ -87,30 +114,24 @@ function ShipmentsTable({
         cell: ({ row }) => (
           <span className="text-slate-600 dark:text-slate-400">
             {row.original.shipmentDate
-              ? format(new Date(row.original.shipmentDate), 'dd.MM.yyyy', { locale: ru })
+              ? format(new Date(row.original.shipmentDate), 'dd.MM.yyyy', {
+                  locale: ru,
+                })
               : '—'}
           </span>
         ),
       },
       {
-        accessorKey: 'sentQty',
-        header: t('shipments.table.sentAccepted'),
+        accessorKey: 'acceptanceDate',
+        header: t('shipments.table.acceptanceDate'),
         cell: ({ row }) => (
-          <div>
-            <span className="font-medium text-slate-900 dark:text-slate-100">
-              {row.original.sentQty || 0}
-            </span>
-            <span className="text-slate-400"> / </span>
-            <span
-              className={`font-medium ${
-                row.original.acceptedQty >= row.original.sentQty
-                  ? 'text-emerald-600 dark:text-emerald-400'
-                  : 'text-amber-600 dark:text-amber-400'
-              }`}
-            >
-              {row.original.acceptedQty || 0}
-            </span>
-          </div>
+          <span className="text-slate-600 dark:text-slate-400">
+            {row.original.acceptanceDate
+              ? format(new Date(row.original.acceptanceDate), 'dd.MM.yyyy', {
+                  locale: ru,
+                })
+              : '—'}
+          </span>
         ),
       },
       {
@@ -122,6 +143,34 @@ function ShipmentsTable({
               ? `${row.original.logisticsCost.toFixed(2)} ₽`
               : '0.00 ₽'}
           </span>
+        ),
+      },
+      {
+        accessorKey: 'quantitySummary',
+        header: t('shipments.table.quantity'),
+        cell: ({ row }) => (
+          <div className="flex flex-col gap-1.5 text-sm">
+            <span className="font-semibold text-slate-900 dark:text-slate-100">
+              {t('shipments.summary.positions')}:{' '}
+              {row.original.positionsQty ?? 0}
+            </span>
+            <span className="text-slate-500 dark:text-slate-400">
+              {t('shipments.summary.sent')}:{' '}
+              {row.original.sentQty ?? 0}
+            </span>
+            <span className="text-slate-500 dark:text-slate-400">
+              {t('shipments.summary.accepted')}:{' '}
+              <span
+                className={`font-semibold ${
+                  (row.original.acceptedQty ?? 0) >= (row.original.sentQty ?? 0)
+                    ? 'text-emerald-600 dark:text-emerald-400'
+                    : 'text-amber-600 dark:text-amber-400'
+                }`}
+              >
+                {row.original.acceptedQty ?? 0}
+              </span>
+            </span>
+          </div>
         ),
       },
       {
@@ -176,9 +225,33 @@ function ShipmentsTable({
         </Button>
       </PageHeader>
 
+      <div className="space-y-3">
+        <div className="flex items-center gap-3 text-sm text-slate-700 dark:text-slate-300">
+          <span>{t('shipments.filters.statusesLabel')}</span>
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-56 h-8">
+              <SelectValue>{getStatusFilterLabel()}</SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">
+                {t('shipments.filters.allStatuses')}
+              </SelectItem>
+              {shipmentStatuses.map((status) => (
+                <SelectItem
+                  key={status.shipmentStatusId}
+                  value={status.shipmentStatusId.toString()}
+                >
+                  {status.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
       <DataTable
         columns={columns}
-        data={shipments}
+        data={filteredShipments}
         isLoading={isLoading}
         searchPlaceholder={t('shipments.searchPlaceholder')}
         emptyMessage={t('shipments.emptyMessage')}

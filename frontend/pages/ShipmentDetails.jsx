@@ -58,8 +58,8 @@ import { createPageUrl } from '@/utils';
 
 const emptyItem = {
   productId: null,
-  sentQty: 0,
-  acceptedQty: 0,
+  sentQty: '',
+  acceptedQty: '',
   logisticsForItem: null,
 };
 
@@ -251,9 +251,9 @@ export default function ShipmentDetails() {
     setCurrentItem(item);
     setItemForm({
       productId: item.productId || null,
-      sentQty: item.sentQty ?? 0,
-      acceptedQty: item.acceptedQty ?? 0,
-      logisticsForItem: item.logisticsForItem?.toString() || null,
+      sentQty: item.sentQty != null ? String(item.sentQty) : '',
+      acceptedQty: item.acceptedQty != null ? String(item.acceptedQty) : '',
+      logisticsForItem: item.logisticsForItem != null ? String(item.logisticsForItem) : null,
     });
     setError('');
     setItemDialogOpen(true);
@@ -469,7 +469,8 @@ export default function ShipmentDetails() {
       )}
 
       {/* Shipment Summary */}
-      <div className="grid grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+        {/* Row 1 */}
         <Card className="dark:bg-slate-900 dark:border-slate-800">
           <CardContent className="pt-6">
             <div className="flex items-center gap-2 mb-2">
@@ -479,7 +480,9 @@ export default function ShipmentDetails() {
               </p>
             </div>
             <p className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-              {maps.storeMap.get(shipment?.storeId)?.name || shipment?.storeId || '—'}
+              {maps.storeMap.get(shipment?.storeId)?.name ||
+                shipment?.storeId ||
+                '—'}
             </p>
           </CardContent>
         </Card>
@@ -492,7 +495,9 @@ export default function ShipmentDetails() {
               </p>
             </div>
             <p className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-              {maps.warehouseMap.get(shipment?.warehouseId)?.name || shipment?.warehouseId || '—'}
+              {maps.warehouseMap.get(shipment?.warehouseId)?.name ||
+                shipment?.warehouseId ||
+                '—'}
             </p>
           </CardContent>
         </Card>
@@ -505,7 +510,11 @@ export default function ShipmentDetails() {
               </p>
             </div>
             <p className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-              {shipment?.shipmentDate ? format(new Date(shipment.shipmentDate), 'dd.MM.yyyy', { locale: ru }) : '—'}
+              {shipment?.shipmentDate
+                ? format(new Date(shipment.shipmentDate), 'dd.MM.yyyy', {
+                    locale: ru,
+                  })
+                : '—'}
             </p>
           </CardContent>
         </Card>
@@ -515,7 +524,41 @@ export default function ShipmentDetails() {
               {t('shipmentDetails.summary.acceptanceDate')}
             </p>
             <p className="mt-1 text-lg font-semibold text-slate-900 dark:text-slate-100">
-              {shipment?.acceptanceDate ? format(new Date(shipment.acceptanceDate), 'dd.MM.yyyy', { locale: ru }) : '—'}
+              {shipment?.acceptanceDate
+                ? format(new Date(shipment.acceptanceDate), 'dd.MM.yyyy', {
+                    locale: ru,
+                  })
+                : '—'}
+            </p>
+          </CardContent>
+        </Card>
+
+        {/* Row 2 */}
+        <Card className="dark:bg-slate-900 dark:border-slate-800">
+          <CardContent className="pt-6">
+            <p className="text-sm text-slate-500">
+              {t('shipments.summary.sent')}
+            </p>
+            <p className="mt-1 text-lg font-semibold text-slate-900 dark:text-slate-100">
+              {shipment?.sentQty ?? 0}{' '}
+              {t('shipments.summary.units')}
+            </p>
+          </CardContent>
+        </Card>
+        <Card className="dark:bg-slate-900 dark:border-slate-800">
+          <CardContent className="pt-6">
+            <p className="text-sm text-slate-500">
+              {t('shipments.summary.accepted')}
+            </p>
+            <p
+              className={`mt-1 text-lg font-semibold ${
+                (shipment?.acceptedQty ?? 0) >= (shipment?.sentQty ?? 0)
+                  ? 'text-emerald-600 dark:text-emerald-400'
+                  : 'text-amber-600 dark:text-amber-400'
+              }`}
+            >
+              {shipment?.acceptedQty ?? 0}{' '}
+              {t('shipments.summary.units')}
             </p>
           </CardContent>
         </Card>
@@ -524,8 +567,22 @@ export default function ShipmentDetails() {
             <p className="text-sm text-slate-500">
               {t('shipmentDetails.summary.logistics')}
             </p>
-            <p className="mt-1 text-lg font-semibold text-indigo-600 dark:text-indigo-400">
-              {shipment?.logisticsCost ? `${shipment.logisticsCost.toFixed(2)} ₽` : '0.00 ₽'}
+            <p className="mt-1 text-lg font-semibold text-slate-900 dark:text-slate-100">
+              {shipment?.logisticsCost
+                ? `${shipment.logisticsCost.toFixed(2)} ₽`
+                : '0.00 ₽'}
+            </p>
+          </CardContent>
+        </Card>
+        <Card className="dark:bg-slate-900 dark:border-slate-800">
+          <CardContent className="pt-6">
+            <p className="text-sm text-slate-500">
+              {t('shipments.table.acceptanceCost')}
+            </p>
+            <p className="mt-1 text-lg font-semibold text-slate-900 dark:text-slate-100">
+              {shipment?.acceptanceCost
+                ? `${shipment.acceptanceCost.toFixed(2)} ₽`
+                : '0.00 ₽'}
             </p>
           </CardContent>
         </Card>
@@ -617,8 +674,10 @@ export default function ShipmentDetails() {
                   id="sentQty"
                   type="number"
                   min="0"
-                  value={itemForm.sentQty ?? 0}
-                  onChange={(e) => setItemForm({ ...itemForm, sentQty: e.target.value })}
+                  value={itemForm.sentQty ?? ''}
+                  onChange={(e) =>
+                    setItemForm({ ...itemForm, sentQty: e.target.value })
+                  }
                   required
                 />
               </div>
@@ -630,8 +689,10 @@ export default function ShipmentDetails() {
                   id="acceptedQty"
                   type="number"
                   min="0"
-                  value={itemForm.acceptedQty ?? 0}
-                  onChange={(e) => setItemForm({ ...itemForm, acceptedQty: e.target.value })}
+                  value={itemForm.acceptedQty ?? ''}
+                  onChange={(e) =>
+                    setItemForm({ ...itemForm, acceptedQty: e.target.value })
+                  }
                 />
               </div>
             </div>

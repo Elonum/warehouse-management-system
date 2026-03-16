@@ -441,7 +441,7 @@ const translations = {
         acceptanceDate: 'Дата приёмки',
         quantity: 'Количество',
         logistics: 'Логистика',
-        acceptanceCost: 'Приёмка',
+        acceptanceCost: 'Стоимость приёмки',
       },
       form: {
         shipmentNumber: 'Номер отгрузки',
@@ -461,6 +461,7 @@ const translations = {
         positions: 'Позиции',
         sent: 'Отправлено',
         accepted: 'Принято',
+        units: 'шт.',
       },
       deleteConfirm: {
         title: 'Удалить отгрузку',
@@ -1280,7 +1281,7 @@ const translations = {
         acceptanceDate: 'Acceptance Date',
         quantity: 'Quantity',
         logistics: 'Logistics',
-        acceptanceCost: 'Acceptance',
+        acceptanceCost: 'Acceptance cost',
       },
       form: {
         shipmentNumber: 'Shipment Number',
@@ -1300,6 +1301,7 @@ const translations = {
         positions: 'Positions',
         sent: 'Sent',
         accepted: 'Accepted',
+        units: 'pcs',
       },
       deleteConfirm: {
         title: 'Delete Shipment',

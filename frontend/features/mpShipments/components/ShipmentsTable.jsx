@@ -167,7 +167,8 @@ function ShipmentsTable({
             </span>
             <span className="text-slate-500 dark:text-slate-400">
               {t('shipments.summary.sent')}:{' '}
-              {row.original.sentQty ?? 0}
+              {row.original.sentQty ?? 0}{' '}
+              {t('shipments.summary.units')}
             </span>
             <span className="text-slate-500 dark:text-slate-400">
               {t('shipments.summary.accepted')}:{' '}
@@ -178,7 +179,8 @@ function ShipmentsTable({
                     : 'text-amber-600 dark:text-amber-400'
                 }`}
               >
-                {row.original.acceptedQty ?? 0}
+                {row.original.acceptedQty ?? 0}{' '}
+                {t('shipments.summary.units')}
               </span>
             </span>
           </div>

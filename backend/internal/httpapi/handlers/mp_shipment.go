@@ -123,18 +123,6 @@ func (h *MpShipmentHandler) Create(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "shipmentNumber is required")
 		return
 	}
-	if req.PositionsQty < 0 {
-		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "positionsQty must be non-negative")
-		return
-	}
-	if req.SentQty < 0 {
-		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "sentQty must be non-negative")
-		return
-	}
-	if req.AcceptedQty < 0 {
-		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "acceptedQty must be non-negative")
-		return
-	}
 
 	shipment, err := h.service.Create(r.Context(), userID, req)
 	if err != nil {
@@ -156,11 +144,6 @@ func (h *MpShipmentHandler) Create(w http.ResponseWriter, r *http.Request) {
 		if err == repository.ErrShipmentStatusNotFound {
 			log.Warn().Interface("statusId", req.StatusID).Msg("Shipment status not found")
 			writeError(w, http.StatusBadRequest, "SHIPMENT_STATUS_NOT_FOUND", "specified shipment status does not exist")
-			return
-		}
-		if err == repository.ErrInvalidQuantity {
-			log.Warn().Int("sentQty", req.SentQty).Int("acceptedQty", req.AcceptedQty).Msg("Invalid quantity")
-			writeError(w, http.StatusBadRequest, "INVALID_QUANTITY", "accepted quantity cannot exceed sent quantity")
 			return
 		}
 		log.Error().Err(err).Str("shipmentNumber", req.ShipmentNumber).Str("userId", userID.String()).Msg("Failed to create mp shipment")
@@ -201,18 +184,6 @@ func (h *MpShipmentHandler) Update(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "shipmentNumber is required")
 		return
 	}
-	if req.PositionsQty < 0 {
-		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "positionsQty must be non-negative")
-		return
-	}
-	if req.SentQty < 0 {
-		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "sentQty must be non-negative")
-		return
-	}
-	if req.AcceptedQty < 0 {
-		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "acceptedQty must be non-negative")
-		return
-	}
 
 	shipment, err := h.service.Update(r.Context(), shipmentID, userID, req)
 	if err != nil {
@@ -239,11 +210,6 @@ func (h *MpShipmentHandler) Update(w http.ResponseWriter, r *http.Request) {
 		if err == repository.ErrShipmentStatusNotFound {
 			log.Warn().Interface("statusId", req.StatusID).Msg("Shipment status not found")
 			writeError(w, http.StatusBadRequest, "SHIPMENT_STATUS_NOT_FOUND", "specified shipment status does not exist")
-			return
-		}
-		if err == repository.ErrInvalidQuantity {
-			log.Warn().Int("sentQty", req.SentQty).Int("acceptedQty", req.AcceptedQty).Msg("Invalid quantity")
-			writeError(w, http.StatusBadRequest, "INVALID_QUANTITY", "accepted quantity cannot exceed sent quantity")
 			return
 		}
 		log.Error().Err(err).Str("shipmentId", shipmentID.String()).Str("userId", userID.String()).Msg("Failed to update mp shipment")

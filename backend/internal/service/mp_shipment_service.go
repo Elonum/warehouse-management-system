@@ -67,7 +67,6 @@ func (s *MpShipmentService) GetByID(ctx context.Context, shipmentID uuid.UUID) (
 		WarehouseID:    warehouseIDStr,
 		StatusID:       statusIDStr,
 		LogisticsCost:  shipment.LogisticsCost,
-		UnitLogistics:  shipment.UnitLogistics,
 		AcceptanceCost: shipment.AcceptanceCost,
 		AcceptanceDate: shipment.AcceptanceDate,
 		PositionsQty:   shipment.PositionsQty,
@@ -125,7 +124,6 @@ func (s *MpShipmentService) List(ctx context.Context, limit, offset int, storeID
 			WarehouseID:    warehouseIDStr,
 			StatusID:       statusIDStr,
 			LogisticsCost:  shipment.LogisticsCost,
-			UnitLogistics:  shipment.UnitLogistics,
 			AcceptanceCost: shipment.AcceptanceCost,
 			AcceptanceDate: shipment.AcceptanceDate,
 			PositionsQty:   shipment.PositionsQty,
@@ -202,11 +200,6 @@ func (s *MpShipmentService) Create(ctx context.Context, userID uuid.UUID, req dt
 		}
 	}
 
-	if req.AcceptedQty > req.SentQty {
-		log.Warn().Int("sentQty", req.SentQty).Int("acceptedQty", req.AcceptedQty).Msg("Accepted quantity cannot exceed sent quantity")
-		return nil, repository.ErrInvalidQuantity
-	}
-
 	shipment, err := s.repo.Create(ctx,
 		req.ShipmentDate,
 		req.ShipmentNumber,
@@ -214,12 +207,11 @@ func (s *MpShipmentService) Create(ctx context.Context, userID uuid.UUID, req dt
 		warehouseID,
 		statusID,
 		req.LogisticsCost,
-		req.UnitLogistics,
 		req.AcceptanceCost,
 		req.AcceptanceDate,
-		req.PositionsQty,
-		req.SentQty,
-		req.AcceptedQty,
+		0,
+		0,
+		0,
 		&userID,
 	)
 	if err != nil {
@@ -262,7 +254,6 @@ func (s *MpShipmentService) Create(ctx context.Context, userID uuid.UUID, req dt
 		WarehouseID:    warehouseIDStr,
 		StatusID:       statusIDStr,
 		LogisticsCost:  shipment.LogisticsCost,
-		UnitLogistics:  shipment.UnitLogistics,
 		AcceptanceCost: shipment.AcceptanceCost,
 		AcceptanceDate: shipment.AcceptanceDate,
 		PositionsQty:   shipment.PositionsQty,
@@ -336,9 +327,11 @@ func (s *MpShipmentService) Update(ctx context.Context, shipmentID, userID uuid.
 		}
 	}
 
-	if req.AcceptedQty > req.SentQty {
-		log.Warn().Int("sentQty", req.SentQty).Int("acceptedQty", req.AcceptedQty).Msg("Accepted quantity cannot exceed sent quantity")
-		return nil, repository.ErrInvalidQuantity
+	// Preserve aggregates: derived from shipment items.
+	existing, err := s.repo.GetByID(ctx, shipmentID)
+	if err != nil {
+		log.Error().Err(err).Str("shipmentId", shipmentID.String()).Msg("Failed to load existing mp shipment for update")
+		return nil, err
 	}
 
 	shipment, err := s.repo.Update(ctx, shipmentID,
@@ -348,12 +341,11 @@ func (s *MpShipmentService) Update(ctx context.Context, shipmentID, userID uuid.
 		warehouseID,
 		statusID,
 		req.LogisticsCost,
-		req.UnitLogistics,
 		req.AcceptanceCost,
 		req.AcceptanceDate,
-		req.PositionsQty,
-		req.SentQty,
-		req.AcceptedQty,
+		existing.PositionsQty,
+		existing.SentQty,
+		existing.AcceptedQty,
 		&userID,
 	)
 	if err != nil {
@@ -396,7 +388,6 @@ func (s *MpShipmentService) Update(ctx context.Context, shipmentID, userID uuid.
 		WarehouseID:    warehouseIDStr,
 		StatusID:       statusIDStr,
 		LogisticsCost:  shipment.LogisticsCost,
-		UnitLogistics:  shipment.UnitLogistics,
 		AcceptanceCost: shipment.AcceptanceCost,
 		AcceptanceDate: shipment.AcceptanceDate,
 		PositionsQty:   shipment.PositionsQty,

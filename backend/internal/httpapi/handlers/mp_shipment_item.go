@@ -88,16 +88,16 @@ func (h *MpShipmentItemHandler) Create(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "productId is required")
 		return
 	}
-	if req.WarehouseID == "" {
-		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "warehouseId is required")
-		return
-	}
 	if req.SentQty < 0 {
 		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "sentQty must be non-negative")
 		return
 	}
 	if req.AcceptedQty < 0 {
 		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "acceptedQty must be non-negative")
+		return
+	}
+	if req.AcceptedQty > req.SentQty {
+		writeError(w, http.StatusBadRequest, "INVALID_QUANTITY", "accepted quantity cannot exceed sent quantity")
 		return
 	}
 
@@ -111,16 +111,6 @@ func (h *MpShipmentItemHandler) Create(w http.ResponseWriter, r *http.Request) {
 		if err == repository.ErrProductNotFound {
 			log.Warn().Str("productId", req.ProductID).Msg("Product not found")
 			writeError(w, http.StatusBadRequest, "PRODUCT_NOT_FOUND", "specified product does not exist")
-			return
-		}
-		if err == repository.ErrWarehouseNotFound {
-			log.Warn().Str("warehouseId", req.WarehouseID).Msg("Warehouse not found")
-			writeError(w, http.StatusBadRequest, "WAREHOUSE_NOT_FOUND", "specified warehouse does not exist")
-			return
-		}
-		if err == repository.ErrInvalidQuantity {
-			log.Warn().Int("sentQty", req.SentQty).Int("acceptedQty", req.AcceptedQty).Msg("Invalid quantity")
-			writeError(w, http.StatusBadRequest, "INVALID_QUANTITY", "accepted quantity cannot exceed sent quantity")
 			return
 		}
 		log.Error().Err(err).Str("shipmentId", req.ShipmentID).Str("productId", req.ProductID).Msg("Failed to create mp shipment item")
@@ -159,16 +149,16 @@ func (h *MpShipmentItemHandler) Update(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "productId is required")
 		return
 	}
-	if req.WarehouseID == "" {
-		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "warehouseId is required")
-		return
-	}
 	if req.SentQty < 0 {
 		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "sentQty must be non-negative")
 		return
 	}
 	if req.AcceptedQty < 0 {
 		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "acceptedQty must be non-negative")
+		return
+	}
+	if req.AcceptedQty > req.SentQty {
+		writeError(w, http.StatusBadRequest, "INVALID_QUANTITY", "accepted quantity cannot exceed sent quantity")
 		return
 	}
 
@@ -187,16 +177,6 @@ func (h *MpShipmentItemHandler) Update(w http.ResponseWriter, r *http.Request) {
 		if err == repository.ErrProductNotFound {
 			log.Warn().Str("productId", req.ProductID).Msg("Product not found")
 			writeError(w, http.StatusBadRequest, "PRODUCT_NOT_FOUND", "specified product does not exist")
-			return
-		}
-		if err == repository.ErrWarehouseNotFound {
-			log.Warn().Str("warehouseId", req.WarehouseID).Msg("Warehouse not found")
-			writeError(w, http.StatusBadRequest, "WAREHOUSE_NOT_FOUND", "specified warehouse does not exist")
-			return
-		}
-		if err == repository.ErrInvalidQuantity {
-			log.Warn().Int("sentQty", req.SentQty).Int("acceptedQty", req.AcceptedQty).Msg("Invalid quantity")
-			writeError(w, http.StatusBadRequest, "INVALID_QUANTITY", "accepted quantity cannot exceed sent quantity")
 			return
 		}
 		log.Error().Err(err).Str("itemId", itemID.String()).Msg("Failed to update mp shipment item")

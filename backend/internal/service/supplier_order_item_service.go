@@ -239,7 +239,6 @@ func itemToResponse(item *repository.SupplierOrderItem) *dto.SupplierOrderItemRe
 		UnitLogistics:   item.UnitLogistics,
 		UnitSelfCost:    item.UnitSelfCost,
 		TotalSelfCost:   item.TotalSelfCost,
-		FulfillmentCost: item.FulfillmentCost,
 	}
 }
 
@@ -344,7 +343,6 @@ func (s *SupplierOrderItemService) Create(ctx context.Context, userID uuid.UUID,
 		computed.UnitLogistics,
 		computed.UnitSelfCost,
 		computed.TotalSelfCost,
-		req.FulfillmentCost,
 	)
 	if err != nil {
 		log.Error().Err(err).Str("orderId", req.OrderID).Str("productId", req.ProductID).Str("userId", userID.String()).Msg("Failed to create supplier order item")
@@ -436,7 +434,6 @@ func (s *SupplierOrderItemService) Update(ctx context.Context, itemID, userID uu
 		computed.UnitLogistics,
 		computed.UnitSelfCost,
 		computed.TotalSelfCost,
-		req.FulfillmentCost,
 	)
 	if err != nil {
 		log.Error().Err(err).Str("itemId", itemID.String()).Str("userId", userID.String()).Msg("Failed to update supplier order item")
@@ -584,7 +581,6 @@ func (s *SupplierOrderItemService) TransferItemsToSubOrder(
 				item.UnitLogistics,
 				item.UnitSelfCost,
 				item.TotalSelfCost,
-				item.FulfillmentCost,
 			)
 			if err != nil {
 				log.Error().
@@ -640,7 +636,6 @@ func (s *SupplierOrderItemService) TransferItemsToSubOrder(
 			item.UnitLogistics,
 			item.UnitSelfCost,
 			item.TotalSelfCost,
-			item.FulfillmentCost,
 		)
 		if err != nil {
 			log.Error().
@@ -666,7 +661,6 @@ func (s *SupplierOrderItemService) TransferItemsToSubOrder(
 			nil, // unit_logistics
 			nil, // unit_self_cost
 			nil, // total_self_cost
-			item.FulfillmentCost,
 		)
 		if err != nil {
 			log.Error().

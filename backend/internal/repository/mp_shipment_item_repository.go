@@ -19,10 +19,10 @@ type MpShipmentItem struct {
 	ShipmentItemID   uuid.UUID
 	ShipmentID       uuid.UUID
 	ProductID        uuid.UUID
-	WarehouseID      uuid.UUID
 	SentQty          int
 	AcceptedQty      int
 	LogisticsForItem *float64
+	TotalLogisticsForItem *float64
 }
 
 type MpShipmentItemRepository struct {
@@ -35,8 +35,8 @@ func NewMpShipmentItemRepository(pool *pgxpool.Pool) *MpShipmentItemRepository {
 
 func (r *MpShipmentItemRepository) GetByID(ctx context.Context, itemID uuid.UUID) (*MpShipmentItem, error) {
 	query := `
-		SELECT shipment_item_id, shipment_id, product_id, warehouse_id,
-		       sent_qty, accepted_qty, logistics_for_item
+		SELECT shipment_item_id, shipment_id, product_id,
+		       sent_qty, accepted_qty, logistics_for_item, total_logistics_for_item
 		FROM mp_shipment_items
 		WHERE shipment_item_id = $1
 	`
@@ -49,10 +49,10 @@ func (r *MpShipmentItemRepository) GetByID(ctx context.Context, itemID uuid.UUID
 		&item.ShipmentItemID,
 		&item.ShipmentID,
 		&item.ProductID,
-		&item.WarehouseID,
 		&item.SentQty,
 		&item.AcceptedQty,
 		&item.LogisticsForItem,
+		&item.TotalLogisticsForItem,
 	)
 
 	if err != nil {
@@ -67,8 +67,8 @@ func (r *MpShipmentItemRepository) GetByID(ctx context.Context, itemID uuid.UUID
 
 func (r *MpShipmentItemRepository) GetByShipmentID(ctx context.Context, shipmentID uuid.UUID) ([]MpShipmentItem, error) {
 	query := `
-		SELECT shipment_item_id, shipment_id, product_id, warehouse_id,
-		       sent_qty, accepted_qty, logistics_for_item
+		SELECT shipment_item_id, shipment_id, product_id,
+		       sent_qty, accepted_qty, logistics_for_item, total_logistics_for_item
 		FROM mp_shipment_items
 		WHERE shipment_id = $1
 		ORDER BY shipment_item_id
@@ -90,10 +90,10 @@ func (r *MpShipmentItemRepository) GetByShipmentID(ctx context.Context, shipment
 			&item.ShipmentItemID,
 			&item.ShipmentID,
 			&item.ProductID,
-			&item.WarehouseID,
 			&item.SentQty,
 			&item.AcceptedQty,
 			&item.LogisticsForItem,
+			&item.TotalLogisticsForItem,
 		); err != nil {
 			return nil, err
 		}
@@ -107,14 +107,14 @@ func (r *MpShipmentItemRepository) GetByShipmentID(ctx context.Context, shipment
 	return items, nil
 }
 
-func (r *MpShipmentItemRepository) Create(ctx context.Context, shipmentID, productID, warehouseID uuid.UUID, sentQty, acceptedQty int, logisticsForItem *float64) (*MpShipmentItem, error) {
+func (r *MpShipmentItemRepository) Create(ctx context.Context, shipmentID, productID uuid.UUID, sentQty, acceptedQty int, logisticsForItem, totalLogisticsForItem *float64) (*MpShipmentItem, error) {
 	query := `
 		INSERT INTO mp_shipment_items (
-			shipment_id, product_id, warehouse_id, sent_qty, accepted_qty, logistics_for_item
+			shipment_id, product_id, sent_qty, accepted_qty, logistics_for_item, total_logistics_for_item
 		)
 		VALUES ($1, $2, $3, $4, $5, $6)
-		RETURNING shipment_item_id, shipment_id, product_id, warehouse_id,
-		          sent_qty, accepted_qty, logistics_for_item
+		RETURNING shipment_item_id, shipment_id, product_id,
+		          sent_qty, accepted_qty, logistics_for_item, total_logistics_for_item
 	`
 
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
@@ -122,15 +122,15 @@ func (r *MpShipmentItemRepository) Create(ctx context.Context, shipmentID, produ
 
 	var item MpShipmentItem
 	err := r.pool.QueryRow(ctx, query,
-		shipmentID, productID, warehouseID, sentQty, acceptedQty, logisticsForItem,
+		shipmentID, productID, sentQty, acceptedQty, logisticsForItem, totalLogisticsForItem,
 	).Scan(
 		&item.ShipmentItemID,
 		&item.ShipmentID,
 		&item.ProductID,
-		&item.WarehouseID,
 		&item.SentQty,
 		&item.AcceptedQty,
 		&item.LogisticsForItem,
+		&item.TotalLogisticsForItem,
 	)
 
 	if err != nil {
@@ -140,14 +140,15 @@ func (r *MpShipmentItemRepository) Create(ctx context.Context, shipmentID, produ
 	return &item, nil
 }
 
-func (r *MpShipmentItemRepository) Update(ctx context.Context, itemID, shipmentID, productID, warehouseID uuid.UUID, sentQty, acceptedQty int, logisticsForItem *float64) (*MpShipmentItem, error) {
+func (r *MpShipmentItemRepository) Update(ctx context.Context, itemID, shipmentID, productID uuid.UUID, sentQty, acceptedQty int, logisticsForItem, totalLogisticsForItem *float64) (*MpShipmentItem, error) {
 	query := `
 		UPDATE mp_shipment_items
-		SET shipment_id = $1, product_id = $2, warehouse_id = $3,
-		    sent_qty = $4, accepted_qty = $5, logistics_for_item = $6
+		SET shipment_id = $1, product_id = $2,
+		    sent_qty = $3, accepted_qty = $4,
+		    logistics_for_item = $5, total_logistics_for_item = $6
 		WHERE shipment_item_id = $7
-		RETURNING shipment_item_id, shipment_id, product_id, warehouse_id,
-		          sent_qty, accepted_qty, logistics_for_item
+		RETURNING shipment_item_id, shipment_id, product_id,
+		          sent_qty, accepted_qty, logistics_for_item, total_logistics_for_item
 	`
 
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
@@ -155,15 +156,15 @@ func (r *MpShipmentItemRepository) Update(ctx context.Context, itemID, shipmentI
 
 	var item MpShipmentItem
 	err := r.pool.QueryRow(ctx, query,
-		shipmentID, productID, warehouseID, sentQty, acceptedQty, logisticsForItem, itemID,
+		shipmentID, productID, sentQty, acceptedQty, logisticsForItem, totalLogisticsForItem, itemID,
 	).Scan(
 		&item.ShipmentItemID,
 		&item.ShipmentID,
 		&item.ProductID,
-		&item.WarehouseID,
 		&item.SentQty,
 		&item.AcceptedQty,
 		&item.LogisticsForItem,
+		&item.TotalLogisticsForItem,
 	)
 
 	if err != nil {

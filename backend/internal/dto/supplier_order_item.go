@@ -14,7 +14,6 @@ type SupplierOrderItemResponse struct {
 	UnitLogistics   *float64 `json:"unitLogistics,omitempty"`
 	UnitSelfCost    *float64 `json:"unitSelfCost,omitempty"`
 	TotalSelfCost   *float64 `json:"totalSelfCost,omitempty"`
-	FulfillmentCost *float64 `json:"fulfillmentCost,omitempty"`
 }
 
 type SupplierOrderItemCreateRequest struct {
@@ -30,7 +29,6 @@ type SupplierOrderItemCreateRequest struct {
 	UnitLogistics   *float64 `json:"unitLogistics,omitempty"`
 	UnitSelfCost    *float64 `json:"unitSelfCost,omitempty"`
 	TotalSelfCost   *float64 `json:"totalSelfCost,omitempty"`
-	FulfillmentCost *float64 `json:"fulfillmentCost,omitempty"`
 }
 
 type SupplierOrderItemUpdateRequest struct {
@@ -46,5 +44,4 @@ type SupplierOrderItemUpdateRequest struct {
 	UnitLogistics   *float64 `json:"unitLogistics,omitempty"`
 	UnitSelfCost    *float64 `json:"unitSelfCost,omitempty"`
 	TotalSelfCost   *float64 `json:"totalSelfCost,omitempty"`
-	FulfillmentCost *float64 `json:"fulfillmentCost,omitempty"`
 }

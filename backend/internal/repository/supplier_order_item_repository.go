@@ -31,7 +31,6 @@ type SupplierOrderItem struct {
 	UnitLogistics   *float64
 	UnitSelfCost    *float64
 	TotalSelfCost   *float64
-	FulfillmentCost *float64
 }
 
 type SupplierOrderItemRepository struct {
@@ -46,8 +45,7 @@ func (r *SupplierOrderItemRepository) GetByID(ctx context.Context, itemID uuid.U
 	query := `
 		SELECT order_item_id, order_id, product_id, warehouse_id, ordered_qty,
 		       received_qty, purchase_price, total_price, total_weight,
-		       total_logistics, unit_logistics, unit_self_cost, total_self_cost,
-		       fulfillment_cost
+		       total_logistics, unit_logistics, unit_self_cost, total_self_cost
 		FROM supplier_order_items
 		WHERE order_item_id = $1
 	`
@@ -70,7 +68,6 @@ func (r *SupplierOrderItemRepository) GetByID(ctx context.Context, itemID uuid.U
 		&item.UnitLogistics,
 		&item.UnitSelfCost,
 		&item.TotalSelfCost,
-		&item.FulfillmentCost,
 	)
 
 	if err != nil {
@@ -87,8 +84,7 @@ func (r *SupplierOrderItemRepository) GetByOrderID(ctx context.Context, orderID 
 	query := `
 		SELECT order_item_id, order_id, product_id, warehouse_id, ordered_qty,
 		       received_qty, purchase_price, total_price, total_weight,
-		       total_logistics, unit_logistics, unit_self_cost, total_self_cost,
-		       fulfillment_cost
+		       total_logistics, unit_logistics, unit_self_cost, total_self_cost
 		FROM supplier_order_items
 		WHERE order_id = $1
 		ORDER BY order_item_id
@@ -120,7 +116,6 @@ func (r *SupplierOrderItemRepository) GetByOrderID(ctx context.Context, orderID 
 			&item.UnitLogistics,
 			&item.UnitSelfCost,
 			&item.TotalSelfCost,
-			&item.FulfillmentCost,
 		); err != nil {
 			return nil, err
 		}
@@ -134,18 +129,17 @@ func (r *SupplierOrderItemRepository) GetByOrderID(ctx context.Context, orderID 
 	return items, nil
 }
 
-func (r *SupplierOrderItemRepository) Create(ctx context.Context, orderID, productID, warehouseID uuid.UUID, orderedQty, receivedQty, totalWeight int, purchasePrice, totalPrice, totalLogistics, unitLogistics, unitSelfCost, totalSelfCost, fulfillmentCost *float64) (*SupplierOrderItem, error) {
+func (r *SupplierOrderItemRepository) Create(ctx context.Context, orderID, productID, warehouseID uuid.UUID, orderedQty, receivedQty, totalWeight int, purchasePrice, totalPrice, totalLogistics, unitLogistics, unitSelfCost, totalSelfCost *float64) (*SupplierOrderItem, error) {
 	query := `
 		INSERT INTO supplier_order_items (
 			order_id, product_id, warehouse_id, ordered_qty, received_qty,
 			purchase_price, total_price, total_weight, total_logistics,
-			unit_logistics, unit_self_cost, total_self_cost, fulfillment_cost
+			unit_logistics, unit_self_cost, total_self_cost
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 		RETURNING order_item_id, order_id, product_id, warehouse_id, ordered_qty,
 		          received_qty, purchase_price, total_price, total_weight,
-		          total_logistics, unit_logistics, unit_self_cost, total_self_cost,
-		          fulfillment_cost
+		          total_logistics, unit_logistics, unit_self_cost, total_self_cost
 	`
 
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
@@ -155,7 +149,7 @@ func (r *SupplierOrderItemRepository) Create(ctx context.Context, orderID, produ
 	err := r.pool.QueryRow(ctx, query,
 		orderID, productID, warehouseID, orderedQty, receivedQty,
 		purchasePrice, totalPrice, totalWeight, totalLogistics,
-		unitLogistics, unitSelfCost, totalSelfCost, fulfillmentCost,
+		unitLogistics, unitSelfCost, totalSelfCost,
 	).Scan(
 		&item.OrderItemID,
 		&item.OrderID,
@@ -170,7 +164,6 @@ func (r *SupplierOrderItemRepository) Create(ctx context.Context, orderID, produ
 		&item.UnitLogistics,
 		&item.UnitSelfCost,
 		&item.TotalSelfCost,
-		&item.FulfillmentCost,
 	)
 
 	if err != nil {
@@ -185,18 +178,17 @@ func (r *SupplierOrderItemRepository) Create(ctx context.Context, orderID, produ
 	return &item, nil
 }
 
-func (r *SupplierOrderItemRepository) Update(ctx context.Context, itemID, orderID, productID, warehouseID uuid.UUID, orderedQty, receivedQty, totalWeight int, purchasePrice, totalPrice, totalLogistics, unitLogistics, unitSelfCost, totalSelfCost, fulfillmentCost *float64) (*SupplierOrderItem, error) {
+func (r *SupplierOrderItemRepository) Update(ctx context.Context, itemID, orderID, productID, warehouseID uuid.UUID, orderedQty, receivedQty, totalWeight int, purchasePrice, totalPrice, totalLogistics, unitLogistics, unitSelfCost, totalSelfCost *float64) (*SupplierOrderItem, error) {
 	query := `
 		UPDATE supplier_order_items
 		SET order_id = $1, product_id = $2, warehouse_id = $3, ordered_qty = $4,
 		    received_qty = $5, purchase_price = $6, total_price = $7,
 		    total_weight = $8, total_logistics = $9, unit_logistics = $10,
-		    unit_self_cost = $11, total_self_cost = $12, fulfillment_cost = $13
-		WHERE order_item_id = $14
+		    unit_self_cost = $11, total_self_cost = $12
+		WHERE order_item_id = $13
 		RETURNING order_item_id, order_id, product_id, warehouse_id, ordered_qty,
 		          received_qty, purchase_price, total_price, total_weight,
-		          total_logistics, unit_logistics, unit_self_cost, total_self_cost,
-		          fulfillment_cost
+		          total_logistics, unit_logistics, unit_self_cost, total_self_cost
 	`
 
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
@@ -206,7 +198,7 @@ func (r *SupplierOrderItemRepository) Update(ctx context.Context, itemID, orderI
 	err := r.pool.QueryRow(ctx, query,
 		orderID, productID, warehouseID, orderedQty, receivedQty,
 		purchasePrice, totalPrice, totalWeight, totalLogistics,
-		unitLogistics, unitSelfCost, totalSelfCost, fulfillmentCost, itemID,
+		unitLogistics, unitSelfCost, totalSelfCost, itemID,
 	).Scan(
 		&item.OrderItemID,
 		&item.OrderID,
@@ -221,7 +213,6 @@ func (r *SupplierOrderItemRepository) Update(ctx context.Context, itemID, orderI
 		&item.UnitLogistics,
 		&item.UnitSelfCost,
 		&item.TotalSelfCost,
-		&item.FulfillmentCost,
 	)
 
 	if err != nil {

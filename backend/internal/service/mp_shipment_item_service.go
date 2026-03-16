@@ -14,16 +14,36 @@ type MpShipmentItemService struct {
 	repo          *repository.MpShipmentItemRepository
 	shipmentRepo  *repository.MpShipmentRepository
 	productRepo   *repository.ProductRepository
-	warehouseRepo *repository.WarehouseRepository
 }
 
-func NewMpShipmentItemService(repo *repository.MpShipmentItemRepository, shipmentRepo *repository.MpShipmentRepository, productRepo *repository.ProductRepository, warehouseRepo *repository.WarehouseRepository) *MpShipmentItemService {
+func NewMpShipmentItemService(repo *repository.MpShipmentItemRepository, shipmentRepo *repository.MpShipmentRepository, productRepo *repository.ProductRepository) *MpShipmentItemService {
 	return &MpShipmentItemService{
 		repo:          repo,
 		shipmentRepo:  shipmentRepo,
 		productRepo:   productRepo,
-		warehouseRepo: warehouseRepo,
 	}
+}
+
+func (s *MpShipmentItemService) recalcAndUpdateShipmentAggregates(ctx context.Context, shipmentID uuid.UUID) error {
+	items, err := s.repo.GetByShipmentID(ctx, shipmentID)
+	if err != nil {
+		log.Error().Err(err).Str("shipmentId", shipmentID.String()).Msg("Failed to load shipment items for aggregation")
+		return err
+	}
+
+	positionsQty := len(items)
+	sentQty := 0
+	acceptedQty := 0
+	for _, it := range items {
+		sentQty += it.SentQty
+		acceptedQty += it.AcceptedQty
+	}
+
+	if err := s.shipmentRepo.UpdateAggregates(ctx, shipmentID, positionsQty, sentQty, acceptedQty, nil); err != nil {
+		log.Error().Err(err).Str("shipmentId", shipmentID.String()).Msg("Failed to update shipment aggregates")
+		return err
+	}
+	return nil
 }
 
 func (s *MpShipmentItemService) GetByID(ctx context.Context, itemID uuid.UUID) (*dto.MpShipmentItemResponse, error) {
@@ -37,10 +57,10 @@ func (s *MpShipmentItemService) GetByID(ctx context.Context, itemID uuid.UUID) (
 		ShipmentItemID:   item.ShipmentItemID.String(),
 		ShipmentID:       item.ShipmentID.String(),
 		ProductID:        item.ProductID.String(),
-		WarehouseID:      item.WarehouseID.String(),
 		SentQty:          item.SentQty,
 		AcceptedQty:      item.AcceptedQty,
 		LogisticsForItem: item.LogisticsForItem,
+		TotalLogisticsForItem: item.TotalLogisticsForItem,
 	}, nil
 }
 
@@ -57,10 +77,10 @@ func (s *MpShipmentItemService) GetByShipmentID(ctx context.Context, shipmentID 
 			ShipmentItemID:   item.ShipmentItemID.String(),
 			ShipmentID:       item.ShipmentID.String(),
 			ProductID:        item.ProductID.String(),
-			WarehouseID:      item.WarehouseID.String(),
 			SentQty:          item.SentQty,
 			AcceptedQty:      item.AcceptedQty,
 			LogisticsForItem: item.LogisticsForItem,
+			TotalLogisticsForItem: item.TotalLogisticsForItem,
 		})
 	}
 
@@ -98,21 +118,6 @@ func (s *MpShipmentItemService) Create(ctx context.Context, req dto.MpShipmentIt
 		return nil, err
 	}
 
-	warehouseID, err := uuid.Parse(req.WarehouseID)
-	if err != nil {
-		log.Warn().Str("warehouseId", req.WarehouseID).Msg("Invalid warehouse ID format")
-		return nil, repository.ErrWarehouseNotFound
-	}
-	_, err = s.warehouseRepo.GetByID(ctx, warehouseID)
-	if err != nil {
-		if err == repository.ErrWarehouseNotFound {
-			log.Warn().Str("warehouseId", req.WarehouseID).Msg("Warehouse not found")
-			return nil, repository.ErrWarehouseNotFound
-		}
-		log.Error().Err(err).Str("warehouseId", req.WarehouseID).Msg("Failed to validate warehouse")
-		return nil, err
-	}
-
 	if req.AcceptedQty > req.SentQty {
 		log.Warn().Int("sentQty", req.SentQty).Int("acceptedQty", req.AcceptedQty).Msg("Accepted quantity cannot exceed sent quantity")
 		return nil, repository.ErrInvalidQuantity
@@ -121,14 +126,18 @@ func (s *MpShipmentItemService) Create(ctx context.Context, req dto.MpShipmentIt
 	item, err := s.repo.Create(ctx,
 		shipmentID,
 		productID,
-		warehouseID,
 		req.SentQty,
 		req.AcceptedQty,
 		req.LogisticsForItem,
+		req.TotalLogisticsForItem,
 	)
 	if err != nil {
 		log.Error().Err(err).Str("shipmentId", req.ShipmentID).Str("productId", req.ProductID).Msg("Failed to create mp shipment item")
 		return nil, err
+	}
+
+	if aggErr := s.recalcAndUpdateShipmentAggregates(ctx, shipmentID); aggErr != nil {
+		log.Error().Err(aggErr).Str("shipmentId", req.ShipmentID).Msg("Failed to recalc shipment aggregates after item create")
 	}
 
 	log.Info().Str("shipmentItemId", item.ShipmentItemID.String()).Str("shipmentId", req.ShipmentID).Str("productId", req.ProductID).Msg("Mp shipment item created successfully")
@@ -136,10 +145,10 @@ func (s *MpShipmentItemService) Create(ctx context.Context, req dto.MpShipmentIt
 		ShipmentItemID:   item.ShipmentItemID.String(),
 		ShipmentID:       item.ShipmentID.String(),
 		ProductID:        item.ProductID.String(),
-		WarehouseID:      item.WarehouseID.String(),
 		SentQty:          item.SentQty,
 		AcceptedQty:      item.AcceptedQty,
 		LogisticsForItem: item.LogisticsForItem,
+		TotalLogisticsForItem: item.TotalLogisticsForItem,
 	}, nil
 }
 
@@ -174,21 +183,6 @@ func (s *MpShipmentItemService) Update(ctx context.Context, itemID uuid.UUID, re
 		return nil, err
 	}
 
-	warehouseID, err := uuid.Parse(req.WarehouseID)
-	if err != nil {
-		log.Warn().Str("warehouseId", req.WarehouseID).Msg("Invalid warehouse ID format")
-		return nil, repository.ErrWarehouseNotFound
-	}
-	_, err = s.warehouseRepo.GetByID(ctx, warehouseID)
-	if err != nil {
-		if err == repository.ErrWarehouseNotFound {
-			log.Warn().Str("warehouseId", req.WarehouseID).Msg("Warehouse not found")
-			return nil, repository.ErrWarehouseNotFound
-		}
-		log.Error().Err(err).Str("warehouseId", req.WarehouseID).Msg("Failed to validate warehouse")
-		return nil, err
-	}
-
 	if req.AcceptedQty > req.SentQty {
 		log.Warn().Int("sentQty", req.SentQty).Int("acceptedQty", req.AcceptedQty).Msg("Accepted quantity cannot exceed sent quantity")
 		return nil, repository.ErrInvalidQuantity
@@ -197,14 +191,18 @@ func (s *MpShipmentItemService) Update(ctx context.Context, itemID uuid.UUID, re
 	item, err := s.repo.Update(ctx, itemID,
 		shipmentID,
 		productID,
-		warehouseID,
 		req.SentQty,
 		req.AcceptedQty,
 		req.LogisticsForItem,
+		req.TotalLogisticsForItem,
 	)
 	if err != nil {
 		log.Error().Err(err).Str("itemId", itemID.String()).Msg("Failed to update mp shipment item")
 		return nil, err
+	}
+
+	if aggErr := s.recalcAndUpdateShipmentAggregates(ctx, shipmentID); aggErr != nil {
+		log.Error().Err(aggErr).Str("shipmentId", req.ShipmentID).Msg("Failed to recalc shipment aggregates after item update")
 	}
 
 	log.Info().Str("itemId", itemID.String()).Msg("Mp shipment item updated successfully")
@@ -212,18 +210,28 @@ func (s *MpShipmentItemService) Update(ctx context.Context, itemID uuid.UUID, re
 		ShipmentItemID:   item.ShipmentItemID.String(),
 		ShipmentID:       item.ShipmentID.String(),
 		ProductID:        item.ProductID.String(),
-		WarehouseID:      item.WarehouseID.String(),
 		SentQty:          item.SentQty,
 		AcceptedQty:      item.AcceptedQty,
 		LogisticsForItem: item.LogisticsForItem,
+		TotalLogisticsForItem: item.TotalLogisticsForItem,
 	}, nil
 }
 
 func (s *MpShipmentItemService) Delete(ctx context.Context, itemID uuid.UUID) error {
-	err := s.repo.Delete(ctx, itemID)
+	item, err := s.repo.GetByID(ctx, itemID)
+	if err != nil {
+		log.Error().Err(err).Str("itemId", itemID.String()).Msg("Failed to load mp shipment item before deletion")
+		return err
+	}
+
+	err = s.repo.Delete(ctx, itemID)
 	if err != nil {
 		log.Error().Err(err).Str("itemId", itemID.String()).Msg("Failed to delete mp shipment item")
 		return err
+	}
+
+	if aggErr := s.recalcAndUpdateShipmentAggregates(ctx, item.ShipmentID); aggErr != nil {
+		log.Error().Err(aggErr).Str("shipmentId", item.ShipmentID.String()).Msg("Failed to recalc shipment aggregates after item delete")
 	}
 
 	log.Info().Str("itemId", itemID.String()).Msg("Mp shipment item deleted successfully")

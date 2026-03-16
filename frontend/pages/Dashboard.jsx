@@ -1,26 +1,17 @@
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { api } from '@/api';
-import { useI18n } from '@/lib/i18n';
+import { Link } from 'react-router-dom';
+import { format } from 'date-fns';
 import { 
   Package, 
   Warehouse, 
   Truck, 
   ShoppingCart, 
   ArrowUpRight,
-  ArrowDownRight,
   Boxes,
   TrendingUp,
   Clock
 } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Skeleton } from '@/components/ui/skeleton';
-import PageHeader from '@/components/ui/PageHeader';
-import StatCard from '@/components/ui/StatCard';
-import StatusBadge from '@/components/ui/StatusBadge';
-import { Link } from 'react-router-dom';
-import { createPageUrl } from '@/utils';
-import { format } from 'date-fns';
 import {
   BarChart,
   Bar,
@@ -29,14 +20,19 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  LineChart,
-  Line,
   PieChart,
   Pie,
   Cell
 } from 'recharts';
-import { LoadingState } from '@/components/common/LoadingState';
+import { api } from '@/api';
+import { useI18n } from '@/lib/i18n';
+import PageHeader from '@/components/ui/PageHeader';
+import StatCard from '@/components/ui/StatCard';
+import StatusBadge from '@/components/ui/StatusBadge';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
 import { EmptyState } from '@/components/common/EmptyState';
+import { createPageUrl } from '@/utils';
 
 const COLORS = ['#6366f1', '#8b5cf6', '#a855f7', '#d946ef', '#ec4899'];
 
@@ -138,7 +134,7 @@ export default function Dashboard() {
       />
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
         {isLoading ? (
           <>
             {[1,2,3,4].map(i => (
@@ -173,7 +169,7 @@ export default function Dashboard() {
       </div>
 
       {/* Charts Row */}
-      <div className="grid grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Stock by Warehouse */}
         <Card className="dark:bg-slate-900 dark:border-slate-800">
           <CardHeader className="pb-2">
@@ -227,6 +223,8 @@ export default function Dashboard() {
           <CardContent>
             {loadingOrders ? (
               <Skeleton className="w-full h-64" />
+            ) : ordersByStatus.filter(o => o.count > 0).length === 0 ? (
+              <EmptyState className="h-64" message={t('common.noData')} />
             ) : (
               <div className="flex items-center h-64">
                 <ResponsiveContainer width="50%" height="100%">
@@ -273,7 +271,7 @@ export default function Dashboard() {
       </div>
 
       {/* Recent Activity */}
-      <div className="grid grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Recent Stock Movements */}
         <Card className="dark:bg-slate-900 dark:border-slate-800">
           <CardHeader className="flex flex-row items-center justify-between pb-2">

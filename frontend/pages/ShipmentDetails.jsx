@@ -52,6 +52,7 @@ import DataTable from '@/components/ui/DataTable';
 import StatusBadge from '@/components/ui/StatusBadge';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
+import { useI18n } from '@/lib/i18n';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 
@@ -63,6 +64,7 @@ const emptyItem = {
 };
 
 export default function ShipmentDetails() {
+  const { t } = useI18n();
   const urlParams = new URLSearchParams(window.location.search);
   const shipmentIdParam = urlParams.get('id');
   const shipmentId = shipmentIdParam || null;
@@ -122,11 +124,21 @@ export default function ShipmentDetails() {
   }, [products, warehouses, stores, shipmentStatuses]);
 
   const enrichedItems = useMemo(() => {
-    return shipmentItems.map(item => ({
-      ...item,
-      productName: maps.productMap.get(item.productId)?.name || 'Неизвестный товар',
-      productArticle: maps.productMap.get(item.productId)?.article || '',
-    }));
+    return shipmentItems.map((item) => {
+      const product = maps.productMap.get(item.productId);
+      const productName =
+        product?.article ||
+        product?.name ||
+        item.productName ||
+        t('shipmentDetails.unknownProduct');
+      const productBarcode = product?.barcode || item.productBarcode || null;
+
+      return {
+        ...item,
+        productName,
+        productBarcode,
+      };
+    });
   }, [shipmentItems, maps]);
 
   const createItemMutation = useMutation({
@@ -140,9 +152,9 @@ export default function ShipmentDetails() {
     },
     onError: (err) => {
       if (err instanceof ApiError) {
-        setError(err.message || 'Ошибка добавления позиции');
+        setError(err.message || t('shipmentDetails.errors.createFailed'));
       } else {
-        setError('Ошибка добавления позиции');
+        setError(t('shipmentDetails.errors.createFailed'));
       }
     },
   });
@@ -158,9 +170,9 @@ export default function ShipmentDetails() {
     },
     onError: (err) => {
       if (err instanceof ApiError) {
-        setError(err.message || 'Ошибка обновления позиции');
+        setError(err.message || t('shipmentDetails.errors.updateFailed'));
       } else {
-        setError('Ошибка обновления позиции');
+        setError(t('shipmentDetails.errors.updateFailed'));
       }
     },
   });
@@ -189,9 +201,9 @@ export default function ShipmentDetails() {
         queryClient.setQueryData(['mpShipmentItems', shipmentId], context.previousData);
       }
       if (err instanceof ApiError) {
-        setError(err.message || 'Ошибка удаления позиции');
+        setError(err.message || t('shipmentDetails.errors.deleteFailed'));
       } else {
-        setError('Ошибка удаления позиции');
+        setError(t('shipmentDetails.errors.deleteFailed'));
       }
       setDeleteItemDialogOpen(false);
     },
@@ -237,7 +249,7 @@ export default function ShipmentDetails() {
   const itemColumns = [
     {
       accessorKey: 'productName',
-      header: 'Товар',
+      header: t('shipmentDetails.table.product'),
       cell: ({ row }) => (
         <div className="flex items-center gap-3">
           <div className="flex items-center justify-center rounded-lg h-9 w-9 bg-slate-100 dark:bg-slate-800">
@@ -245,10 +257,12 @@ export default function ShipmentDetails() {
           </div>
           <div className="flex flex-col">
             <span className="font-medium text-slate-900 dark:text-slate-100">
-              {row.original.productName || 'Неизвестный товар'}
+              {row.original.productName || t('shipmentDetails.unknownProduct')}
             </span>
-            {row.original.productArticle && (
-              <span className="text-xs text-slate-500 dark:text-slate-400">Арт: {row.original.productArticle}</span>
+            {row.original.productBarcode && (
+              <span className="text-xs text-slate-500 dark:text-slate-400">
+                {row.original.productBarcode}
+              </span>
             )}
           </div>
         </div>
@@ -256,7 +270,7 @@ export default function ShipmentDetails() {
     },
     {
       accessorKey: 'sentQty',
-      header: 'Отправлено',
+      header: t('shipmentDetails.table.sentQty'),
       cell: ({ row }) => (
         <span className="font-medium text-slate-900 dark:text-slate-100">
           {row.original.sentQty?.toLocaleString() || 0}
@@ -265,27 +279,42 @@ export default function ShipmentDetails() {
     },
     {
       accessorKey: 'acceptedQty',
-      header: 'Принято',
+      header: t('shipmentDetails.table.acceptedQty'),
       cell: ({ row }) => (
-        <span className={`font-medium ${
-          row.original.acceptedQty >= row.original.sentQty
-            ? 'text-emerald-600 dark:text-emerald-400'
-            : 'text-amber-600 dark:text-amber-400'
-        }`}>
+        <span
+          className={`font-medium ${
+            row.original.acceptedQty >= row.original.sentQty
+              ? 'text-emerald-600 dark:text-emerald-400'
+              : 'text-amber-600 dark:text-amber-400'
+          }`}
+        >
           {row.original.acceptedQty?.toLocaleString() || 0}
         </span>
       ),
     },
     {
-      accessorKey: 'logisticsForItem',
-      header: 'Логистика за единицу',
-      cell: ({ row }) => (
-        <span className="text-slate-600 dark:text-slate-400">
-          {row.original.logisticsForItem != null
-            ? `${row.original.logisticsForItem.toFixed(2)} ₽`
-            : '0.00 ₽'}
-        </span>
-      ),
+      accessorKey: 'logistics',
+      header: t('shipmentDetails.table.logistics'),
+      cell: ({ row }) => {
+        const unit = row.original.logisticsForItem;
+        const total = row.original.totalLogisticsForItem;
+        return (
+          <div className="flex flex-col text-sm">
+            <span className="text-slate-600 dark:text-slate-400">
+              {t('shipmentDetails.table.logisticsUnitLabel')}:{' '}
+              {unit != null ? `${unit.toFixed(2)} ₽` : '—'}
+            </span>
+            <span className="font-semibold text-slate-900 dark:text-slate-100">
+              {t('shipmentDetails.table.logisticsTotalLabel')}:{' '}
+              {total != null
+                ? `${total.toLocaleString('ru-RU', {
+                    minimumFractionDigits: 2,
+                  })} ₽`
+                : '—'}
+            </span>
+          </div>
+        );
+      },
     },
     {
       id: 'actions',
@@ -320,11 +349,11 @@ export default function ShipmentDetails() {
   if (!shipmentId) {
     return (
       <div className="p-8 text-center">
-        <p className="text-slate-500">Не передан ID отгрузки</p>
+        <p className="text-slate-500">{t('shipmentDetails.noId')}</p>
         <Button asChild className="mt-4">
           <Link to={createPageUrl('Shipments')}>
             <ArrowLeft className="w-4 h-4 mr-2" />
-            Назад к отгрузкам
+            {t('shipmentDetails.backToList')}
           </Link>
         </Button>
       </div>
@@ -339,9 +368,16 @@ export default function ShipmentDetails() {
             <ArrowLeft className="w-5 h-5" />
           </Link>
         </Button>
-        <PageHeader 
-          title={shipment?.shipmentNumber || 'Загрузка...'}
-          description={shipment ? `${maps.storeMap.get(shipment.storeId)?.name || 'Магазин #' + (shipment.storeId || '-')}` : ''}
+        <PageHeader
+          title={shipment?.shipmentNumber || t('common.loading')}
+          description={
+            shipment
+              ? maps.storeMap.get(shipment.storeId)?.name ||
+                `${t('shipmentDetails.summary.store')} #${
+                  shipment.storeId || '-'
+                }`
+              : ''
+          }
         >
           <StatusBadge status={maps.statusMap.get(shipment?.statusId) || '—'} />
         </PageHeader>
@@ -349,7 +385,7 @@ export default function ShipmentDetails() {
 
       {shipmentError && (
         <div className="p-3 text-sm text-red-600 bg-red-50 dark:bg-red-900/20 dark:text-red-400 rounded-lg">
-          Ошибка загрузки отгрузки: {shipmentError.message}
+          {t('shipmentDetails.loadError')}: {shipmentError.message}
         </div>
       )}
 
@@ -359,7 +395,9 @@ export default function ShipmentDetails() {
           <CardContent className="pt-6">
             <div className="flex items-center gap-2 mb-2">
               <Store className="w-4 h-4 text-slate-400" />
-              <p className="text-sm text-slate-500">Магазин</p>
+              <p className="text-sm text-slate-500">
+                {t('shipmentDetails.summary.store')}
+              </p>
             </div>
             <p className="text-lg font-semibold text-slate-900 dark:text-slate-100">
               {maps.storeMap.get(shipment?.storeId)?.name || shipment?.storeId || '—'}
@@ -370,7 +408,9 @@ export default function ShipmentDetails() {
           <CardContent className="pt-6">
             <div className="flex items-center gap-2 mb-2">
               <Warehouse className="w-4 h-4 text-slate-400" />
-              <p className="text-sm text-slate-500">Склад</p>
+              <p className="text-sm text-slate-500">
+                {t('shipmentDetails.summary.warehouse')}
+              </p>
             </div>
             <p className="text-lg font-semibold text-slate-900 dark:text-slate-100">
               {maps.warehouseMap.get(shipment?.warehouseId)?.name || shipment?.warehouseId || '—'}
@@ -381,7 +421,9 @@ export default function ShipmentDetails() {
           <CardContent className="pt-6">
             <div className="flex items-center gap-2 mb-2">
               <Truck className="w-4 h-4 text-slate-400" />
-              <p className="text-sm text-slate-500">Дата отгрузки</p>
+              <p className="text-sm text-slate-500">
+                {t('shipmentDetails.summary.shipmentDate')}
+              </p>
             </div>
             <p className="text-lg font-semibold text-slate-900 dark:text-slate-100">
               {shipment?.shipmentDate ? format(new Date(shipment.shipmentDate), 'dd.MM.yyyy', { locale: ru }) : '—'}
@@ -390,7 +432,9 @@ export default function ShipmentDetails() {
         </Card>
         <Card className="dark:bg-slate-900 dark:border-slate-800">
           <CardContent className="pt-6">
-            <p className="text-sm text-slate-500">Дата приёмки</p>
+            <p className="text-sm text-slate-500">
+              {t('shipmentDetails.summary.acceptanceDate')}
+            </p>
             <p className="mt-1 text-lg font-semibold text-slate-900 dark:text-slate-100">
               {shipment?.acceptanceDate ? format(new Date(shipment.acceptanceDate), 'dd.MM.yyyy', { locale: ru }) : '—'}
             </p>
@@ -398,7 +442,9 @@ export default function ShipmentDetails() {
         </Card>
         <Card className="dark:bg-slate-900 dark:border-slate-800">
           <CardContent className="pt-6">
-            <p className="text-sm text-slate-500">Логистика</p>
+            <p className="text-sm text-slate-500">
+              {t('shipmentDetails.summary.logistics')}
+            </p>
             <p className="mt-1 text-lg font-semibold text-indigo-600 dark:text-indigo-400">
               {shipment?.logisticsCost ? `${shipment.logisticsCost.toFixed(2)} ₽` : '0.00 ₽'}
             </p>
@@ -410,11 +456,17 @@ export default function ShipmentDetails() {
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-            Позиции отгрузки ({enrichedItems.length})
+            {t('shipmentDetails.itemsTitle')} ({enrichedItems.length})
           </h2>
-          <Button onClick={() => { setCurrentItem(null); setItemForm(emptyItem); setItemDialogOpen(true); }}>
+          <Button
+            onClick={() => {
+              setCurrentItem(null);
+              setItemForm(emptyItem);
+              setItemDialogOpen(true);
+            }}
+          >
             <Plus className="w-4 h-4 mr-2" />
-            Добавить позицию
+            {t('shipmentDetails.addItem')}
           </Button>
         </div>
         <DataTable
@@ -422,7 +474,7 @@ export default function ShipmentDetails() {
           data={enrichedItems}
           isLoading={loadingItems || loadingShipment}
           searchable={false}
-          emptyMessage="В отгрузке пока нет позиций"
+          emptyMessage={t('shipmentDetails.emptyItems')}
         />
       </div>
 
@@ -441,7 +493,9 @@ export default function ShipmentDetails() {
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>
-              {currentItem ? 'Редактировать позицию' : 'Добавить позицию'}
+              {currentItem
+                ? t('shipmentDetails.form.titleEdit')
+                : t('shipmentDetails.form.titleCreate')}
             </DialogTitle>
           </DialogHeader>
           <form onSubmit={handleItemSubmit} className="space-y-4">
@@ -451,13 +505,17 @@ export default function ShipmentDetails() {
               </div>
             )}
             <div className="space-y-2">
-              <Label htmlFor="productId">Товар *</Label>
+              <Label htmlFor="productId">
+                {t('shipmentDetails.form.product')} *
+              </Label>
               <Select
                 value={itemForm.productId?.toString() || ''}
                 onValueChange={(value) => setItemForm({ ...itemForm, productId: value || null })}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Выберите товар" />
+                  <SelectValue
+                    placeholder={t('shipmentDetails.form.productPlaceholder')}
+                  />
                 </SelectTrigger>
                 <SelectContent>
                   {products.map(product => (
@@ -470,7 +528,9 @@ export default function ShipmentDetails() {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="sentQty">Отправлено *</Label>
+                <Label htmlFor="sentQty">
+                  {t('shipmentDetails.form.sentQty')} *
+                </Label>
                 <Input
                   id="sentQty"
                   type="number"
@@ -481,7 +541,9 @@ export default function ShipmentDetails() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="acceptedQty">Принято</Label>
+                <Label htmlFor="acceptedQty">
+                  {t('shipmentDetails.form.acceptedQty')}
+                </Label>
                 <Input
                   id="acceptedQty"
                   type="number"
@@ -492,7 +554,9 @@ export default function ShipmentDetails() {
               </div>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="logisticsForItem">Логистика (₽)</Label>
+              <Label htmlFor="logisticsForItem">
+                {t('shipmentDetails.form.logisticsForItem')}
+              </Label>
               <Input
                 id="logisticsForItem"
                 type="number"
@@ -503,16 +567,25 @@ export default function ShipmentDetails() {
               />
             </div>
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => {
-                setItemDialogOpen(false);
-                setItemForm(emptyItem);
-                setCurrentItem(null);
-                setError('');
-              }}>
-                Отмена
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setItemDialogOpen(false);
+                  setItemForm(emptyItem);
+                  setCurrentItem(null);
+                  setError('');
+                }}
+              >
+                {t('common.cancel')}
               </Button>
-              <Button type="submit" disabled={createItemMutation.isPending || updateItemMutation.isPending}>
-                {currentItem ? (updateItemMutation.isPending ? 'Сохранение...' : 'Сохранить') : (createItemMutation.isPending ? 'Создание...' : 'Создать')}
+              <Button
+                type="submit"
+                disabled={
+                  createItemMutation.isPending || updateItemMutation.isPending
+                }
+              >
+                {currentItem ? t('common.save') : t('common.create')}
               </Button>
             </DialogFooter>
           </form>
@@ -523,17 +596,21 @@ export default function ShipmentDetails() {
       <AlertDialog open={deleteItemDialogOpen} onOpenChange={setDeleteItemDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Удалить позицию</AlertDialogTitle>
+            <AlertDialogTitle>
+              {t('shipmentDetails.deleteDialog.title')}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              Вы уверены, что хотите удалить эту позицию из отгрузки? Это действие нельзя отменить.
+              {t('shipmentDetails.deleteDialog.description')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => {
-              setDeleteItemDialogOpen(false);
-              setCurrentItem(null);
-            }}>
-              Отмена
+            <AlertDialogCancel
+              onClick={() => {
+                setDeleteItemDialogOpen(false);
+                setCurrentItem(null);
+              }}
+            >
+              {t('common.cancel')}
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={(e) => {
@@ -546,7 +623,9 @@ export default function ShipmentDetails() {
               className="bg-red-600 hover:bg-red-700"
               disabled={deleteItemMutation.isPending}
             >
-              {deleteItemMutation.isPending ? 'Удаление...' : 'Удалить'}
+              {deleteItemMutation.isPending
+                ? t('shipmentDetails.deleteDialog.deleting')
+                : t('common.delete')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

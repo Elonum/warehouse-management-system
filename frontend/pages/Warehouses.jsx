@@ -40,6 +40,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import PageHeader from '@/components/ui/PageHeader';
 import DataTable from '@/components/ui/DataTable';
+import { useModalState } from '@/hooks/useModalState';
 import { Link, useLocation } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 
@@ -58,9 +59,9 @@ export default function Warehouses() {
   const location = useLocation();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState('warehouses');
-  const [warehouseDialogOpen, setWarehouseDialogOpen] = useState(false);
-  const [storeDialogOpen, setStoreDialogOpen] = useState(false);
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const warehouseModal = useModalState(null);
+  const storeModal = useModalState(null);
+  const deleteModal = useModalState(null);
   const [currentItem, setCurrentItem] = useState(null);
   const [deleteType, setDeleteType] = useState(null);
   const [warehouseForm, setWarehouseForm] = useState(emptyWarehouse);
@@ -99,7 +100,7 @@ export default function Warehouses() {
   const createWarehouseMutation = useMutation({
     mutationFn: (data) => api.warehouses.create(data),
     onSuccess: async () => {
-      setWarehouseDialogOpen(false);
+      warehouseModal.close();
       setWarehouseForm(emptyWarehouse);
       setCurrentItem(null);
       setError('');
@@ -117,7 +118,7 @@ export default function Warehouses() {
   const updateWarehouseMutation = useMutation({
     mutationFn: ({ id, data }) => api.warehouses.update(id, data),
     onSuccess: async () => {
-      setWarehouseDialogOpen(false);
+      warehouseModal.close();
       setWarehouseForm(emptyWarehouse);
       setCurrentItem(null);
       setError('');
@@ -146,7 +147,7 @@ export default function Warehouses() {
       return { previousData };
     },
     onSuccess: async () => {
-      setDeleteDialogOpen(false);
+      deleteModal.close();
       setCurrentItem(null);
       setError('');
       await queryClient.invalidateQueries({ queryKey: ['warehouses'] });
@@ -169,7 +170,7 @@ export default function Warehouses() {
   const createStoreMutation = useMutation({
     mutationFn: (data) => api.stores.create(data),
     onSuccess: async () => {
-      setStoreDialogOpen(false);
+      storeModal.close();
       setStoreForm(emptyStore);
       setCurrentItem(null);
       setError('');
@@ -187,7 +188,7 @@ export default function Warehouses() {
   const updateStoreMutation = useMutation({
     mutationFn: ({ id, data }) => api.stores.update(id, data),
     onSuccess: async () => {
-      setStoreDialogOpen(false);
+      storeModal.close();
       setStoreForm(emptyStore);
       setCurrentItem(null);
       setError('');
@@ -216,7 +217,7 @@ export default function Warehouses() {
       return { previousData };
     },
     onSuccess: async () => {
-      setDeleteDialogOpen(false);
+      deleteModal.close();
       setCurrentItem(null);
       setError('');
       await queryClient.invalidateQueries({ queryKey: ['stores'] });
@@ -242,7 +243,7 @@ export default function Warehouses() {
       warehouseTypeId: warehouse.warehouseTypeId || null,
       location: warehouse.location || null,
     });
-    setWarehouseDialogOpen(true);
+    warehouseModal.open(warehouse);
   };
 
   const handleEditStore = (store) => {
@@ -250,13 +251,13 @@ export default function Warehouses() {
     setStoreForm({
       name: store.name || '',
     });
-    setStoreDialogOpen(true);
+    storeModal.open(store);
   };
 
   const handleDelete = (item, type) => {
     setCurrentItem(item);
     setDeleteType(type);
-    setDeleteDialogOpen(true);
+    deleteModal.open({ item, type });
   };
 
   const handleWarehouseSubmit = (e) => {
@@ -448,12 +449,26 @@ export default function Warehouses() {
           </TabsList>
           
           {activeTab === 'warehouses' ? (
-            <Button onClick={() => { setCurrentItem(null); setWarehouseForm(emptyWarehouse); setWarehouseDialogOpen(true); setError(''); }}>
+            <Button
+              onClick={() => {
+                setCurrentItem(null);
+                setWarehouseForm(emptyWarehouse);
+                warehouseModal.open();
+                setError('');
+              }}
+            >
               <Plus className="w-4 h-4 mr-2" />
               {t('warehouses.addWarehouse')}
             </Button>
           ) : (
-            <Button onClick={() => { setCurrentItem(null); setStoreForm(emptyStore); setStoreDialogOpen(true); setError(''); }}>
+            <Button
+              onClick={() => {
+                setCurrentItem(null);
+                setStoreForm(emptyStore);
+                storeModal.open();
+                setError('');
+              }}
+            >
               <Plus className="w-4 h-4 mr-2" />
               {t('warehouses.addStore')}
             </Button>
@@ -483,9 +498,9 @@ export default function Warehouses() {
 
       {/* Warehouse Dialog */}
       <Dialog 
-        open={warehouseDialogOpen} 
+        open={warehouseModal.isOpen} 
         onOpenChange={(open) => {
-          setWarehouseDialogOpen(open);
+          warehouseModal.setIsOpen(open);
           if (!open) {
             setWarehouseForm(emptyWarehouse);
             setCurrentItem(null);
@@ -553,7 +568,7 @@ export default function Warehouses() {
                 type="button" 
                 variant="outline" 
                 onClick={() => {
-                  setWarehouseDialogOpen(false);
+                  warehouseModal.close();
                   setWarehouseForm(emptyWarehouse);
                   setCurrentItem(null);
                   setError('');
@@ -574,9 +589,9 @@ export default function Warehouses() {
 
       {/* Store Dialog */}
       <Dialog 
-        open={storeDialogOpen} 
+        open={storeModal.isOpen} 
         onOpenChange={(open) => {
-          setStoreDialogOpen(open);
+          storeModal.setIsOpen(open);
           if (!open) {
             setStoreForm(emptyStore);
             setCurrentItem(null);
@@ -610,7 +625,7 @@ export default function Warehouses() {
                 type="button" 
                 variant="outline" 
                 onClick={() => {
-                  setStoreDialogOpen(false);
+                  storeModal.close();
                   setStoreForm(emptyStore);
                   setCurrentItem(null);
                   setError('');
@@ -630,7 +645,7 @@ export default function Warehouses() {
       </Dialog>
 
       {/* Delete Dialog */}
-      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+      <AlertDialog open={deleteModal.isOpen} onOpenChange={deleteModal.setIsOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
@@ -643,7 +658,11 @@ export default function Warehouses() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setDeleteDialogOpen(false)}>
+            <AlertDialogCancel
+              onClick={() => {
+                deleteModal.close();
+              }}
+            >
               {t('common.cancel')}
             </AlertDialogCancel>
             <AlertDialogAction

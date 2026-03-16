@@ -38,6 +38,7 @@ import {
 } from '@/components/ui/select';
 import { format } from 'date-fns';
 import ShipmentsTable from '@/features/mpShipments/components/ShipmentsTable';
+import { useModalState } from '@/hooks/useModalState';
 
 const emptyShipment = {
   shipmentNumber: '',
@@ -57,8 +58,8 @@ const emptyShipment = {
 export default function Shipments() {
   const { t } = useI18n();
   const queryClient = useQueryClient();
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const createEditModal = useModalState(null);
+  const deleteModal = useModalState(null);
   const [currentShipment, setCurrentShipment] = useState(null);
   const [formData, setFormData] = useState(emptyShipment);
   const [error, setError] = useState('');
@@ -117,7 +118,7 @@ export default function Shipments() {
     mutationFn: (data) => api.mpShipments.create(data),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['mpShipments'] });
-      setDialogOpen(false);
+      createEditModal.close();
       resetForm();
       setError('');
     },
@@ -134,7 +135,7 @@ export default function Shipments() {
     mutationFn: ({ id, data }) => api.mpShipments.update(id, data),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['mpShipments'] });
-      setDialogOpen(false);
+      createEditModal.close();
       resetForm();
       setError('');
     },
@@ -161,7 +162,7 @@ export default function Shipments() {
       return { previousData };
     },
     onSuccess: async () => {
-      setDeleteDialogOpen(false);
+      deleteModal.close();
       setCurrentShipment(null);
       setError('');
       await refetch();
@@ -175,7 +176,7 @@ export default function Shipments() {
       } else {
         setError('Ошибка удаления отгрузки');
       }
-      setDeleteDialogOpen(false);
+      deleteModal.close();
     },
   });
 
@@ -202,7 +203,7 @@ export default function Shipments() {
       acceptedQty: shipment.acceptedQty || 0,
     });
     setError('');
-    setDialogOpen(true);
+    createEditModal.open(shipment);
   };
 
   const handleSubmit = (e) => {
@@ -245,20 +246,20 @@ export default function Shipments() {
         isLoading={isLoading}
         onCreateShipment={() => {
           resetForm();
-          setDialogOpen(true);
+          createEditModal.open();
         }}
         onEditShipment={handleEdit}
         onRequestDelete={(shipment) => {
           setCurrentShipment(shipment);
-          setDeleteDialogOpen(true);
+          deleteModal.open(shipment);
         }}
       />
 
       {/* Create/Edit Dialog */}
       <Dialog 
-        open={dialogOpen} 
+        open={createEditModal.isOpen} 
         onOpenChange={(open) => {
-          setDialogOpen(open);
+          createEditModal.setIsOpen(open);
           if (!open) {
             resetForm();
           }
@@ -425,10 +426,14 @@ export default function Shipments() {
               </div>
             </div>
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => {
-                setDialogOpen(false);
-                resetForm();
-              }}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  createEditModal.close();
+                  resetForm();
+                }}
+              >
                 {t('common.cancel')}
               </Button>
               <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending}>
@@ -440,7 +445,7 @@ export default function Shipments() {
       </Dialog>
 
       {/* Delete Confirmation */}
-      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+      <AlertDialog open={deleteModal.isOpen} onOpenChange={deleteModal.setIsOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>{t('shipments.deleteConfirm.title')}</AlertDialogTitle>
@@ -449,10 +454,12 @@ export default function Shipments() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => {
-              setDeleteDialogOpen(false);
-              setCurrentShipment(null);
-            }}>
+            <AlertDialogCancel
+              onClick={() => {
+                deleteModal.close();
+                setCurrentShipment(null);
+              }}
+            >
               {t('common.cancel')}
             </AlertDialogCancel>
             <AlertDialogAction

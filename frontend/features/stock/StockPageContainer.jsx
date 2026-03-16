@@ -14,6 +14,8 @@ import {
 import { Card, CardContent } from '@/components/ui/card';
 import PageHeader from '@/components/ui/PageHeader';
 import StockTable from '@/features/stock/components/StockTable';
+import { LoadingState } from '@/components/common/LoadingState';
+import { EmptyState } from '@/components/common/EmptyState';
 
 function StockPageContainer() {
   const { t } = useI18n();
@@ -41,7 +43,7 @@ function StockPageContainer() {
     },
   });
 
-  const { data: productsData } = useQuery({
+  const { data: productsData, isLoading: loadingProducts } = useQuery({
     queryKey: ['products'],
     queryFn: async () => {
       const response = await api.products.list({ limit: 1000, offset: 0 });
@@ -49,7 +51,7 @@ function StockPageContainer() {
     },
   });
 
-  const { data: warehousesData } = useQuery({
+  const { data: warehousesData, isLoading: loadingWarehouses } = useQuery({
     queryKey: ['warehouses'],
     queryFn: async () => {
       const response = await api.warehouses.list({ limit: 1000, offset: 0 });
@@ -60,6 +62,8 @@ function StockPageContainer() {
   const stock = Array.isArray(stockData) ? stockData : [];
   const products = Array.isArray(productsData) ? productsData : [];
   const warehouses = Array.isArray(warehousesData) ? warehousesData : [];
+
+  const isLoadingAny = loadingStock || loadingProducts || loadingWarehouses;
 
   const productsMap = useMemo(() => {
     const map = new Map();
@@ -141,128 +145,168 @@ function StockPageContainer() {
       />
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-        <Card className="dark:bg-slate-900 dark:border-slate-800">
-          <CardContent className="pt-6">
-            <p className="text-sm text-slate-500 dark:text-slate-400">
-              {t('stock.stats.totalProducts')}
-            </p>
-            <p className="mt-1 text-2xl font-bold text-slate-900 dark:text-slate-100">
-              {totals.quantity.toLocaleString()}
-            </p>
-          </CardContent>
-        </Card>
-        <Card className="dark:bg-slate-900 dark:border-slate-800">
-          <CardContent className="pt-6">
-            <p className="text-sm text-slate-500 dark:text-slate-400">
-              {t('stock.stats.positions')}
-            </p>
-            <p className="mt-1 text-2xl font-bold text-indigo-600 dark:text-indigo-400">
-              {totals.positions}
-            </p>
-          </CardContent>
-        </Card>
-        {selectedWarehouse && (
-          <Card className="dark:bg-slate-900 dark:border-slate-800">
-            <CardContent className="pt-6">
-              <p className="text-sm text-slate-500 dark:text-slate-400">
-                {t('stock.stats.warehouse')}
-              </p>
-              <p className="mt-1 text-lg font-semibold text-slate-900 dark:text-slate-100">
-                {selectedWarehouse.name}
-              </p>
-              {selectedWarehouse.location && (
-                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                  {selectedWarehouse.location}
+        {isLoadingAny ? (
+          <>
+            <Card className="dark:bg-slate-900 dark:border-slate-800">
+              <CardContent className="pt-6">
+                <LoadingState />
+              </CardContent>
+            </Card>
+            <Card className="dark:bg-slate-900 dark:border-slate-800">
+              <CardContent className="pt-6">
+                <LoadingState />
+              </CardContent>
+            </Card>
+            <Card className="dark:bg-slate-900 dark:border-slate-800">
+              <CardContent className="pt-6">
+                <LoadingState />
+              </CardContent>
+            </Card>
+          </>
+        ) : (
+          <>
+            <Card className="dark:bg-slate-900 dark:border-slate-800">
+              <CardContent className="pt-6">
+                <p className="text-sm text-slate-500 dark:text-slate-400">
+                  {t('stock.stats.totalProducts')}
                 </p>
-              )}
-            </CardContent>
-          </Card>
+                <p className="mt-1 text-2xl font-bold text-slate-900 dark:text-slate-100">
+                  {totals.quantity.toLocaleString()}
+                </p>
+              </CardContent>
+            </Card>
+            <Card className="dark:bg-slate-900 dark:border-slate-800">
+              <CardContent className="pt-6">
+                <p className="text-sm text-slate-500 dark:text-slate-400">
+                  {t('stock.stats.positions')}
+                </p>
+                <p className="mt-1 text-2xl font-bold text-indigo-600 dark:text-indigo-400">
+                  {totals.positions}
+                </p>
+              </CardContent>
+            </Card>
+            {selectedWarehouse && (
+              <Card className="dark:bg-slate-900 dark:border-slate-800">
+                <CardContent className="pt-6">
+                  <p className="text-sm text-slate-500 dark:text-slate-400">
+                    {t('stock.stats.warehouse')}
+                  </p>
+                  <p className="mt-1 text-lg font-semibold text-slate-900 dark:text-slate-100">
+                    {selectedWarehouse.name}
+                  </p>
+                  {selectedWarehouse.location && (
+                    <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                      {selectedWarehouse.location}
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+          </>
         )}
       </div>
 
       <Card className="dark:bg-slate-900 dark:border-slate-800">
         <CardContent className="pt-6">
-          <div className="flex flex-wrap items-center gap-4">
-            <div className="flex items-center gap-2">
-              <Filter className="w-4 h-4 text-slate-400" />
-              <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                {t('stock.filters.title')}
-              </span>
+          {isLoadingAny ? (
+            <LoadingState />
+          ) : (
+            <div className="flex flex-wrap items-center gap-4">
+              <div className="flex items-center gap-2">
+                <Filter className="w-4 h-4 text-slate-400" />
+                <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                  {t('stock.filters.title')}
+                </span>
+              </div>
+              <Select value={productFilter} onValueChange={setProductFilter}>
+                <SelectTrigger className="w-48">
+                  <SelectValue>
+                    {productFilter === 'all'
+                      ? t('stock.filters.allProducts')
+                      : (() => {
+                          const product = products.find(
+                            (p) => p.productId.toString() === productFilter.toString(),
+                          );
+                          return product ? product.article : t('stock.filters.product');
+                        })()}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">
+                    {t('stock.filters.allProducts')}
+                  </SelectItem>
+                  {products.map((product) => (
+                    <SelectItem
+                      key={product.productId}
+                      value={product.productId.toString()}
+                    >
+                      {product.article || `ID: ${product.productId}`}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={warehouseFilter} onValueChange={setWarehouseFilter}>
+                <SelectTrigger className="w-48">
+                  <SelectValue>
+                    {warehouseFilter === 'all'
+                      ? t('stock.filters.allWarehouses')
+                      : (() => {
+                          const warehouse = warehouses.find(
+                            (w) =>
+                              w.warehouseId.toString() === warehouseFilter.toString(),
+                          );
+                          return warehouse
+                            ? warehouse.name
+                            : t('stock.filters.warehouse');
+                        })()}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">
+                    {t('stock.filters.allWarehouses')}
+                  </SelectItem>
+                  {warehouses.map((warehouse) => (
+                    <SelectItem
+                      key={warehouse.warehouseId}
+                      value={warehouse.warehouseId.toString()}
+                    >
+                      {warehouse.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {hasActiveFilters && (
+                <Button variant="ghost" size="sm" onClick={clearFilters}>
+                  <X className="w-4 h-4 mr-1" />
+                  {t('stock.filters.clear')}
+                </Button>
+              )}
             </div>
-            <Select value={productFilter} onValueChange={setProductFilter}>
-              <SelectTrigger className="w-48">
-                <SelectValue>
-                  {productFilter === 'all'
-                    ? t('stock.filters.allProducts')
-                    : (() => {
-                        const product = products.find(
-                          (p) => p.productId.toString() === productFilter.toString(),
-                        );
-                        return product ? product.article : t('stock.filters.product');
-                      })()}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">
-                  {t('stock.filters.allProducts')}
-                </SelectItem>
-                {products.map((product) => (
-                  <SelectItem
-                    key={product.productId}
-                    value={product.productId.toString()}
-                  >
-                    {product.article || `ID: ${product.productId}`}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select value={warehouseFilter} onValueChange={setWarehouseFilter}>
-              <SelectTrigger className="w-48">
-                <SelectValue>
-                  {warehouseFilter === 'all'
-                    ? t('stock.filters.allWarehouses')
-                    : (() => {
-                        const warehouse = warehouses.find(
-                          (w) =>
-                            w.warehouseId.toString() === warehouseFilter.toString(),
-                        );
-                        return warehouse
-                          ? warehouse.name
-                          : t('stock.filters.warehouse');
-                      })()}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">
-                  {t('stock.filters.allWarehouses')}
-                </SelectItem>
-                {warehouses.map((warehouse) => (
-                  <SelectItem
-                    key={warehouse.warehouseId}
-                    value={warehouse.warehouseId.toString()}
-                  >
-                    {warehouse.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {hasActiveFilters && (
-              <Button variant="ghost" size="sm" onClick={clearFilters}>
-                <X className="w-4 h-4 mr-1" />
-                {t('stock.filters.clear')}
-              </Button>
-            )}
-          </div>
+          )}
         </CardContent>
       </Card>
 
-      <StockTable
-        t={t}
-        stock={filteredStock}
-        productsMap={productsMap}
-        warehouseFilter={warehouseFilter}
-        isLoading={loadingStock}
-      />
+      {isLoadingAny ? (
+        <Card className="dark:bg-slate-900 dark:border-slate-800">
+          <CardContent className="pt-6">
+            <LoadingState />
+          </CardContent>
+        </Card>
+      ) : filteredStock.length === 0 ? (
+        <Card className="dark:bg-slate-900 dark:border-slate-800">
+          <CardContent className="pt-6">
+            <EmptyState message={t('stock.emptyMessage')} />
+          </CardContent>
+        </Card>
+      ) : (
+        <StockTable
+          t={t}
+          stock={filteredStock}
+          productsMap={productsMap}
+          warehouseFilter={warehouseFilter}
+          isLoading={loadingStock}
+        />
+      )}
     </div>
   );
 }

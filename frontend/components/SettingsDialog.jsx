@@ -19,13 +19,14 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { useModalState } from '@/hooks/useModalState';
 
 export function SettingsDialog({ open, onOpenChange, user, darkMode, onDarkModeChange, onLogout }) {
   const { language, setLanguage, t } = useI18n();
   const [notifications, setNotifications] = useState(() => {
     return localStorage.getItem('notifications') !== 'false';
   });
-  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const logoutModal = useModalState(false);
 
   const handleNotificationsChange = (checked) => {
     setNotifications(checked);
@@ -33,11 +34,11 @@ export function SettingsDialog({ open, onOpenChange, user, darkMode, onDarkModeC
   };
 
   const handleLogoutClick = () => {
-    setShowLogoutConfirm(true);
+    logoutModal.open();
   };
 
   const handleLogoutConfirm = () => {
-    setShowLogoutConfirm(false);
+    logoutModal.close();
     onLogout();
   };
 
@@ -167,7 +168,7 @@ export function SettingsDialog({ open, onOpenChange, user, darkMode, onDarkModeC
         </DialogContent>
       </Dialog>
 
-      <AlertDialog open={showLogoutConfirm} onOpenChange={setShowLogoutConfirm}>
+      <AlertDialog open={logoutModal.isOpen} onOpenChange={logoutModal.setIsOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>{t('settings.logout')}</AlertDialogTitle>
@@ -176,7 +177,7 @@ export function SettingsDialog({ open, onOpenChange, user, darkMode, onDarkModeC
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setShowLogoutConfirm(false)}>
+            <AlertDialogCancel onClick={() => logoutModal.close()}>
               {t('common.cancel')}
             </AlertDialogCancel>
             <AlertDialogAction onClick={handleLogoutConfirm} className="bg-red-600 hover:bg-red-700 text-white">

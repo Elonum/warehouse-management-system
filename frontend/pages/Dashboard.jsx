@@ -35,6 +35,8 @@ import {
   Pie,
   Cell
 } from 'recharts';
+import { LoadingState } from '@/components/common/LoadingState';
+import { EmptyState } from '@/components/common/EmptyState';
 
 const COLORS = ['#6366f1', '#8b5cf6', '#a855f7', '#d946ef', '#ec4899'];
 
@@ -209,9 +211,7 @@ export default function Dashboard() {
                 </BarChart>
               </ResponsiveContainer>
             ) : (
-              <div className="flex items-center justify-center h-64 text-slate-500">
-                {t('common.noData')}
-              </div>
+              <EmptyState className="h-64" message={t('common.noData')} />
             )}
           </CardContent>
         </Card>
@@ -333,9 +333,7 @@ export default function Dashboard() {
                 )})}
               </div>
             ) : (
-              <div className="flex items-center justify-center h-32 text-slate-500">
-                {t('dashboard.movements')}
-              </div>
+              <EmptyState className="h-32" message={t('dashboard.movements')} />
             )}
           </CardContent>
         </Card>
@@ -385,9 +383,7 @@ export default function Dashboard() {
                 ))}
               </div>
             ) : (
-              <div className="flex items-center justify-center h-32 text-slate-500">
-                {t('dashboard.orders')}
-              </div>
+              <EmptyState className="h-32" message={t('dashboard.orders')} />
             )}
           </CardContent>
         </Card>

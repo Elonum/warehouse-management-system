@@ -54,6 +54,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import PageHeader from '@/components/ui/PageHeader';
 import DataTable from '@/components/ui/DataTable';
+import { useModalState } from '@/hooks/useModalState';
 import { cn } from '@/lib/utils';
 
 const emptyUser = {
@@ -73,8 +74,8 @@ const formatNameInput = (value) => {
 export default function UsersRoles() {
   const { t } = useI18n();
   const queryClient = useQueryClient();
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const createEditModal = useModalState(null);
+  const deleteModal = useModalState(null);
   const [currentUser, setCurrentUser] = useState(null);
   const [formData, setFormData] = useState(emptyUser);
   const [error, setError] = useState('');
@@ -175,7 +176,7 @@ export default function UsersRoles() {
     mutationFn: (data) => api.users.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['users'] });
-      setDialogOpen(false);
+      createEditModal.close();
       resetForm();
       setError('');
     },
@@ -201,7 +202,7 @@ export default function UsersRoles() {
     mutationFn: ({ id, data }) => api.users.update(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['users'] });
-      setDialogOpen(false);
+      createEditModal.close();
       resetForm();
       setError('');
     },
@@ -227,7 +228,7 @@ export default function UsersRoles() {
     mutationFn: (id) => api.users.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['users'] });
-      setDeleteDialogOpen(false);
+      deleteModal.close();
       setCurrentUser(null);
     },
     onError: (err) => {
@@ -264,11 +265,11 @@ export default function UsersRoles() {
     }
     setError('');
     setFieldErrors({});
-    setDialogOpen(true);
+    createEditModal.open(user);
   };
 
   const handleCloseDialog = () => {
-    setDialogOpen(false);
+    createEditModal.close();
     resetForm();
   };
 
@@ -366,7 +367,7 @@ export default function UsersRoles() {
 
   const handleDelete = (user) => {
     setCurrentUser(user);
-    setDeleteDialogOpen(true);
+    deleteModal.open(user);
   };
 
   const confirmDelete = () => {
@@ -617,7 +618,7 @@ export default function UsersRoles() {
         emptyMessage={t('users.emptyMessage')}
       />
 
-      <Dialog open={dialogOpen} onOpenChange={handleCloseDialog}>
+      <Dialog open={createEditModal.isOpen} onOpenChange={handleCloseDialog}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
@@ -834,7 +835,7 @@ export default function UsersRoles() {
         </DialogContent>
       </Dialog>
 
-      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+      <AlertDialog open={deleteModal.isOpen} onOpenChange={deleteModal.setIsOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>{t('users.deleteConfirm.title')}</AlertDialogTitle>

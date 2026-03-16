@@ -32,6 +32,8 @@ import PageHeader from '@/components/ui/PageHeader';
 import StatusBadge from '@/components/ui/StatusBadge';
 import { format } from 'date-fns';
 import { createPageUrl } from '@/utils';
+import { LoadingState } from '@/components/common/LoadingState';
+import { EmptyState } from '@/components/common/EmptyState';
 
 function SupplierOrdersTable({
   t,
@@ -443,9 +445,7 @@ function SupplierOrdersTable({
 
       <div className="overflow-hidden bg-white border rounded-lg dark:bg-slate-900 dark:border-slate-800">
         {isLoading ? (
-          <div className="px-4 py-12 text-center text-slate-500">
-            {t('common.loading')}
-          </div>
+          <LoadingState className="px-4 py-12" />
         ) : (
           <table className="w-full">
             <thead>
@@ -573,11 +573,11 @@ function SupplierOrdersTable({
             <tbody>
               {filteredParentOrders.length === 0 ? (
                 <tr>
-                  <td
-                    colSpan={9}
-                    className="px-4 py-12 text-center text-slate-500"
-                  >
-                    {t('supplierOrders.emptyMessage')}
+                  <td colSpan={10}>
+                    <EmptyState
+                      className="px-4 py-12"
+                      message={t('supplierOrders.emptyMessage')}
+                    />
                   </td>
                 </tr>
               ) : (

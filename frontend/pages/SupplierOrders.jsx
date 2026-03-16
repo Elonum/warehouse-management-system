@@ -33,6 +33,7 @@ import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { createPageUrl } from '@/utils';
 import SupplierOrdersTable from '@/features/supplierOrders/components/SupplierOrdersTable';
+import { useModalState } from '@/hooks/useModalState';
 
 const sanitizeMoneyInput = (value) => {
   if (value == null) return '';
@@ -95,8 +96,8 @@ export default function SupplierOrders() {
   const { t, language } = useI18n();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const createEditModal = useModalState(null);
+  const deleteModal = useModalState(null);
   const [deleteErrorDialogOpen, setDeleteErrorDialogOpen] = useState(false);
   const [deleteError, setDeleteError] = useState('');
   const [currentOrder, setCurrentOrder] = useState(null);
@@ -145,7 +146,7 @@ export default function SupplierOrders() {
   const createMutation = useMutation({
     mutationFn: (data) => api.supplierOrders.create(data),
     onSuccess: async () => {
-      setDialogOpen(false);
+      createEditModal.close();
       resetForm();
       setError('');
       await refetchOrders();
@@ -175,7 +176,7 @@ export default function SupplierOrders() {
   const updateMutation = useMutation({
     mutationFn: ({ id, data }) => api.supplierOrders.update(id, data),
     onSuccess: async () => {
-      setDialogOpen(false);
+      createEditModal.close();
       resetForm();
       setError('');
       await refetchOrders();
@@ -222,7 +223,7 @@ export default function SupplierOrders() {
       return { previousData };
     },
     onSuccess: async () => {
-      setDeleteDialogOpen(false);
+      deleteModal.close();
       setCurrentOrder(null);
       setError('');
       await queryClient.invalidateQueries({ queryKey: ['supplierOrders'] });
@@ -249,7 +250,7 @@ export default function SupplierOrders() {
         setDeleteError(t('supplierOrders.errors.deleteFailed'));
         setDeleteErrorDialogOpen(true);
       }
-      setDeleteDialogOpen(false);
+      deleteModal.close();
     },
   });
 
@@ -293,7 +294,7 @@ export default function SupplierOrders() {
       logisticsTotal: order.logisticsTotal || null,
       parentOrderId: order.parentOrderId || null,
     });
-    setDialogOpen(true);
+    createEditModal.open(order);
   };
 
   const handleCreateSubOrder = (parentOrder) => {
@@ -358,7 +359,7 @@ export default function SupplierOrders() {
         isOrderFinal={isOrderFinal}
         onCreateOrder={() => {
           resetForm();
-          setDialogOpen(true);
+          createEditModal.open();
         }}
         onEditOrder={handleEdit}
         onCreateSubOrder={handleCreateSubOrder}
@@ -370,14 +371,14 @@ export default function SupplierOrders() {
           }
           setCurrentOrder(order);
           setDeleteError('');
-          setDeleteDialogOpen(true);
+          deleteModal.open(order);
         }}
       />
 
       <Dialog 
-        open={dialogOpen} 
+        open={createEditModal.isOpen} 
         onOpenChange={(open) => {
-          setDialogOpen(open);
+          createEditModal.setIsOpen(open);
           if (!open) {
             resetForm();
           }
@@ -551,7 +552,7 @@ export default function SupplierOrders() {
                 type="button" 
                 variant="outline" 
                 onClick={() => {
-                  setDialogOpen(false);
+                  createEditModal.close();
                   resetForm();
                 }}
               >
@@ -593,7 +594,7 @@ export default function SupplierOrders() {
       </AlertDialog>
 
       {/* Delete Confirmation */}
-      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+      <AlertDialog open={deleteModal.isOpen} onOpenChange={deleteModal.setIsOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>{t('supplierOrders.deleteConfirm.title')}</AlertDialogTitle>
@@ -602,7 +603,11 @@ export default function SupplierOrders() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setDeleteDialogOpen(false)}>
+            <AlertDialogCancel
+              onClick={() => {
+                deleteModal.close();
+              }}
+            >
               {t('common.cancel')}
             </AlertDialogCancel>
             <AlertDialogAction

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError } from '@/api';
 import { useI18n } from '@/lib/i18n';
@@ -40,8 +40,8 @@ const emptyShipment = {
   statusId: null,
   shipmentDate: null,
   acceptanceDate: null,
-  logisticsCost: null,
-  acceptanceCost: null,
+  logisticsCost: '',
+  acceptanceCost: '',
 };
 
 export default function Shipments() {
@@ -103,6 +103,37 @@ export default function Shipments() {
     }));
   }, [shipments, stores, warehouses, shipmentStatuses]);
 
+  const sanitizeMoneyInput = useCallback((value) => {
+    if (value == null) return '';
+    let v = String(value).replace(',', '.').replace(/[^0-9.]/g, '');
+    if (v === '') return '';
+
+    const parts = v.split('.');
+    if (parts.length > 2) {
+      v = parts[0] + '.' + parts.slice(1).join('');
+    }
+
+    const endsWithDot = v.endsWith('.');
+    let [intPart, fracPart] = v.split('.');
+
+    // Ограничиваем целую часть под DECIMAL(10,2): максимум 8 цифр
+    intPart = intPart ? intPart.slice(0, 8) : '';
+
+    if (fracPart != null) {
+      fracPart = fracPart.slice(0, 2);
+    }
+
+    if (endsWithDot && (fracPart == null || fracPart === '')) {
+      return intPart === '' ? '0.' : `${intPart}.`;
+    }
+
+    if (fracPart != null && fracPart !== '') {
+      return `${intPart}.${fracPart}`;
+    }
+
+    return intPart;
+  }, []);
+
   const createMutation = useMutation({
     mutationFn: (data) => api.mpShipments.create(data),
     onSuccess: async () => {
@@ -113,7 +144,28 @@ export default function Shipments() {
     },
     onError: (err) => {
       if (err instanceof ApiError) {
-        setError(err.message || t('shipments.errors.createFailed'));
+        let message = err.message || t('shipments.errors.createFailed');
+        if (err.code === 'INVALID_REQUEST') {
+          if (err.message?.includes('shipmentNumber is required')) {
+            message = t('shipments.errors.numberRequired');
+          }
+          if (err.message?.includes('statusId is required')) {
+            message = t('shipments.errors.statusRequired');
+          }
+          if (err.message?.includes('acceptanceDate must be on or after shipmentDate')) {
+            message = t('shipments.errors.invalidDateRange');
+          }
+        } else if (err.code === 'SHIPMENT_EXISTS') {
+          message = t('shipments.errors.numberExists');
+        } else if (err.code === 'SHIPMENT_STATUS_NOT_FOUND') {
+          message = t('shipments.errors.statusNotFound');
+        } else if (
+          err.message?.includes('numeric field overflow') ||
+          err.message?.includes('переполнение поля numeric')
+        ) {
+          message = t('shipments.errors.amountTooLarge');
+        }
+        setError(message);
       } else {
         setError(t('shipments.errors.createFailed'));
       }
@@ -130,7 +182,30 @@ export default function Shipments() {
     },
     onError: (err) => {
       if (err instanceof ApiError) {
-        setError(err.message || t('shipments.errors.updateFailed'));
+        let message = err.message || t('shipments.errors.updateFailed');
+        if (err.code === 'INVALID_REQUEST') {
+          if (err.message?.includes('shipmentNumber is required')) {
+            message = t('shipments.errors.numberRequired');
+          }
+          if (err.message?.includes('statusId is required')) {
+            message = t('shipments.errors.statusRequired');
+          }
+          if (err.message?.includes('acceptanceDate must be on or after shipmentDate')) {
+            message = t('shipments.errors.invalidDateRange');
+          }
+        } else if (err.code === 'SHIPMENT_EXISTS') {
+          message = t('shipments.errors.numberExists');
+        } else if (err.code === 'SHIPMENT_STATUS_NOT_FOUND') {
+          message = t('shipments.errors.statusNotFound');
+        } else if (err.code === 'SHIPMENT_NOT_FOUND') {
+          message = t('shipments.errors.notFound');
+        } else if (
+          err.message?.includes('numeric field overflow') ||
+          err.message?.includes('переполнение поля numeric')
+        ) {
+          message = t('shipments.errors.amountTooLarge');
+        }
+        setError(message);
       } else {
         setError(t('shipments.errors.updateFailed'));
       }
@@ -195,15 +270,76 @@ export default function Shipments() {
     e.preventDefault();
     setError('');
 
+    const trimmedNumber = (formData.shipmentNumber || '').trim();
+    if (!trimmedNumber) {
+      setError(t('shipments.errors.numberRequired'));
+      return;
+    }
+
+    if (!formData.statusId) {
+      setError(t('shipments.errors.statusRequired'));
+      return;
+    }
+
+    let shipmentDateIso = null;
+    let acceptanceDateIso = null;
+
+    if (formData.shipmentDate) {
+      const d = new Date(formData.shipmentDate);
+      if (!Number.isNaN(d.getTime())) {
+        shipmentDateIso = d.toISOString();
+      }
+    }
+
+    if (formData.acceptanceDate) {
+      const d = new Date(formData.acceptanceDate);
+      if (!Number.isNaN(d.getTime())) {
+        acceptanceDateIso = d.toISOString();
+      }
+    }
+
+    if (shipmentDateIso && acceptanceDateIso) {
+      const shipTs = new Date(shipmentDateIso).getTime();
+      const accTs = new Date(acceptanceDateIso).getTime();
+      if (accTs < shipTs) {
+        setError(t('shipments.errors.invalidDateRange'));
+        return;
+      }
+    }
+
+    const logistics = formData.logisticsCost
+      ? parseFloat(formData.logisticsCost)
+      : null;
+    const acceptance = formData.acceptanceCost
+      ? parseFloat(formData.acceptanceCost)
+      : null;
+
+    if (
+      (logistics != null && logistics < 0) ||
+      (acceptance != null && acceptance < 0)
+    ) {
+      setError(t('shipments.errors.negativeCost'));
+      return;
+    }
+
+    const maxAmount = 99999999.99; // под DECIMAL(10,2)
+    if (
+      (logistics != null && (!Number.isFinite(logistics) || logistics > maxAmount)) ||
+      (acceptance != null && (!Number.isFinite(acceptance) || acceptance > maxAmount))
+    ) {
+      setError(t('shipments.errors.amountTooLarge'));
+      return;
+    }
+
     const data = {
-      shipmentNumber: formData.shipmentNumber,
+      shipmentNumber: trimmedNumber,
       storeId: formData.storeId || null,
       warehouseId: formData.warehouseId || null,
       statusId: formData.statusId || null,
-      shipmentDate: formData.shipmentDate ? new Date(formData.shipmentDate).toISOString() : null,
-      acceptanceDate: formData.acceptanceDate ? new Date(formData.acceptanceDate).toISOString() : null,
-      logisticsCost: formData.logisticsCost ? parseFloat(formData.logisticsCost) : null,
-      acceptanceCost: formData.acceptanceCost ? parseFloat(formData.acceptanceCost) : null,
+      shipmentDate: shipmentDateIso,
+      acceptanceDate: acceptanceDateIso,
+      logisticsCost: logistics,
+      acceptanceCost: acceptance,
     };
 
     if (currentShipment) {
@@ -385,20 +521,26 @@ export default function Shipments() {
                 <Label htmlFor="logisticsCost">{t('shipments.form.logisticsCost')}</Label>
                 <Input
                   id="logisticsCost"
-                  type="number"
-                  step="0.01"
-                  value={formData.logisticsCost || ''}
-                  onChange={(e) => setFormData({ ...formData, logisticsCost: e.target.value || null })}
+                  type="text"
+                  inputMode="decimal"
+                  value={formData.logisticsCost}
+                  onChange={(e) => {
+                    const value = sanitizeMoneyInput(e.target.value);
+                    setFormData({ ...formData, logisticsCost: value });
+                  }}
                 />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="acceptanceCost">{t('shipments.form.acceptanceCost')}</Label>
                 <Input
                   id="acceptanceCost"
-                  type="number"
-                  step="0.01"
-                  value={formData.acceptanceCost || ''}
-                  onChange={(e) => setFormData({ ...formData, acceptanceCost: e.target.value || null })}
+                  type="text"
+                  inputMode="decimal"
+                  value={formData.acceptanceCost}
+                  onChange={(e) => {
+                    const value = sanitizeMoneyInput(e.target.value);
+                    setFormData({ ...formData, acceptanceCost: value });
+                  }}
                 />
               </div>
             </div>

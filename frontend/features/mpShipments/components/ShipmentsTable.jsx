@@ -146,6 +146,17 @@ function ShipmentsTable({
         ),
       },
       {
+        accessorKey: 'acceptanceCost',
+        header: t('shipments.table.acceptanceCost'),
+        cell: ({ row }) => (
+          <span className="text-slate-600 dark:text-slate-400">
+            {row.original.acceptanceCost
+              ? `${row.original.acceptanceCost.toFixed(2)} ₽`
+              : '0.00 ₽'}
+          </span>
+        ),
+      },
+      {
         accessorKey: 'quantitySummary',
         header: t('shipments.table.quantity'),
         cell: ({ row }) => (

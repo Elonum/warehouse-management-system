@@ -152,7 +152,26 @@ export default function ShipmentDetails() {
     },
     onError: (err) => {
       if (err instanceof ApiError) {
-        setError(err.message || t('shipmentDetails.errors.createFailed'));
+        let message = err.message || t('shipmentDetails.errors.createFailed');
+        if (err.code === 'INVALID_REQUEST') {
+          if (err.message?.includes('productId is required')) {
+            message = t('shipmentDetails.errors.productRequired');
+          } else if (
+            err.message?.includes('sentQty must be non-negative') ||
+            err.message?.includes('acceptedQty must be non-negative') ||
+            err.message?.includes('logisticsForItem must be non-negative')
+          ) {
+            message = t('shipmentDetails.errors.nonNegative');
+          }
+        } else if (err.code === 'INVALID_QUANTITY') {
+          message = t('shipmentDetails.errors.invalidQuantity');
+        } else if (
+          err.message?.includes('numeric field overflow') ||
+          err.message?.includes('переполнение поля numeric')
+        ) {
+          message = t('shipmentDetails.errors.amountTooLarge');
+        }
+        setError(message);
       } else {
         setError(t('shipmentDetails.errors.createFailed'));
       }
@@ -170,7 +189,26 @@ export default function ShipmentDetails() {
     },
     onError: (err) => {
       if (err instanceof ApiError) {
-        setError(err.message || t('shipmentDetails.errors.updateFailed'));
+        let message = err.message || t('shipmentDetails.errors.updateFailed');
+        if (err.code === 'INVALID_REQUEST') {
+          if (err.message?.includes('productId is required')) {
+            message = t('shipmentDetails.errors.productRequired');
+          } else if (
+            err.message?.includes('sentQty must be non-negative') ||
+            err.message?.includes('acceptedQty must be non-negative') ||
+            err.message?.includes('logisticsForItem must be non-negative')
+          ) {
+            message = t('shipmentDetails.errors.nonNegative');
+          }
+        } else if (err.code === 'INVALID_QUANTITY') {
+          message = t('shipmentDetails.errors.invalidQuantity');
+        } else if (
+          err.message?.includes('numeric field overflow') ||
+          err.message?.includes('переполнение поля numeric')
+        ) {
+          message = t('shipmentDetails.errors.amountTooLarge');
+        }
+        setError(message);
       } else {
         setError(t('shipmentDetails.errors.updateFailed'));
       }
@@ -226,16 +264,57 @@ export default function ShipmentDetails() {
     setError('');
     if (!shipmentId) return;
 
+    if (!itemForm.productId) {
+      setError(t('shipmentDetails.errors.productRequired'));
+      return;
+    }
+
+    const sentQty = itemForm.sentQty ? parseInt(itemForm.sentQty, 10) : 0;
+    const acceptedQty = itemForm.acceptedQty ? parseInt(itemForm.acceptedQty, 10) : 0;
+
+    if (sentQty < 0 || acceptedQty < 0) {
+      setError(t('shipmentDetails.errors.nonNegative'));
+      return;
+    }
+
+    if (acceptedQty > sentQty) {
+      setError(t('shipmentDetails.errors.invalidQuantity'));
+      return;
+    }
+
+    const logisticsForItem = itemForm.logisticsForItem
+      ? parseFloat(
+          String(itemForm.logisticsForItem)
+            .replace(',', '.')
+            .replace(/[^0-9.]/g, ''),
+        )
+      : null;
+
+    if (
+      logisticsForItem != null &&
+      (logisticsForItem < 0 || !Number.isFinite(logisticsForItem))
+    ) {
+      setError(t('shipmentDetails.errors.nonNegative'));
+      return;
+    }
+
+    const maxAmount = 99999999.99;
+    if (logisticsForItem != null && logisticsForItem > maxAmount) {
+      setError(t('shipmentDetails.errors.amountTooLarge'));
+      return;
+    }
+
+    const multiplier = acceptedQty || sentQty;
+
     const data = {
       shipmentId,
       productId: itemForm.productId || null,
-      sentQty: itemForm.sentQty ? parseInt(itemForm.sentQty, 10) : 0,
-      acceptedQty: itemForm.acceptedQty ? parseInt(itemForm.acceptedQty, 10) : 0,
-      logisticsForItem: itemForm.logisticsForItem ? parseFloat(itemForm.logisticsForItem) : null,
+      sentQty,
+      acceptedQty,
+      logisticsForItem,
       totalLogisticsForItem:
-        itemForm.logisticsForItem && (itemForm.acceptedQty || itemForm.sentQty)
-          ? parseFloat(itemForm.logisticsForItem) *
-              parseInt(itemForm.acceptedQty || itemForm.sentQty, 10)
+        logisticsForItem != null && multiplier
+          ? logisticsForItem * multiplier
           : null,
     };
 
@@ -518,9 +597,12 @@ export default function ShipmentDetails() {
                   />
                 </SelectTrigger>
                 <SelectContent>
-                  {products.map(product => (
-                    <SelectItem key={product.productId} value={product.productId.toString()}>
-                      {product.name} ({product.article})
+                  {products.map((product) => (
+                    <SelectItem
+                      key={product.productId}
+                      value={product.productId.toString()}
+                    >
+                      {product.name || product.article || t('shipmentDetails.unknownProduct')}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -559,11 +641,17 @@ export default function ShipmentDetails() {
               </Label>
               <Input
                 id="logisticsForItem"
-                type="number"
-                step="0.01"
-                min="0"
+                type="text"
+                inputMode="decimal"
                 value={itemForm.logisticsForItem || ''}
-                onChange={(e) => setItemForm({ ...itemForm, logisticsForItem: e.target.value || null })}
+                onChange={(e) =>
+                  setItemForm({
+                    ...itemForm,
+                    logisticsForItem: e.target.value
+                      ? e.target.value.replace(',', '.').replace(/[^0-9.]/g, '')
+                      : null,
+                  })
+                }
               />
             </div>
             <DialogFooter>

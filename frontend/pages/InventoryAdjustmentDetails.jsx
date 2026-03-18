@@ -7,6 +7,9 @@ import {
   Edit2, 
   Trash2, 
   Package,
+  CalendarDays,
+  FileText,
+  Users,
   MoreHorizontal,
   Warehouse,
   CheckCircle2,
@@ -562,7 +565,10 @@ export default function InventoryAdjustmentDetails() {
       <div className="grid grid-cols-4 gap-4">
         <Card className="col-span-4 md:col-span-2 dark:bg-slate-900 dark:border-slate-800">
           <CardContent className="pt-6">
-            <p className="text-sm text-slate-500">{t('inventoryAdjustments.details.summaryDate')}</p>
+            <div className="flex items-center gap-2 mb-2">
+              <CalendarDays className="w-4 h-4 text-slate-400" />
+              <p className="text-sm text-slate-500">{t('inventoryAdjustments.details.summaryDate')}</p>
+            </div>
             <p className="mt-1 text-lg font-semibold text-slate-900 dark:text-slate-100">
               {adjustment?.adjustmentDate ? format(new Date(adjustment.adjustmentDate), 'dd.MM.yyyy', { locale: ru }) : t('common.notSpecified')}
             </p>
@@ -570,7 +576,10 @@ export default function InventoryAdjustmentDetails() {
         </Card>
         <Card className="col-span-2 md:col-span-1 dark:bg-slate-900 dark:border-slate-800">
           <CardContent className="pt-6">
-            <p className="text-sm text-slate-500">{t('inventoryAdjustments.details.summaryReceipt')}</p>
+            <div className="flex items-center gap-2 mb-2">
+              <Package className="w-4 h-4 text-slate-400" />
+              <p className="text-sm text-slate-500">{t('inventoryAdjustments.details.summaryReceipt')}</p>
+            </div>
             <p className="mt-1 text-lg font-semibold text-emerald-600 dark:text-emerald-400">
               +{totals.receipt.toLocaleString()}
             </p>
@@ -578,7 +587,10 @@ export default function InventoryAdjustmentDetails() {
         </Card>
         <Card className="col-span-2 md:col-span-1 dark:bg-slate-900 dark:border-slate-800">
           <CardContent className="pt-6">
-            <p className="text-sm text-slate-500">{t('inventoryAdjustments.details.summaryWriteOff')}</p>
+            <div className="flex items-center gap-2 mb-2">
+              <Package className="w-4 h-4 text-slate-400" />
+              <p className="text-sm text-slate-500">{t('inventoryAdjustments.details.summaryWriteOff')}</p>
+            </div>
             <p className="mt-1 text-lg font-semibold text-rose-600 dark:text-rose-400">
               -{totals.writeoff.toLocaleString()}
             </p>
@@ -586,7 +598,10 @@ export default function InventoryAdjustmentDetails() {
         </Card>
         <Card className="col-span-4 md:col-span-2 dark:bg-slate-900 dark:border-slate-800">
           <CardContent className="pt-6">
-            <p className="text-sm text-slate-500">{t('inventoryAdjustments.details.summaryNotes')}</p>
+            <div className="flex items-center gap-2 mb-2">
+              <FileText className="w-4 h-4 text-slate-400" />
+              <p className="text-sm text-slate-500">{t('inventoryAdjustments.details.summaryNotes')}</p>
+            </div>
             <p className="mt-1 text-sm text-slate-700 dark:text-slate-300 line-clamp-2">
               {adjustment?.notes || t('common.notSpecified')}
             </p>
@@ -594,7 +609,10 @@ export default function InventoryAdjustmentDetails() {
         </Card>
         <Card className="col-span-4 md:col-span-2 dark:bg-slate-900 dark:border-slate-800">
           <CardContent className="pt-6">
-            <p className="text-sm text-slate-500">{t('inventoryAdjustments.details.summaryUsers')}</p>
+            <div className="flex items-center gap-2 mb-2">
+              <Users className="w-4 h-4 text-slate-400" />
+              <p className="text-sm text-slate-500">{t('inventoryAdjustments.details.summaryUsers')}</p>
+            </div>
             <div className="mt-2 space-y-1 text-sm text-slate-700 dark:text-slate-300">
               <p>
                 {t('inventoryAdjustments.details.createdBy')}{' '}

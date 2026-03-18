@@ -10,6 +10,10 @@ import {
   FileText, 
   Package,
   Warehouse,
+  CalendarDays,
+  Truck,
+  Scale,
+  CircleDollarSign,
   MoreHorizontal,
   ExternalLink,
   HelpCircle,
@@ -1252,9 +1256,12 @@ export default function SupplierOrderDetails() {
         {/* Block 1: Order Date */}
         <Card className="dark:bg-slate-900 dark:border-slate-800">
           <CardContent className="pt-6">
-            <p className="text-sm text-slate-500 dark:text-slate-400">
-              {t('supplierOrderDetails.summaryPurchaseDate')}
-            </p>
+            <div className="flex items-center gap-2 mb-2">
+              <CalendarDays className="w-4 h-4 text-slate-400" />
+              <p className="text-sm text-slate-500 dark:text-slate-400">
+                {t('supplierOrderDetails.summaryPurchaseDate')}
+              </p>
+            </div>
             <p className="mt-1 text-base font-semibold text-slate-900 dark:text-slate-100">
               {order.purchaseDate ? format(new Date(order.purchaseDate), 'dd.MM.yyyy') : '—'}
             </p>
@@ -1264,9 +1271,12 @@ export default function SupplierOrderDetails() {
         {/* Block 2: Planned Receipt */}
         <Card className="dark:bg-slate-900 dark:border-slate-800">
           <CardContent className="pt-6">
-            <p className="text-sm text-slate-500 dark:text-slate-400">
-              {t('supplierOrderDetails.summaryPlannedReceipt')}
-            </p>
+            <div className="flex items-center gap-2 mb-2">
+              <CalendarDays className="w-4 h-4 text-slate-400" />
+              <p className="text-sm text-slate-500 dark:text-slate-400">
+                {t('supplierOrderDetails.summaryPlannedReceipt')}
+              </p>
+            </div>
             <p className="mt-1 text-base font-semibold text-slate-900 dark:text-slate-100">
               {order.plannedReceiptDate ? format(new Date(order.plannedReceiptDate), 'dd.MM.yyyy') : '—'}
             </p>
@@ -1276,9 +1286,12 @@ export default function SupplierOrderDetails() {
         {/* Block 3: Ordered Quantity */}
         <Card className="dark:bg-slate-900 dark:border-slate-800">
           <CardContent className="pt-6">
-            <p className="text-sm text-slate-500 dark:text-slate-400">
-              {t('supplierOrderDetails.summaryOrderedQty')}
-            </p>
+            <div className="flex items-center gap-2 mb-2">
+              <Package className="w-4 h-4 text-slate-400" />
+              <p className="text-sm text-slate-500 dark:text-slate-400">
+                {t('supplierOrderDetails.summaryOrderedQty')}
+              </p>
+            </div>
             <p className="mt-1 text-base font-semibold text-slate-900 dark:text-slate-100">
               {orderTotals.totalQty} {t('supplierOrderDetails.summaryUnits')}
             </p>
@@ -1288,9 +1301,12 @@ export default function SupplierOrderDetails() {
         {/* Block 4: Received Quantity */}
         <Card className="dark:bg-slate-900 dark:border-slate-800">
           <CardContent className="pt-6">
-            <p className="text-sm text-slate-500 dark:text-slate-400">
-              {t('supplierOrderDetails.summaryReceivedQty')}
-            </p>
+            <div className="flex items-center gap-2 mb-2">
+              <Package className="w-4 h-4 text-slate-400" />
+              <p className="text-sm text-slate-500 dark:text-slate-400">
+                {t('supplierOrderDetails.summaryReceivedQty')}
+              </p>
+            </div>
             <p className={`mt-1 text-base font-semibold ${
               orderTotals.receivedQty >= orderTotals.totalQty
                 ? 'text-emerald-600 dark:text-emerald-400'
@@ -1304,9 +1320,12 @@ export default function SupplierOrderDetails() {
         {/* Block 5: Order Weight (total) */}
         <Card className="dark:bg-slate-900 dark:border-slate-800">
           <CardContent className="pt-6">
-            <p className="text-sm text-slate-500 dark:text-slate-400">
-              {t('supplierOrderDetails.summaryWeight')}
-            </p>
+            <div className="flex items-center gap-2 mb-2">
+              <Scale className="w-4 h-4 text-slate-400" />
+              <p className="text-sm text-slate-500 dark:text-slate-400">
+                {t('supplierOrderDetails.summaryWeight')}
+              </p>
+            </div>
             <p className="mt-1 text-base font-semibold text-slate-900 dark:text-slate-100">
               {order.orderItemWeight != null
                 ? `${Number(order.orderItemWeight).toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${t('supplierOrderDetails.weight.unitKg')}`
@@ -1318,9 +1337,12 @@ export default function SupplierOrderDetails() {
         {/* Block 6: Total Logistics */}
         <Card className="dark:bg-slate-900 dark:border-slate-800">
           <CardContent className="pt-6">
-            <p className="text-sm text-slate-500 dark:text-slate-400">
-              {t('supplierOrderDetails.summaryTotalLogistics')}
-            </p>
+            <div className="flex items-center gap-2 mb-2">
+              <Truck className="w-4 h-4 text-slate-400" />
+              <p className="text-sm text-slate-500 dark:text-slate-400">
+                {t('supplierOrderDetails.summaryTotalLogistics')}
+              </p>
+            </div>
             <p className="mt-1 text-base font-semibold text-slate-900 dark:text-slate-100">
               {order.logisticsTotal ? `₽${order.logisticsTotal.toLocaleString('ru-RU', { minimumFractionDigits: 2 })}` : '—'}
             </p>
@@ -1330,9 +1352,12 @@ export default function SupplierOrderDetails() {
         {/* Block 7: Items Cost */}
         <Card className="dark:bg-slate-900 dark:border-slate-800">
           <CardContent className="pt-6">
-            <p className="text-sm text-slate-500 dark:text-slate-400">
-              {t('supplierOrderDetails.summaryItemsCost')}
-            </p>
+            <div className="flex items-center gap-2 mb-2">
+              <CircleDollarSign className="w-4 h-4 text-slate-400" />
+              <p className="text-sm text-slate-500 dark:text-slate-400">
+                {t('supplierOrderDetails.summaryItemsCost')}
+              </p>
+            </div>
             <p className="mt-1 text-base font-semibold text-slate-900 dark:text-slate-100">
               {order.orderItemCost ? `₽${order.orderItemCost.toLocaleString('ru-RU', { minimumFractionDigits: 2 })}` : '—'}
             </p>
@@ -1343,6 +1368,7 @@ export default function SupplierOrderDetails() {
         <Card className="dark:bg-slate-900 dark:border-slate-800">
           <CardContent className="pt-6">
             <div className="flex items-center gap-2">
+              <CircleDollarSign className="w-4 h-4 text-slate-400" />
               <p className="text-sm text-slate-500 dark:text-slate-400">
                 {t('supplierOrderDetails.summaryTotal')}
               </p>

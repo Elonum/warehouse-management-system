@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError } from '@/api';
-import { 
+import {
   ArrowLeft,
   Plus,
   Edit2,
@@ -10,7 +10,9 @@ import {
   MoreHorizontal,
   Store,
   Warehouse,
-  Truck
+  Truck,
+  CalendarDays,
+  CircleDollarSign,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -520,10 +522,13 @@ export default function ShipmentDetails() {
         </Card>
         <Card className="dark:bg-slate-900 dark:border-slate-800">
           <CardContent className="pt-6">
-            <p className="text-sm text-slate-500">
-              {t('shipmentDetails.summary.acceptanceDate')}
-            </p>
-            <p className="mt-1 text-lg font-semibold text-slate-900 dark:text-slate-100">
+            <div className="flex items-center gap-2 mb-2">
+              <CalendarDays className="w-4 h-4 text-slate-400" />
+              <p className="text-sm text-slate-500">
+                {t('shipmentDetails.summary.acceptanceDate')}
+              </p>
+            </div>
+            <p className="text-lg font-semibold text-slate-900 dark:text-slate-100">
               {shipment?.acceptanceDate
                 ? format(new Date(shipment.acceptanceDate), 'dd.MM.yyyy', {
                     locale: ru,
@@ -536,9 +541,12 @@ export default function ShipmentDetails() {
         {/* Row 2 */}
         <Card className="dark:bg-slate-900 dark:border-slate-800">
           <CardContent className="pt-6">
-            <p className="text-sm text-slate-500">
-              {t('shipments.summary.sent')}
-            </p>
+            <div className="flex items-center gap-2 mb-2">
+              <Package className="w-4 h-4 text-slate-400" />
+              <p className="text-sm text-slate-500">
+                {t('shipments.summary.sent')}
+              </p>
+            </div>
             <p className="mt-1 text-lg font-semibold text-slate-900 dark:text-slate-100">
               {shipment?.sentQty ?? 0}{' '}
               {t('shipments.summary.units')}
@@ -547,9 +555,12 @@ export default function ShipmentDetails() {
         </Card>
         <Card className="dark:bg-slate-900 dark:border-slate-800">
           <CardContent className="pt-6">
-            <p className="text-sm text-slate-500">
-              {t('shipments.summary.accepted')}
-            </p>
+            <div className="flex items-center gap-2 mb-2">
+              <Package className="w-4 h-4 text-slate-400" />
+              <p className="text-sm text-slate-500">
+                {t('shipments.summary.accepted')}
+              </p>
+            </div>
             <p
               className={`mt-1 text-lg font-semibold ${
                 (shipment?.acceptedQty ?? 0) >= (shipment?.sentQty ?? 0)
@@ -564,9 +575,12 @@ export default function ShipmentDetails() {
         </Card>
         <Card className="dark:bg-slate-900 dark:border-slate-800">
           <CardContent className="pt-6">
-            <p className="text-sm text-slate-500">
-              {t('shipmentDetails.summary.logistics')}
-            </p>
+            <div className="flex items-center gap-2 mb-2">
+              <Truck className="w-4 h-4 text-slate-400" />
+              <p className="text-sm text-slate-500">
+                {t('shipmentDetails.summary.logistics')}
+              </p>
+            </div>
             <p className="mt-1 text-lg font-semibold text-slate-900 dark:text-slate-100">
               {shipment?.logisticsCost
                 ? `${shipment.logisticsCost.toFixed(2)} ₽`
@@ -576,9 +590,12 @@ export default function ShipmentDetails() {
         </Card>
         <Card className="dark:bg-slate-900 dark:border-slate-800">
           <CardContent className="pt-6">
-            <p className="text-sm text-slate-500">
-              {t('shipments.table.acceptanceCost')}
-            </p>
+            <div className="flex items-center gap-2 mb-2">
+              <CircleDollarSign className="w-4 h-4 text-slate-400" />
+              <p className="text-sm text-slate-500">
+                {t('shipments.table.acceptanceCost')}
+              </p>
+            </div>
             <p className="mt-1 text-lg font-semibold text-slate-900 dark:text-slate-100">
               {shipment?.acceptanceCost
                 ? `${shipment.acceptanceCost.toFixed(2)} ₽`

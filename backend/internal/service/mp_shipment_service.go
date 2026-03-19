@@ -2,12 +2,17 @@ package service
 
 import (
 	"context"
+	"errors"
 
 	"github.com/google/uuid"
 	"warehouse-backend/internal/dto"
 	"warehouse-backend/internal/repository"
 
 	"github.com/rs/zerolog/log"
+)
+
+var (
+	ErrMpShipmentCompleted = errors.New("mp shipment is completed and cannot be modified")
 )
 
 type MpShipmentService struct {
@@ -332,6 +337,17 @@ func (s *MpShipmentService) Update(ctx context.Context, shipmentID, userID uuid.
 	if err != nil {
 		log.Error().Err(err).Str("shipmentId", shipmentID.String()).Msg("Failed to load existing mp shipment for update")
 		return nil, err
+	}
+
+	if existing.StatusID != nil {
+		currentStatus, statusErr := s.shipmentStatusRepo.GetByID(ctx, *existing.StatusID)
+		if statusErr != nil {
+			log.Error().Err(statusErr).Str("shipmentId", shipmentID.String()).Msg("Failed to load current shipment status for completion check")
+			return nil, statusErr
+		}
+		if currentStatus.IsFinal {
+			return nil, ErrMpShipmentCompleted
+		}
 	}
 
 	shipment, err := s.repo.Update(ctx, shipmentID,

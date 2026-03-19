@@ -28,6 +28,7 @@ func (s *ShipmentStatusService) GetByID(ctx context.Context, statusID uuid.UUID)
 	return &dto.ShipmentStatusResponse{
 		ShipmentStatusID: status.ShipmentStatusID.String(),
 		Name:             status.Name,
+		IsFinal:          status.IsFinal,
 	}, nil
 }
 
@@ -43,6 +44,7 @@ func (s *ShipmentStatusService) List(ctx context.Context, limit, offset int) ([]
 		result = append(result, dto.ShipmentStatusResponse{
 			ShipmentStatusID: status.ShipmentStatusID.String(),
 			Name:             status.Name,
+			IsFinal:          status.IsFinal,
 		})
 	}
 
@@ -50,7 +52,7 @@ func (s *ShipmentStatusService) List(ctx context.Context, limit, offset int) ([]
 }
 
 func (s *ShipmentStatusService) Create(ctx context.Context, req dto.ShipmentStatusCreateRequest) (*dto.ShipmentStatusResponse, error) {
-	status, err := s.repo.Create(ctx, req.Name)
+	status, err := s.repo.Create(ctx, req.Name, req.IsFinal)
 	if err != nil {
 		log.Error().Err(err).Str("name", req.Name).Msg("Failed to create shipment status")
 		return nil, err
@@ -60,11 +62,12 @@ func (s *ShipmentStatusService) Create(ctx context.Context, req dto.ShipmentStat
 	return &dto.ShipmentStatusResponse{
 		ShipmentStatusID: status.ShipmentStatusID.String(),
 		Name:             status.Name,
+		IsFinal:          status.IsFinal,
 	}, nil
 }
 
 func (s *ShipmentStatusService) Update(ctx context.Context, statusID uuid.UUID, req dto.ShipmentStatusUpdateRequest) (*dto.ShipmentStatusResponse, error) {
-	status, err := s.repo.Update(ctx, statusID, req.Name)
+	status, err := s.repo.Update(ctx, statusID, req.Name, req.IsFinal)
 	if err != nil {
 		log.Error().Err(err).Str("statusId", statusID.String()).Msg("Failed to update shipment status")
 		return nil, err
@@ -74,6 +77,7 @@ func (s *ShipmentStatusService) Update(ctx context.Context, statusID uuid.UUID, 
 	return &dto.ShipmentStatusResponse{
 		ShipmentStatusID: status.ShipmentStatusID.String(),
 		Name:             status.Name,
+		IsFinal:          status.IsFinal,
 	}, nil
 }
 

@@ -183,7 +183,8 @@ CREATE TABLE IF NOT EXISTS supplier_order_documents (
 
 CREATE TABLE IF NOT EXISTS shipment_statuses (
     shipment_status_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    name VARCHAR(50) UNIQUE NOT NULL
+    name VARCHAR(50) UNIQUE NOT NULL,
+    is_final BOOLEAN NOT NULL DEFAULT FALSE
 );
 
 CREATE TABLE IF NOT EXISTS mp_shipments (

@@ -14,13 +14,15 @@ type MpShipmentItemService struct {
 	repo          *repository.MpShipmentItemRepository
 	shipmentRepo  *repository.MpShipmentRepository
 	productRepo   *repository.ProductRepository
+	shipmentStatusRepo *repository.ShipmentStatusRepository
 }
 
-func NewMpShipmentItemService(repo *repository.MpShipmentItemRepository, shipmentRepo *repository.MpShipmentRepository, productRepo *repository.ProductRepository) *MpShipmentItemService {
+func NewMpShipmentItemService(repo *repository.MpShipmentItemRepository, shipmentRepo *repository.MpShipmentRepository, productRepo *repository.ProductRepository, shipmentStatusRepo *repository.ShipmentStatusRepository) *MpShipmentItemService {
 	return &MpShipmentItemService{
 		repo:          repo,
 		shipmentRepo:  shipmentRepo,
 		productRepo:   productRepo,
+		shipmentStatusRepo: shipmentStatusRepo,
 	}
 }
 
@@ -93,7 +95,7 @@ func (s *MpShipmentItemService) Create(ctx context.Context, req dto.MpShipmentIt
 		log.Warn().Str("shipmentId", req.ShipmentID).Msg("Invalid shipment ID format")
 		return nil, repository.ErrMpShipmentNotFound
 	}
-	_, err = s.shipmentRepo.GetByID(ctx, shipmentID)
+	shipment, err := s.shipmentRepo.GetByID(ctx, shipmentID)
 	if err != nil {
 		if err == repository.ErrMpShipmentNotFound {
 			log.Warn().Str("shipmentId", req.ShipmentID).Msg("Mp shipment not found")
@@ -101,6 +103,16 @@ func (s *MpShipmentItemService) Create(ctx context.Context, req dto.MpShipmentIt
 		}
 		log.Error().Err(err).Str("shipmentId", req.ShipmentID).Msg("Failed to validate mp shipment")
 		return nil, err
+	}
+
+	if shipment.StatusID != nil {
+		status, statusErr := s.shipmentStatusRepo.GetByID(ctx, *shipment.StatusID)
+		if statusErr != nil {
+			return nil, statusErr
+		}
+		if status.IsFinal {
+			return nil, ErrMpShipmentCompleted
+		}
 	}
 
 	productID, err := uuid.Parse(req.ProductID)
@@ -158,7 +170,7 @@ func (s *MpShipmentItemService) Update(ctx context.Context, itemID uuid.UUID, re
 		log.Warn().Str("shipmentId", req.ShipmentID).Msg("Invalid shipment ID format")
 		return nil, repository.ErrMpShipmentNotFound
 	}
-	_, err = s.shipmentRepo.GetByID(ctx, shipmentID)
+	shipment, err := s.shipmentRepo.GetByID(ctx, shipmentID)
 	if err != nil {
 		if err == repository.ErrMpShipmentNotFound {
 			log.Warn().Str("shipmentId", req.ShipmentID).Msg("Mp shipment not found")
@@ -166,6 +178,16 @@ func (s *MpShipmentItemService) Update(ctx context.Context, itemID uuid.UUID, re
 		}
 		log.Error().Err(err).Str("shipmentId", req.ShipmentID).Msg("Failed to validate mp shipment")
 		return nil, err
+	}
+
+	if shipment.StatusID != nil {
+		status, statusErr := s.shipmentStatusRepo.GetByID(ctx, *shipment.StatusID)
+		if statusErr != nil {
+			return nil, statusErr
+		}
+		if status.IsFinal {
+			return nil, ErrMpShipmentCompleted
+		}
 	}
 
 	productID, err := uuid.Parse(req.ProductID)
@@ -222,6 +244,20 @@ func (s *MpShipmentItemService) Delete(ctx context.Context, itemID uuid.UUID) er
 	if err != nil {
 		log.Error().Err(err).Str("itemId", itemID.String()).Msg("Failed to load mp shipment item before deletion")
 		return err
+	}
+
+	shipment, err := s.shipmentRepo.GetByID(ctx, item.ShipmentID)
+	if err != nil {
+		return err
+	}
+	if shipment.StatusID != nil {
+		status, statusErr := s.shipmentStatusRepo.GetByID(ctx, *shipment.StatusID)
+		if statusErr != nil {
+			return statusErr
+		}
+		if status.IsFinal {
+			return ErrMpShipmentCompleted
+		}
 	}
 
 	err = s.repo.Delete(ctx, itemID)

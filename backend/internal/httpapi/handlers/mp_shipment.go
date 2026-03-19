@@ -187,6 +187,11 @@ func (h *MpShipmentHandler) Update(w http.ResponseWriter, r *http.Request) {
 
 	shipment, err := h.service.Update(r.Context(), shipmentID, userID, req)
 	if err != nil {
+		if err == service.ErrMpShipmentCompleted {
+			log.Warn().Str("shipmentId", shipmentID.String()).Msg("Attempt to update completed mp shipment")
+			writeError(w, http.StatusBadRequest, "SHIPMENT_COMPLETED", "Завершённую отгрузку нельзя изменять")
+			return
+		}
 		if err == repository.ErrMpShipmentNotFound {
 			log.Warn().Str("shipmentId", shipmentID.String()).Msg("Mp shipment not found for update")
 			writeError(w, http.StatusNotFound, "SHIPMENT_NOT_FOUND", "mp shipment not found")

@@ -103,6 +103,11 @@ func (h *MpShipmentItemHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	item, err := h.service.Create(r.Context(), req)
 	if err != nil {
+		if err == service.ErrMpShipmentCompleted {
+			log.Warn().Str("shipmentId", req.ShipmentID).Msg("Attempt to create mp shipment item for completed shipment")
+			writeError(w, http.StatusBadRequest, "SHIPMENT_COMPLETED", "Завершённую отгрузку нельзя изменять")
+			return
+		}
 		if err == repository.ErrMpShipmentNotFound {
 			log.Warn().Str("shipmentId", req.ShipmentID).Msg("Mp shipment not found")
 			writeError(w, http.StatusBadRequest, "SHIPMENT_NOT_FOUND", "specified mp shipment does not exist")
@@ -164,6 +169,11 @@ func (h *MpShipmentItemHandler) Update(w http.ResponseWriter, r *http.Request) {
 
 	item, err := h.service.Update(r.Context(), itemID, req)
 	if err != nil {
+		if err == service.ErrMpShipmentCompleted {
+			log.Warn().Str("itemId", itemID.String()).Msg("Attempt to update mp shipment item for completed shipment")
+			writeError(w, http.StatusBadRequest, "SHIPMENT_COMPLETED", "Завершённую отгрузку нельзя изменять")
+			return
+		}
 		if err == repository.ErrMpShipmentItemNotFound {
 			log.Warn().Str("itemId", itemID.String()).Msg("Mp shipment item not found for update")
 			writeError(w, http.StatusNotFound, "ITEM_NOT_FOUND", "mp shipment item not found")
@@ -203,6 +213,11 @@ func (h *MpShipmentItemHandler) Delete(w http.ResponseWriter, r *http.Request) {
 
 	err = h.service.Delete(r.Context(), itemID)
 	if err != nil {
+		if err == service.ErrMpShipmentCompleted {
+			log.Warn().Str("itemId", itemID.String()).Msg("Attempt to delete mp shipment item for completed shipment")
+			writeError(w, http.StatusBadRequest, "SHIPMENT_COMPLETED", "Завершённую отгрузку нельзя изменять")
+			return
+		}
 		if err == repository.ErrMpShipmentItemNotFound {
 			log.Warn().Str("itemId", itemID.String()).Msg("Mp shipment item not found for deletion")
 			writeError(w, http.StatusNotFound, "ITEM_NOT_FOUND", "mp shipment item not found")

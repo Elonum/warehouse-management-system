@@ -123,11 +123,16 @@ const translations = {
         emptyMessage: 'Статусы отгрузок не найдены',
         table: {
           name: 'Название статуса',
+          isFinal: 'Финальный статус',
+          isFinalYes: 'Да',
+          isFinalNo: 'Нет',
         },
         form: {
           name: 'Название статуса',
           namePlaceholder: 'Введите название статуса',
           nameHint: 'Минимум 2 символа, максимум 100 символов',
+          isFinal: 'Финальный статус',
+          isFinalHint: 'Финальные статусы считаются завершёнными и блокируют изменение отгрузок',
         },
         deleteConfirm: {
           title: 'Удалить статус',
@@ -479,6 +484,7 @@ const translations = {
         statusNotFound: 'Указанный статус отгрузки не найден',
         notFound: 'Отгрузка не найдена или была удалена',
         amountTooLarge: 'Слишком большое значение суммы, уменьшите значение',
+        cannotEditCompleted: 'Завершённую отгрузку нельзя изменять',
       },
     },
     shipmentDetails: {
@@ -487,6 +493,8 @@ const translations = {
       backToList: 'Назад к отгрузкам',
       loadError: 'Ошибка загрузки отгрузки',
       unknownProduct: 'Неизвестный товар',
+      completeButton: 'Завершить отгрузку',
+      completing: 'Завершение...',
       summary: {
         store: 'Магазин',
         warehouse: 'Склад',
@@ -527,6 +535,8 @@ const translations = {
         invalidQuantity: 'Некорректное количество: принято не может быть больше отправленного',
         nonNegative: 'Количество и логистика не могут быть отрицательными',
         amountTooLarge: 'Слишком большое значение логистики, уменьшите значение',
+        cannotEditCompleted: 'Завершённую отгрузку нельзя изменять',
+        completeFailed: 'Ошибка завершения отгрузки',
       },
     },
     inventoryAdjustments: {
@@ -963,11 +973,16 @@ const translations = {
         emptyMessage: 'No shipment statuses found',
         table: {
           name: 'Status Name',
+          isFinal: 'Final status',
+          isFinalYes: 'Yes',
+          isFinalNo: 'No',
         },
         form: {
           name: 'Status Name',
           namePlaceholder: 'Enter status name',
           nameHint: 'Minimum 2 characters, maximum 100 characters',
+          isFinal: 'Final status',
+          isFinalHint: 'Final statuses are treated as completed and block further shipment edits',
         },
         deleteConfirm: {
           title: 'Delete Status',
@@ -1319,6 +1334,7 @@ const translations = {
         statusNotFound: 'Specified shipment status was not found',
         notFound: 'Shipment was not found or was deleted',
         amountTooLarge: 'Amount is too large, please enter a smaller value',
+        cannotEditCompleted: 'Completed shipment cannot be edited',
       },
     },
     shipmentDetails: {
@@ -1327,6 +1343,8 @@ const translations = {
       backToList: 'Back to shipments',
       loadError: 'Failed to load shipment',
       unknownProduct: 'Unknown product',
+      completeButton: 'Complete shipment',
+      completing: 'Completing...',
       summary: {
         store: 'Store',
         warehouse: 'Warehouse',
@@ -1367,6 +1385,8 @@ const translations = {
         invalidQuantity: 'Invalid quantity: accepted cannot exceed sent quantity',
         nonNegative: 'Quantity and logistics values cannot be negative',
         amountTooLarge: 'Logistics amount is too large, please enter a smaller value',
+        cannotEditCompleted: 'Completed shipment cannot be edited',
+        completeFailed: 'Failed to complete shipment',
       },
     },
     inventoryAdjustments: {

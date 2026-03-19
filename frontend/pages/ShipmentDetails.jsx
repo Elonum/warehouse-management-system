@@ -13,6 +13,7 @@ import {
   Truck,
   CalendarDays,
   CircleDollarSign,
+  CheckCircle2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -77,6 +78,7 @@ export default function ShipmentDetails() {
   const [currentItem, setCurrentItem] = useState(null);
   const [itemForm, setItemForm] = useState(emptyItem);
   const [error, setError] = useState('');
+  const [completionError, setCompletionError] = useState('');
 
   const { data: shipment, error: shipmentError, isLoading: loadingShipment } = useQuery({
     queryKey: ['mpShipment', shipmentId],
@@ -125,6 +127,18 @@ export default function ShipmentDetails() {
     };
   }, [products, warehouses, stores, shipmentStatuses]);
 
+  const finalShipmentStatus = useMemo(() => {
+    return shipmentStatuses.find((s) => s.isFinal) || null;
+  }, [shipmentStatuses]);
+
+  const isFinalStatus = useMemo(() => {
+    if (!shipment?.statusId) return false;
+    const status = shipmentStatuses.find(
+      (s) => s.shipmentStatusId === shipment.statusId,
+    );
+    return !!status?.isFinal;
+  }, [shipment?.statusId, shipmentStatuses]);
+
   const enrichedItems = useMemo(() => {
     return shipmentItems.map((item) => {
       const product = maps.productMap.get(item.productId);
@@ -155,6 +169,9 @@ export default function ShipmentDetails() {
     onError: (err) => {
       if (err instanceof ApiError) {
         let message = err.message || t('shipmentDetails.errors.createFailed');
+        if (err.code === 'SHIPMENT_COMPLETED') {
+          message = t('shipmentDetails.errors.cannotEditCompleted');
+        }
         if (err.code === 'INVALID_REQUEST') {
           if (err.message?.includes('productId is required')) {
             message = t('shipmentDetails.errors.productRequired');
@@ -192,6 +209,9 @@ export default function ShipmentDetails() {
     onError: (err) => {
       if (err instanceof ApiError) {
         let message = err.message || t('shipmentDetails.errors.updateFailed');
+        if (err.code === 'SHIPMENT_COMPLETED') {
+          message = t('shipmentDetails.errors.cannotEditCompleted');
+        }
         if (err.code === 'INVALID_REQUEST') {
           if (err.message?.includes('productId is required')) {
             message = t('shipmentDetails.errors.productRequired');
@@ -241,7 +261,11 @@ export default function ShipmentDetails() {
         queryClient.setQueryData(['mpShipmentItems', shipmentId], context.previousData);
       }
       if (err instanceof ApiError) {
-        setError(err.message || t('shipmentDetails.errors.deleteFailed'));
+        setError(
+          err.code === 'SHIPMENT_COMPLETED'
+            ? t('shipmentDetails.errors.cannotEditCompleted')
+            : err.message || t('shipmentDetails.errors.deleteFailed'),
+        );
       } else {
         setError(t('shipmentDetails.errors.deleteFailed'));
       }
@@ -249,7 +273,55 @@ export default function ShipmentDetails() {
     },
   });
 
+  const completeShipmentMutation = useMutation({
+    mutationFn: async () => {
+      if (!shipment || !finalShipmentStatus) return;
+
+      const data = {
+        shipmentNumber: shipment.shipmentNumber,
+        storeId: shipment.storeId || null,
+        warehouseId: shipment.warehouseId || null,
+        statusId: finalShipmentStatus.shipmentStatusId,
+        shipmentDate: shipment.shipmentDate ?? null,
+        acceptanceDate: shipment.acceptanceDate ?? null,
+        logisticsCost: shipment.logisticsCost ?? null,
+        acceptanceCost: shipment.acceptanceCost ?? null,
+        positionsQty: shipment.positionsQty ?? 0,
+        sentQty: shipment.sentQty ?? 0,
+        acceptedQty: shipment.acceptedQty ?? 0,
+      };
+
+      return api.mpShipments.update(shipmentId, data);
+    },
+    onSuccess: async () => {
+      setCompletionError('');
+      setItemDialogOpen(false);
+      setDeleteItemDialogOpen(false);
+      setCurrentItem(null);
+      setError('');
+
+      await queryClient.invalidateQueries({ queryKey: ['mpShipment', shipmentId] });
+      await queryClient.invalidateQueries({ queryKey: ['mpShipmentItems', shipmentId] });
+      await queryClient.invalidateQueries({ queryKey: ['mpShipments'] });
+    },
+    onError: (err) => {
+      if (err instanceof ApiError) {
+        if (err.code === 'SHIPMENT_COMPLETED') {
+          setCompletionError(t('shipmentDetails.errors.cannotEditCompleted'));
+          return;
+        }
+        setCompletionError(err.message || t('shipmentDetails.errors.completeFailed'));
+        return;
+      }
+      setCompletionError(t('shipmentDetails.errors.completeFailed'));
+    },
+  });
+
   const handleEditItem = (item) => {
+    if (isFinalStatus) {
+      setError(t('shipmentDetails.errors.cannotEditCompleted'));
+      return;
+    }
     setCurrentItem(item);
     setItemForm({
       productId: item.productId || null,
@@ -265,6 +337,10 @@ export default function ShipmentDetails() {
     e.preventDefault();
     setError('');
     if (!shipmentId) return;
+    if (isFinalStatus) {
+      setError(t('shipmentDetails.errors.cannotEditCompleted'));
+      return;
+    }
 
     if (!itemForm.productId) {
       setError(t('shipmentDetails.errors.productRequired'));
@@ -409,13 +485,17 @@ export default function ShipmentDetails() {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => handleEditItem(row.original)}>
+            <DropdownMenuItem
+              onClick={() => handleEditItem(row.original)}
+              disabled={isFinalStatus}
+            >
               <Edit2 className="w-4 h-4 mr-2" />
               Редактировать
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem 
               onClick={() => { setCurrentItem(row.original); setDeleteItemDialogOpen(true); }}
+              disabled={isFinalStatus}
               className="text-red-600"
             >
               <Trash2 className="w-4 h-4 mr-2" />
@@ -460,13 +540,35 @@ export default function ShipmentDetails() {
               : ''
           }
         >
-          <StatusBadge status={maps.statusMap.get(shipment?.statusId) || '—'} />
+          <div className="flex items-center gap-3">
+            <StatusBadge status={maps.statusMap.get(shipment?.statusId) || '—'} />
+            {shipment && !isFinalStatus && finalShipmentStatus && (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="inline-flex items-center gap-2"
+                onClick={() => completeShipmentMutation.mutate()}
+                disabled={completeShipmentMutation.isPending}
+              >
+                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                {completeShipmentMutation.isPending
+                  ? t('shipmentDetails.completing')
+                  : t('shipmentDetails.completeButton')}
+              </Button>
+            )}
+          </div>
         </PageHeader>
       </div>
 
       {shipmentError && (
         <div className="p-3 text-sm text-red-600 bg-red-50 dark:bg-red-900/20 dark:text-red-400 rounded-lg">
           {t('shipmentDetails.loadError')}: {shipmentError.message}
+        </div>
+      )}
+      {completionError && (
+        <div className="p-3 text-sm text-red-600 bg-red-50 dark:bg-red-900/20 dark:text-red-400 rounded-lg">
+          {completionError}
         </div>
       )}
 
@@ -612,6 +714,7 @@ export default function ShipmentDetails() {
             {t('shipmentDetails.itemsTitle')} ({enrichedItems.length})
           </h2>
           <Button
+            disabled={isFinalStatus}
             onClick={() => {
               setCurrentItem(null);
               setItemForm(emptyItem);
@@ -782,12 +885,13 @@ export default function ShipmentDetails() {
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
+                if (isFinalStatus) return;
                 if (currentItem) {
                   deleteItemMutation.mutate(currentItem.shipmentItemId);
                 }
               }}
               className="bg-red-600 hover:bg-red-700"
-              disabled={deleteItemMutation.isPending}
+              disabled={deleteItemMutation.isPending || isFinalStatus}
             >
               {deleteItemMutation.isPending
                 ? t('shipmentDetails.deleteDialog.deleting')

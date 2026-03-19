@@ -145,6 +145,9 @@ export default function Shipments() {
     onError: (err) => {
       if (err instanceof ApiError) {
         let message = err.message || t('shipments.errors.createFailed');
+        if (err.code === 'SHIPMENT_COMPLETED') {
+          message = t('shipments.errors.cannotEditCompleted');
+        }
         if (err.code === 'INVALID_REQUEST') {
           if (err.message?.includes('shipmentNumber is required')) {
             message = t('shipments.errors.numberRequired');
@@ -183,6 +186,9 @@ export default function Shipments() {
     onError: (err) => {
       if (err instanceof ApiError) {
         let message = err.message || t('shipments.errors.updateFailed');
+        if (err.code === 'SHIPMENT_COMPLETED') {
+          message = t('shipments.errors.cannotEditCompleted');
+        }
         if (err.code === 'INVALID_REQUEST') {
           if (err.message?.includes('shipmentNumber is required')) {
             message = t('shipments.errors.numberRequired');

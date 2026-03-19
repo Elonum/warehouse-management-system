@@ -75,6 +75,7 @@ export default function ReferenceData() {
   const [shipmentStatusName, setShipmentStatusName] = useState('');
   const [shipmentStatusError, setShipmentStatusError] = useState('');
   const [shipmentStatusDeleteError, setShipmentStatusDeleteError] = useState('');
+  const [shipmentStatusIsFinal, setShipmentStatusIsFinal] = useState(false);
   
   // Inventory Status states
   const [inventoryStatusDialogOpen, setInventoryStatusDialogOpen] = useState(false);
@@ -221,7 +222,7 @@ export default function ReferenceData() {
       return;
     }
 
-    const data = { name };
+    const data = { name, isFinal: shipmentStatusIsFinal };
 
     if (currentRole) {
       updateRoleMutation.mutate({ id: currentRole.roleId, data });
@@ -434,12 +435,14 @@ export default function ReferenceData() {
     setShipmentStatusName('');
     setCurrentShipmentStatus(null);
     setShipmentStatusError('');
+    setShipmentStatusIsFinal(false);
   };
 
   const handleOpenShipmentStatusDialog = (shipmentStatus = null) => {
     if (shipmentStatus) {
       setCurrentShipmentStatus(shipmentStatus);
       setShipmentStatusName(shipmentStatus.name || '');
+      setShipmentStatusIsFinal(!!shipmentStatus.isFinal);
     } else {
       resetShipmentStatusForm();
     }
@@ -513,6 +516,24 @@ export default function ReferenceData() {
             {row.original.name}
           </span>
         </div>
+      ),
+    },
+    {
+      accessorKey: 'isFinal',
+      header: t('referenceData.shipmentStatuses.table.isFinal'),
+      cell: ({ row }) => (
+        <span
+          className={cn(
+            'inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium',
+            row.original.isFinal
+              ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400'
+              : 'bg-slate-50 text-slate-600 dark:bg-slate-700/30 dark:text-slate-300',
+          )}
+        >
+          {row.original.isFinal
+            ? t('referenceData.shipmentStatuses.table.isFinalYes')
+            : t('referenceData.shipmentStatuses.table.isFinalNo')}
+        </span>
       ),
     },
     {
@@ -1460,6 +1481,23 @@ export default function ReferenceData() {
                 <p className="text-xs text-slate-500 dark:text-slate-400">
                   {t('referenceData.shipmentStatuses.form.nameHint')}
                 </p>
+              </div>
+              <div className="flex items-center justify-between border rounded-md px-3 py-2">
+                <div className="space-y-0.5">
+                  <Label htmlFor="shipmentStatusIsFinal" className="text-xs font-medium text-slate-700 dark:text-slate-200">
+                    {t('referenceData.shipmentStatuses.form.isFinal')}
+                  </Label>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    {t('referenceData.shipmentStatuses.form.isFinalHint')}
+                  </p>
+                </div>
+                <input
+                  id="shipmentStatusIsFinal"
+                  type="checkbox"
+                  className="h-4 w-4 accent-emerald-600"
+                  checked={shipmentStatusIsFinal}
+                  onChange={(e) => setShipmentStatusIsFinal(e.target.checked)}
+                />
               </div>
               <DialogFooter>
                 <Button type="button" variant="outline" onClick={handleCloseShipmentStatusDialog}>

@@ -77,7 +77,7 @@ export default function Shipments() {
     },
   });
 
-  const { data: shipmentStatusesData } = useQuery({
+  const { data: shipmentStatusesData, isLoading: shipmentStatusesLoading } = useQuery({
     queryKey: ['shipmentStatuses'],
     queryFn: async () => {
       const response = await api.shipmentStatuses.list({ limit: 100, offset: 0 });
@@ -89,6 +89,17 @@ export default function Shipments() {
   const stores = Array.isArray(storesData) ? storesData : [];
   const warehouses = Array.isArray(warehousesData) ? warehousesData : [];
   const shipmentStatuses = Array.isArray(shipmentStatusesData) ? shipmentStatusesData : [];
+
+  const isFinalShipment = useMemo(() => {
+    if (!currentShipment?.statusId) return false;
+    const status = shipmentStatuses.find(
+      (s) => String(s.shipmentStatusId) === String(currentShipment.statusId),
+    );
+    return !!status?.isFinal;
+  }, [currentShipment?.statusId, shipmentStatuses]);
+
+  // Safety: while we don't yet know status flags, prevent editing if modal is opened for an existing shipment.
+  const shouldLockEdit = !!currentShipment && (shipmentStatusesLoading || isFinalShipment);
 
   const enrichedShipments = useMemo(() => {
     const storeMap = new Map(stores.map(s => [s.storeId, s.name]));
@@ -276,6 +287,11 @@ export default function Shipments() {
     e.preventDefault();
     setError('');
 
+    if (isFinalShipment) {
+      setError(t('shipments.errors.cannotEditCompleted'));
+      return;
+    }
+
     const trimmedNumber = (formData.shipmentNumber || '').trim();
     if (!trimmedNumber) {
       setError(t('shipments.errors.numberRequired'));
@@ -427,6 +443,7 @@ export default function Shipments() {
                   value={formData.shipmentNumber}
                   onChange={(e) => setFormData({ ...formData, shipmentNumber: e.target.value })}
                   required
+                  disabled={shouldLockEdit}
                 />
               </div>
               <div className="space-y-2">
@@ -435,7 +452,7 @@ export default function Shipments() {
                   value={formData.statusId?.toString() || ''}
                   onValueChange={(value) => setFormData({ ...formData, statusId: value || null })}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger disabled={shouldLockEdit}>
                     <SelectValue placeholder={t('shipments.form.status')}>{getSelectedStatusName()}</SelectValue>
                   </SelectTrigger>
                   <SelectContent>
@@ -455,7 +472,7 @@ export default function Shipments() {
                   value={formData.storeId?.toString() || ''}
                   onValueChange={(value) => setFormData({ ...formData, storeId: value || null })}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger disabled={shouldLockEdit}>
                     <SelectValue placeholder={t('shipments.form.store')}>
                       {getSelectedStoreName()}
                     </SelectValue>
@@ -475,7 +492,7 @@ export default function Shipments() {
                   value={formData.warehouseId?.toString() || ''}
                   onValueChange={(value) => setFormData({ ...formData, warehouseId: value || null })}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger disabled={shouldLockEdit}>
                     <SelectValue placeholder={t('shipments.form.warehouse')}>
                       {getSelectedWarehouseName()}
                     </SelectValue>
@@ -504,6 +521,7 @@ export default function Shipments() {
                       shipmentDate: e.target.value || null,
                     })
                   }
+                  disabled={shouldLockEdit}
                 />
               </div>
               <div className="space-y-2">
@@ -519,6 +537,7 @@ export default function Shipments() {
                       acceptanceDate: e.target.value || null,
                     })
                   }
+                  disabled={shouldLockEdit}
                 />
               </div>
             </div>
@@ -534,6 +553,7 @@ export default function Shipments() {
                     const value = sanitizeMoneyInput(e.target.value);
                     setFormData({ ...formData, logisticsCost: value });
                   }}
+                  disabled={shouldLockEdit}
                 />
               </div>
               <div className="space-y-2">
@@ -547,6 +567,7 @@ export default function Shipments() {
                     const value = sanitizeMoneyInput(e.target.value);
                     setFormData({ ...formData, acceptanceCost: value });
                   }}
+                  disabled={shouldLockEdit}
                 />
               </div>
             </div>
@@ -561,7 +582,14 @@ export default function Shipments() {
               >
                 {t('common.cancel')}
               </Button>
-              <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending}>
+              <Button
+                type="submit"
+                disabled={
+                  createMutation.isPending ||
+                  updateMutation.isPending ||
+                  shouldLockEdit
+                }
+              >
                 {currentShipment ? (updateMutation.isPending ? t('common.loading') : t('common.save')) : (createMutation.isPending ? t('common.loading') : t('common.create'))}
               </Button>
             </DialogFooter>

@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError } from '@/api';
 import {
@@ -58,6 +58,14 @@ import { ru } from 'date-fns/locale';
 import { useI18n } from '@/lib/i18n';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
+import {
+  DECIMAL_10_2_MAX,
+  parseDecimalOrNull,
+  sanitizeDecimal10_2Input,
+  isDecimal10_2InRange,
+} from '@/features/mpShipments/utils/decimal';
+import { FINAL_STATUS_BADGE_CLASS } from '@/features/mpShipments/utils/badge';
+import { mapShipmentItemApiError } from '@/features/mpShipments/utils/errors';
 
 const emptyItem = {
   productId: null,
@@ -155,7 +163,13 @@ export default function ShipmentDetails() {
         productBarcode,
       };
     });
-  }, [shipmentItems, maps]);
+  }, [shipmentItems, maps.productMap, t]);
+
+  const getSelectedProductName = useCallback(() => {
+    if (!itemForm.productId) return '';
+    const product = maps.productMap.get(itemForm.productId);
+    return product?.article || product?.name || t('shipmentDetails.unknownProduct');
+  }, [itemForm.productId, maps.productMap, t]);
 
   const createItemMutation = useMutation({
     mutationFn: (data) => api.mpShipmentItems.create(data),
@@ -167,33 +181,7 @@ export default function ShipmentDetails() {
       setError('');
     },
     onError: (err) => {
-      if (err instanceof ApiError) {
-        let message = err.message || t('shipmentDetails.errors.createFailed');
-        if (err.code === 'SHIPMENT_COMPLETED') {
-          message = t('shipmentDetails.errors.cannotEditCompleted');
-        }
-        if (err.code === 'INVALID_REQUEST') {
-          if (err.message?.includes('productId is required')) {
-            message = t('shipmentDetails.errors.productRequired');
-          } else if (
-            err.message?.includes('sentQty must be non-negative') ||
-            err.message?.includes('acceptedQty must be non-negative') ||
-            err.message?.includes('logisticsForItem must be non-negative')
-          ) {
-            message = t('shipmentDetails.errors.nonNegative');
-          }
-        } else if (err.code === 'INVALID_QUANTITY') {
-          message = t('shipmentDetails.errors.invalidQuantity');
-        } else if (
-          err.message?.includes('numeric field overflow') ||
-          err.message?.includes('переполнение поля numeric')
-        ) {
-          message = t('shipmentDetails.errors.amountTooLarge');
-        }
-        setError(message);
-      } else {
-        setError(t('shipmentDetails.errors.createFailed'));
-      }
+      setError(mapShipmentItemApiError(t, err, 'shipmentDetails.errors.createFailed'));
     },
   });
 
@@ -207,33 +195,7 @@ export default function ShipmentDetails() {
       setError('');
     },
     onError: (err) => {
-      if (err instanceof ApiError) {
-        let message = err.message || t('shipmentDetails.errors.updateFailed');
-        if (err.code === 'SHIPMENT_COMPLETED') {
-          message = t('shipmentDetails.errors.cannotEditCompleted');
-        }
-        if (err.code === 'INVALID_REQUEST') {
-          if (err.message?.includes('productId is required')) {
-            message = t('shipmentDetails.errors.productRequired');
-          } else if (
-            err.message?.includes('sentQty must be non-negative') ||
-            err.message?.includes('acceptedQty must be non-negative') ||
-            err.message?.includes('logisticsForItem must be non-negative')
-          ) {
-            message = t('shipmentDetails.errors.nonNegative');
-          }
-        } else if (err.code === 'INVALID_QUANTITY') {
-          message = t('shipmentDetails.errors.invalidQuantity');
-        } else if (
-          err.message?.includes('numeric field overflow') ||
-          err.message?.includes('переполнение поля numeric')
-        ) {
-          message = t('shipmentDetails.errors.amountTooLarge');
-        }
-        setError(message);
-      } else {
-        setError(t('shipmentDetails.errors.updateFailed'));
-      }
+      setError(mapShipmentItemApiError(t, err, 'shipmentDetails.errors.updateFailed'));
     },
   });
 
@@ -261,11 +223,7 @@ export default function ShipmentDetails() {
         queryClient.setQueryData(['mpShipmentItems', shipmentId], context.previousData);
       }
       if (err instanceof ApiError) {
-        setError(
-          err.code === 'SHIPMENT_COMPLETED'
-            ? t('shipmentDetails.errors.cannotEditCompleted')
-            : err.message || t('shipmentDetails.errors.deleteFailed'),
-        );
+        setError(mapShipmentItemApiError(t, err, 'shipmentDetails.errors.deleteFailed'));
       } else {
         setError(t('shipmentDetails.errors.deleteFailed'));
       }
@@ -360,24 +318,17 @@ export default function ShipmentDetails() {
       return;
     }
 
-    const logisticsForItem = itemForm.logisticsForItem
-      ? parseFloat(
-          String(itemForm.logisticsForItem)
-            .replace(',', '.')
-            .replace(/[^0-9.]/g, ''),
-        )
-      : null;
+    const logisticsForItem =
+      itemForm.logisticsForItem == null || itemForm.logisticsForItem === ''
+        ? null
+        : parseDecimalOrNull(itemForm.logisticsForItem);
 
-    if (
-      logisticsForItem != null &&
-      (logisticsForItem < 0 || !Number.isFinite(logisticsForItem))
-    ) {
+    if (!isDecimal10_2InRange(logisticsForItem)) {
       setError(t('shipmentDetails.errors.nonNegative'));
       return;
     }
 
-    const maxAmount = 99999999.99;
-    if (logisticsForItem != null && logisticsForItem > maxAmount) {
+    if (logisticsForItem != null && logisticsForItem > DECIMAL_10_2_MAX) {
       setError(t('shipmentDetails.errors.amountTooLarge'));
       return;
     }
@@ -543,7 +494,7 @@ export default function ShipmentDetails() {
           <div className="flex items-center gap-3">
             <StatusBadge
               status={maps.statusMap.get(shipment?.statusId) || '—'}
-              className={isFinalStatus ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20' : undefined}
+              className={isFinalStatus ? FINAL_STATUS_BADGE_CLASS : undefined}
             />
             {shipment && !isFinalStatus && finalShipmentStatus && (
               <Button
@@ -771,10 +722,10 @@ export default function ShipmentDetails() {
                 value={itemForm.productId?.toString() || ''}
                 onValueChange={(value) => setItemForm({ ...itemForm, productId: value || null })}
               >
-                <SelectTrigger>
-                  <SelectValue
-                    placeholder={t('shipmentDetails.form.productPlaceholder')}
-                  />
+                <SelectTrigger disabled={isFinalStatus}>
+                  <SelectValue placeholder={t('shipmentDetails.form.productPlaceholder')}>
+                    {getSelectedProductName()}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {products.map((product) => (
@@ -828,14 +779,14 @@ export default function ShipmentDetails() {
                 type="text"
                 inputMode="decimal"
                 value={itemForm.logisticsForItem || ''}
-                onChange={(e) =>
+                onChange={(e) => {
+                  const next = sanitizeDecimal10_2Input(e.target.value);
                   setItemForm({
                     ...itemForm,
-                    logisticsForItem: e.target.value
-                      ? e.target.value.replace(',', '.').replace(/[^0-9.]/g, '')
-                      : null,
-                  })
-                }
+                    logisticsForItem: next === '' ? null : next,
+                  });
+                }}
+                disabled={isFinalStatus}
               />
             </div>
             <DialogFooter>

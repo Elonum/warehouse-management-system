@@ -31,6 +31,7 @@ import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { Link, useNavigate } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
+import { FINAL_STATUS_BADGE_CLASS } from '@/features/mpShipments/utils/badge';
 
 function ShipmentsTable({
   t,
@@ -107,7 +108,7 @@ function ShipmentsTable({
         cell: ({ row }) => (
           <StatusBadge
             status={row.original.statusName || t('common.notSpecified')}
-            className={row.original.statusIsFinal ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20' : undefined}
+            className={row.original.statusIsFinal ? FINAL_STATUS_BADGE_CLASS : undefined}
           />
         ),
       },

@@ -1,8 +1,15 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError } from '@/api';
 import { useI18n } from '@/lib/i18n';
 import { Button } from '@/components/ui/button';
+import {
+  DECIMAL_10_2_MAX,
+  parseDecimalOrNull,
+  sanitizeDecimal10_2Input,
+  isDecimal10_2InRange,
+} from '@/features/mpShipments/utils/decimal';
+import { mapShipmentApiError } from '@/features/mpShipments/utils/errors';
 import {
   Dialog,
   DialogContent,
@@ -122,37 +129,6 @@ export default function Shipments() {
     }));
   }, [shipments, stores, warehouses, shipmentStatuses]);
 
-  const sanitizeMoneyInput = useCallback((value) => {
-    if (value == null) return '';
-    let v = String(value).replace(',', '.').replace(/[^0-9.]/g, '');
-    if (v === '') return '';
-
-    const parts = v.split('.');
-    if (parts.length > 2) {
-      v = parts[0] + '.' + parts.slice(1).join('');
-    }
-
-    const endsWithDot = v.endsWith('.');
-    let [intPart, fracPart] = v.split('.');
-
-    // Ограничиваем целую часть под DECIMAL(10,2): максимум 8 цифр
-    intPart = intPart ? intPart.slice(0, 8) : '';
-
-    if (fracPart != null) {
-      fracPart = fracPart.slice(0, 2);
-    }
-
-    if (endsWithDot && (fracPart == null || fracPart === '')) {
-      return intPart === '' ? '0.' : `${intPart}.`;
-    }
-
-    if (fracPart != null && fracPart !== '') {
-      return `${intPart}.${fracPart}`;
-    }
-
-    return intPart;
-  }, []);
-
   const createMutation = useMutation({
     mutationFn: (data) => api.mpShipments.create(data),
     onSuccess: async () => {
@@ -162,35 +138,26 @@ export default function Shipments() {
       setError('');
     },
     onError: (err) => {
-      if (err instanceof ApiError) {
-        let message = err.message || t('shipments.errors.createFailed');
-        if (err.code === 'SHIPMENT_COMPLETED') {
-          message = t('shipments.errors.cannotEditCompleted');
-        }
-        if (err.code === 'INVALID_REQUEST') {
-          if (err.message?.includes('shipmentNumber is required')) {
-            message = t('shipments.errors.numberRequired');
-          }
-          if (err.message?.includes('statusId is required')) {
-            message = t('shipments.errors.statusRequired');
-          }
-          if (err.message?.includes('acceptanceDate must be on or after shipmentDate')) {
-            message = t('shipments.errors.invalidDateRange');
-          }
-        } else if (err.code === 'SHIPMENT_EXISTS') {
-          message = t('shipments.errors.numberExists');
-        } else if (err.code === 'SHIPMENT_STATUS_NOT_FOUND') {
-          message = t('shipments.errors.statusNotFound');
-        } else if (
-          err.message?.includes('numeric field overflow') ||
-          err.message?.includes('переполнение поля numeric')
-        ) {
-          message = t('shipments.errors.amountTooLarge');
-        }
-        setError(message);
-      } else {
-        setError(t('shipments.errors.createFailed'));
+      const message = mapShipmentApiError(t, err, 'shipments.errors.createFailed');
+      if (err instanceof ApiError && err.code === 'SHIPMENT_COMPLETED') {
+        setError(t('shipments.errors.cannotEditCompleted'));
+        return;
       }
+      if (err instanceof ApiError && err.code === 'INVALID_REQUEST') {
+        if (err.message?.includes('shipmentNumber is required')) {
+          setError(t('shipments.errors.numberRequired'));
+          return;
+        }
+        if (err.message?.includes('statusId is required')) {
+          setError(t('shipments.errors.statusRequired'));
+          return;
+        }
+        if (err.message?.includes('acceptanceDate must be on or after shipmentDate')) {
+          setError(t('shipments.errors.invalidDateRange'));
+          return;
+        }
+      }
+      setError(message);
     },
   });
 
@@ -203,37 +170,26 @@ export default function Shipments() {
       setError('');
     },
     onError: (err) => {
-      if (err instanceof ApiError) {
-        let message = err.message || t('shipments.errors.updateFailed');
-        if (err.code === 'SHIPMENT_COMPLETED') {
-          message = t('shipments.errors.cannotEditCompleted');
-        }
-        if (err.code === 'INVALID_REQUEST') {
-          if (err.message?.includes('shipmentNumber is required')) {
-            message = t('shipments.errors.numberRequired');
-          }
-          if (err.message?.includes('statusId is required')) {
-            message = t('shipments.errors.statusRequired');
-          }
-          if (err.message?.includes('acceptanceDate must be on or after shipmentDate')) {
-            message = t('shipments.errors.invalidDateRange');
-          }
-        } else if (err.code === 'SHIPMENT_EXISTS') {
-          message = t('shipments.errors.numberExists');
-        } else if (err.code === 'SHIPMENT_STATUS_NOT_FOUND') {
-          message = t('shipments.errors.statusNotFound');
-        } else if (err.code === 'SHIPMENT_NOT_FOUND') {
-          message = t('shipments.errors.notFound');
-        } else if (
-          err.message?.includes('numeric field overflow') ||
-          err.message?.includes('переполнение поля numeric')
-        ) {
-          message = t('shipments.errors.amountTooLarge');
-        }
-        setError(message);
-      } else {
-        setError(t('shipments.errors.updateFailed'));
+      const message = mapShipmentApiError(t, err, 'shipments.errors.updateFailed');
+      if (err instanceof ApiError && err.code === 'SHIPMENT_COMPLETED') {
+        setError(t('shipments.errors.cannotEditCompleted'));
+        return;
       }
+      if (err instanceof ApiError && err.code === 'INVALID_REQUEST') {
+        if (err.message?.includes('shipmentNumber is required')) {
+          setError(t('shipments.errors.numberRequired'));
+          return;
+        }
+        if (err.message?.includes('statusId is required')) {
+          setError(t('shipments.errors.statusRequired'));
+          return;
+        }
+        if (err.message?.includes('acceptanceDate must be on or after shipmentDate')) {
+          setError(t('shipments.errors.invalidDateRange'));
+          return;
+        }
+      }
+      setError(message);
     },
   });
 
@@ -262,15 +218,11 @@ export default function Shipments() {
       if (context?.previousData) {
         queryClient.setQueryData(['mpShipments'], context.previousData);
       }
-      if (err instanceof ApiError) {
-        let message = err.message || t('shipments.errors.deleteFailed');
-        if (err.code === 'SHIPMENT_COMPLETED') {
-          message = t('shipments.errors.cannotDeleteCompleted');
-        }
-        setDeleteError(message);
+      if (err instanceof ApiError && err.code === 'SHIPMENT_COMPLETED') {
+        setDeleteError(t('shipments.errors.cannotDeleteCompleted'));
         setDeleteErrorDialogOpen(true);
       } else {
-        setDeleteError(t('shipments.errors.deleteFailed'));
+        setDeleteError(mapShipmentApiError(t, err, 'shipments.errors.deleteFailed'));
         setDeleteErrorDialogOpen(true);
       }
       setError('');
@@ -347,24 +299,20 @@ export default function Shipments() {
     }
 
     const logistics = formData.logisticsCost
-      ? parseFloat(formData.logisticsCost)
+      ? parseDecimalOrNull(formData.logisticsCost)
       : null;
     const acceptance = formData.acceptanceCost
-      ? parseFloat(formData.acceptanceCost)
+      ? parseDecimalOrNull(formData.acceptanceCost)
       : null;
 
-    if (
-      (logistics != null && logistics < 0) ||
-      (acceptance != null && acceptance < 0)
-    ) {
+    if (!isDecimal10_2InRange(logistics) || !isDecimal10_2InRange(acceptance)) {
       setError(t('shipments.errors.negativeCost'));
       return;
     }
 
-    const maxAmount = 99999999.99; // под DECIMAL(10,2)
     if (
-      (logistics != null && (!Number.isFinite(logistics) || logistics > maxAmount)) ||
-      (acceptance != null && (!Number.isFinite(acceptance) || acceptance > maxAmount))
+      (logistics != null && logistics > DECIMAL_10_2_MAX) ||
+      (acceptance != null && acceptance > DECIMAL_10_2_MAX)
     ) {
       setError(t('shipments.errors.amountTooLarge'));
       return;
@@ -572,7 +520,7 @@ export default function Shipments() {
                   inputMode="decimal"
                   value={formData.logisticsCost}
                   onChange={(e) => {
-                    const value = sanitizeMoneyInput(e.target.value);
+                    const value = sanitizeDecimal10_2Input(e.target.value);
                     setFormData({ ...formData, logisticsCost: value });
                   }}
                   disabled={shouldLockEdit}
@@ -586,7 +534,7 @@ export default function Shipments() {
                   inputMode="decimal"
                   value={formData.acceptanceCost}
                   onChange={(e) => {
-                    const value = sanitizeMoneyInput(e.target.value);
+                    const value = sanitizeDecimal10_2Input(e.target.value);
                     setFormData({ ...formData, acceptanceCost: value });
                   }}
                   disabled={shouldLockEdit}

@@ -423,7 +423,15 @@ export default function ReferenceData() {
     },
     onError: (err) => {
       if (err instanceof ApiError) {
-        setShipmentStatusError(err.message || t('referenceData.shipmentStatuses.errors.deleteFailed'));
+        if (err.code === 'STATUS_IN_USE') {
+          setShipmentStatusError(
+            t('referenceData.shipmentStatuses.errors.statusInUseSingle'),
+          );
+        } else {
+          setShipmentStatusError(
+            err.message || t('referenceData.shipmentStatuses.errors.deleteFailed'),
+          );
+        }
       } else {
         setShipmentStatusError(t('referenceData.shipmentStatuses.errors.deleteFailed'));
       }
@@ -470,7 +478,7 @@ export default function ReferenceData() {
       return;
     }
 
-    const data = { name };
+    const data = { name, isFinal: shipmentStatusIsFinal };
 
     if (currentShipmentStatus) {
       updateShipmentStatusMutation.mutate({ id: currentShipmentStatus.shipmentStatusId, data });

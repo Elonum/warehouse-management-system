@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"net/http"
+	"strings"
 
 	"warehouse-backend/internal/dto"
 	"warehouse-backend/internal/repository"
@@ -89,8 +90,14 @@ func (h *ShipmentStatusHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	req.Name = strings.TrimSpace(req.Name)
 	if req.Name == "" {
 		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "name is required")
+		return
+	}
+
+	if len(req.Name) < 2 || len(req.Name) > 100 {
+		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "name length must be between 2 and 100 characters")
 		return
 	}
 
@@ -129,8 +136,14 @@ func (h *ShipmentStatusHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	req.Name = strings.TrimSpace(req.Name)
 	if req.Name == "" {
 		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "name is required")
+		return
+	}
+
+	if len(req.Name) < 2 || len(req.Name) > 100 {
+		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "name length must be between 2 and 100 characters")
 		return
 	}
 
@@ -173,6 +186,12 @@ func (h *ShipmentStatusHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		if err == repository.ErrShipmentStatusNotFound {
 			log.Warn().Str("statusId", statusID.String()).Msg("Shipment status not found for deletion")
 			writeError(w, http.StatusNotFound, "STATUS_NOT_FOUND", "shipment status not found")
+			return
+		}
+		errMsg := err.Error()
+		if strings.Contains(errMsg, "foreign key") || strings.Contains(errMsg, "23503") {
+			log.Warn().Str("statusId", statusID.String()).Msg("Attempt to delete shipment status used by shipments")
+			writeError(w, http.StatusBadRequest, "STATUS_IN_USE", "shipment status is used by shipments")
 			return
 		}
 		log.Error().Err(err).Str("statusId", statusID.String()).Msg("Failed to delete shipment status")

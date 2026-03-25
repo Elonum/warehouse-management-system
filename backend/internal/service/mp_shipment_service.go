@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/google/uuid"
 	"warehouse-backend/internal/dto"
@@ -20,14 +21,25 @@ type MpShipmentService struct {
 	storeRepo          *repository.StoreRepository
 	warehouseRepo      *repository.WarehouseRepository
 	shipmentStatusRepo *repository.ShipmentStatusRepository
+	shipmentItemRepo  *repository.MpShipmentItemRepository
+	stockRepo         *repository.StockRepository
 }
 
-func NewMpShipmentService(repo *repository.MpShipmentRepository, storeRepo *repository.StoreRepository, warehouseRepo *repository.WarehouseRepository, shipmentStatusRepo *repository.ShipmentStatusRepository) *MpShipmentService {
+func NewMpShipmentService(
+	repo *repository.MpShipmentRepository,
+	storeRepo *repository.StoreRepository,
+	warehouseRepo *repository.WarehouseRepository,
+	shipmentStatusRepo *repository.ShipmentStatusRepository,
+	shipmentItemRepo *repository.MpShipmentItemRepository,
+	stockRepo *repository.StockRepository,
+) *MpShipmentService {
 	return &MpShipmentService{
 		repo:               repo,
 		storeRepo:          storeRepo,
 		warehouseRepo:      warehouseRepo,
 		shipmentStatusRepo: shipmentStatusRepo,
+		shipmentItemRepo:  shipmentItemRepo,
+		stockRepo:         stockRepo,
 	}
 }
 
@@ -312,6 +324,7 @@ func (s *MpShipmentService) Update(ctx context.Context, shipmentID, userID uuid.
 		}
 	}
 
+	targetStatusIsFinal := false
 	var statusID *uuid.UUID
 	if req.StatusID != nil && *req.StatusID != "" {
 		id, err := uuid.Parse(*req.StatusID)
@@ -321,7 +334,7 @@ func (s *MpShipmentService) Update(ctx context.Context, shipmentID, userID uuid.
 		}
 		statusID = &id
 
-		_, err = s.shipmentStatusRepo.GetByID(ctx, id)
+		status, err := s.shipmentStatusRepo.GetByID(ctx, id)
 		if err != nil {
 			if err == repository.ErrShipmentStatusNotFound {
 				log.Warn().Str("statusId", *req.StatusID).Msg("Shipment status not found")
@@ -330,6 +343,7 @@ func (s *MpShipmentService) Update(ctx context.Context, shipmentID, userID uuid.
 			log.Error().Err(err).Str("statusId", *req.StatusID).Msg("Failed to validate shipment status")
 			return nil, err
 		}
+		targetStatusIsFinal = status.IsFinal
 	}
 
 	// Preserve aggregates: derived from shipment items.
@@ -339,14 +353,28 @@ func (s *MpShipmentService) Update(ctx context.Context, shipmentID, userID uuid.
 		return nil, err
 	}
 
+	currentStatusIsFinal := false
 	if existing.StatusID != nil {
 		currentStatus, statusErr := s.shipmentStatusRepo.GetByID(ctx, *existing.StatusID)
 		if statusErr != nil {
 			log.Error().Err(statusErr).Str("shipmentId", shipmentID.String()).Msg("Failed to load current shipment status for completion check")
 			return nil, statusErr
 		}
-		if currentStatus.IsFinal {
-			return nil, ErrMpShipmentCompleted
+		currentStatusIsFinal = currentStatus.IsFinal
+	}
+
+	if currentStatusIsFinal {
+		return nil, ErrMpShipmentCompleted
+	}
+
+	becomesFinal := req.StatusID != nil && targetStatusIsFinal && !currentStatusIsFinal
+	if becomesFinal && req.AcceptanceDate == nil {
+		// Ensure stock application has a meaningful acceptance date.
+		if existing.AcceptanceDate != nil {
+			req.AcceptanceDate = existing.AcceptanceDate
+		} else {
+			now := time.Now().UTC()
+			req.AcceptanceDate = &now
 		}
 	}
 
@@ -367,6 +395,17 @@ func (s *MpShipmentService) Update(ctx context.Context, shipmentID, userID uuid.
 	if err != nil {
 		log.Error().Err(err).Str("shipmentId", shipmentID.String()).Str("userId", userID.String()).Msg("Failed to update mp shipment")
 		return nil, err
+	}
+
+	if becomesFinal {
+		if applyErr := s.applyAcceptedToStock(ctx, shipment, userID); applyErr != nil {
+			log.Error().
+				Err(applyErr).
+				Str("shipmentId", shipmentID.String()).
+				Str("userId", userID.String()).
+				Msg("Failed to apply accepted quantities to stock for completed mp shipment")
+			return nil, applyErr
+		}
 	}
 
 	var storeIDStr *string
@@ -417,12 +456,92 @@ func (s *MpShipmentService) Update(ctx context.Context, shipmentID, userID uuid.
 }
 
 func (s *MpShipmentService) Delete(ctx context.Context, shipmentID uuid.UUID) error {
-	err := s.repo.Delete(ctx, shipmentID)
+	shipment, err := s.repo.GetByID(ctx, shipmentID)
+	if err != nil {
+		log.Error().Err(err).Str("shipmentId", shipmentID.String()).Msg("Failed to load mp shipment before delete")
+		return err
+	}
+
+	if shipment.StatusID != nil {
+		status, statusErr := s.shipmentStatusRepo.GetByID(ctx, *shipment.StatusID)
+		if statusErr != nil {
+			log.Error().Err(statusErr).Str("shipmentId", shipmentID.String()).Msg("Failed to load shipment status before delete")
+			return statusErr
+		}
+		if status.IsFinal {
+			log.Warn().Str("shipmentId", shipmentID.String()).Msg("Attempt to delete completed mp shipment")
+			return ErrMpShipmentCompleted
+		}
+	}
+
+	err = s.repo.Delete(ctx, shipmentID)
 	if err != nil {
 		log.Error().Err(err).Str("shipmentId", shipmentID.String()).Msg("Failed to delete mp shipment")
 		return err
 	}
 
 	log.Info().Str("shipmentId", shipmentID.String()).Msg("Mp shipment deleted successfully")
+	return nil
+}
+
+// applyAcceptedToStock applies accepted quantities from a completed mp shipment to stock snapshots.
+// It runs only once when the shipment transitions from non-final to final status.
+func (s *MpShipmentService) applyAcceptedToStock(ctx context.Context, shipment *repository.MpShipment, userID uuid.UUID) error {
+	if shipment.AcceptanceDate == nil {
+		// Should never happen because we fill it when a shipment becomes final.
+		return nil
+	}
+	if shipment.WarehouseID == nil {
+		log.Warn().Str("shipmentId", shipment.ShipmentID.String()).Msg("Cannot apply shipment to stock: warehouse is not set")
+		return repository.ErrWarehouseNotFound
+	}
+
+	items, err := s.shipmentItemRepo.GetByShipmentID(ctx, shipment.ShipmentID)
+	if err != nil {
+		log.Error().Err(err).Str("shipmentId", shipment.ShipmentID.String()).Msg("Failed to load mp shipment items for stock application")
+		return err
+	}
+	if len(items) == 0 {
+		log.Info().Str("shipmentId", shipment.ShipmentID.String()).Msg("No items to apply to stock for completed mp shipment")
+		return nil
+	}
+
+	appliedItems := 0
+	for _, it := range items {
+		if it.AcceptedQty <= 0 {
+			continue
+		}
+
+		if err := s.stockRepo.ApplyShipmentOutFromMpShipment(
+			ctx,
+			it.ProductID,
+			*shipment.WarehouseID,
+			*shipment.AcceptanceDate,
+			it.AcceptedQty,
+			&userID,
+		); err != nil {
+			log.Error().
+				Err(err).
+				Str("shipmentId", shipment.ShipmentID.String()).
+				Str("productId", it.ProductID.String()).
+				Str("warehouseId", shipment.WarehouseID.String()).
+				Int("acceptedQty", it.AcceptedQty).
+				Msg("Failed to apply mp shipment accepted quantities to stock")
+			return err
+		}
+		appliedItems++
+	}
+
+	if appliedItems > 0 {
+		log.Info().
+			Str("shipmentId", shipment.ShipmentID.String()).
+			Int("appliedItems", appliedItems).
+			Msg("Successfully applied accepted quantities to stock for completed mp shipment")
+	} else {
+		log.Info().
+			Str("shipmentId", shipment.ShipmentID.String()).
+			Msg("No accepted quantities to apply to stock for completed mp shipment")
+	}
+
 	return nil
 }

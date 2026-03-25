@@ -52,6 +52,8 @@ export default function Shipments() {
   const [currentShipment, setCurrentShipment] = useState(null);
   const [formData, setFormData] = useState(emptyShipment);
   const [error, setError] = useState('');
+  const [deleteError, setDeleteError] = useState('');
+  const [deleteErrorDialogOpen, setDeleteErrorDialogOpen] = useState(false);
 
   const { data: shipmentsData, isLoading, refetch } = useQuery({
     queryKey: ['mpShipments'],
@@ -105,12 +107,18 @@ export default function Shipments() {
     const storeMap = new Map(stores.map(s => [s.storeId, s.name]));
     const warehouseMap = new Map(warehouses.map(w => [w.warehouseId, w.name]));
     const statusMap = new Map(shipmentStatuses.map(s => [s.shipmentStatusId, s.name]));
+    const statusIsFinalMap = new Map(
+      shipmentStatuses.map((s) => [String(s.shipmentStatusId), !!s.isFinal]),
+    );
 
     return shipments.map((shipment) => ({
       ...shipment,
       storeName: shipment.storeId ? storeMap.get(shipment.storeId) || t('common.notSpecified') : null,
       warehouseName: shipment.warehouseId ? warehouseMap.get(shipment.warehouseId) || t('common.notSpecified') : null,
       statusName: shipment.statusId ? statusMap.get(shipment.statusId) || t('common.notSpecified') : null,
+      statusIsFinal: shipment.statusId
+        ? statusIsFinalMap.get(String(shipment.statusId)) || false
+        : false,
     }));
   }, [shipments, stores, warehouses, shipmentStatuses]);
 
@@ -246,6 +254,8 @@ export default function Shipments() {
       deleteModal.close();
       setCurrentShipment(null);
       setError('');
+      setDeleteError('');
+      setDeleteErrorDialogOpen(false);
       await refetch();
     },
     onError: (err, deletedId, context) => {
@@ -253,10 +263,17 @@ export default function Shipments() {
         queryClient.setQueryData(['mpShipments'], context.previousData);
       }
       if (err instanceof ApiError) {
-        setError(err.message || t('shipments.errors.deleteFailed'));
+        let message = err.message || t('shipments.errors.deleteFailed');
+        if (err.code === 'SHIPMENT_COMPLETED') {
+          message = t('shipments.errors.cannotDeleteCompleted');
+        }
+        setDeleteError(message);
+        setDeleteErrorDialogOpen(true);
       } else {
-        setError(t('shipments.errors.deleteFailed'));
+        setDeleteError(t('shipments.errors.deleteFailed'));
+        setDeleteErrorDialogOpen(true);
       }
+      setError('');
       deleteModal.close();
     },
   });
@@ -408,6 +425,11 @@ export default function Shipments() {
         }}
         onEditShipment={handleEdit}
         onRequestDelete={(shipment) => {
+          if (shipment?.statusIsFinal) {
+            setDeleteError(t('shipments.errors.cannotDeleteCompleted'));
+            setDeleteErrorDialogOpen(true);
+            return;
+          }
           setCurrentShipment(shipment);
           deleteModal.open(shipment);
         }}
@@ -627,6 +649,28 @@ export default function Shipments() {
               disabled={deleteMutation.isPending}
             >
               {deleteMutation.isPending ? t('common.deleting') : t('common.delete')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete Error Dialog */}
+      <AlertDialog open={deleteErrorDialogOpen} onOpenChange={setDeleteErrorDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t('shipments.deleteConfirm.title')}</AlertDialogTitle>
+            <AlertDialogDescription>{deleteError}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setDeleteErrorDialogOpen(false);
+                setDeleteError('');
+              }}
+            >
+              {t('common.ok')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -105,7 +105,10 @@ function ShipmentsTable({
         accessorKey: 'statusName',
         header: t('shipments.table.status'),
         cell: ({ row }) => (
-          <StatusBadge status={row.original.statusName || t('common.notSpecified')} />
+          <StatusBadge
+            status={row.original.statusName || t('common.notSpecified')}
+            className={row.original.statusIsFinal ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20' : undefined}
+          />
         ),
       },
       {
@@ -204,7 +207,13 @@ function ShipmentsTable({
                   {t('common.details')}
                 </Link>
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => onEditShipment(row.original)}>
+              <DropdownMenuItem
+                onClick={() => {
+                  if (row.original.statusIsFinal) return;
+                  onEditShipment(row.original);
+                }}
+                className={row.original.statusIsFinal ? 'pointer-events-none opacity-60' : undefined}
+              >
                 <Edit2 className="w-4 h-4 mr-2" />
                 {t('common.edit')}
               </DropdownMenuItem>

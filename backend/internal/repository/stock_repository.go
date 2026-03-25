@@ -147,3 +147,42 @@ func (r *StockRepository) ApplyReceiptFromSupplierOrder(
 	_, err := r.pool.Exec(ctx, query, productID, warehouseID, receiptDate, receivedQty, createdBy)
 	return err
 }
+
+// ApplyShipmentOutFromMpShipment applies a negative stock delta for all goods accepted from an mp shipment.
+// It writes the delta into stock_snapshots at the given acceptanceDate, grouped by product and warehouse.
+// acceptedQty must be positive; non-positive values are ignored.
+func (r *StockRepository) ApplyShipmentOutFromMpShipment(
+	ctx context.Context,
+	productID, warehouseID uuid.UUID,
+	acceptanceDate time.Time,
+	acceptedQty int,
+	createdBy *uuid.UUID,
+) error {
+	if acceptedQty <= 0 {
+		return nil
+	}
+
+	query := `
+		INSERT INTO stock_snapshots (product_id, warehouse_id, snapshot_date, quantity, created_by)
+		VALUES (
+			$1,
+			$2,
+			$3,
+			COALESCE(
+				(SELECT quantity FROM stock_snapshots
+				 WHERE product_id = $1 AND warehouse_id = $2
+				 ORDER BY snapshot_date DESC LIMIT 1),
+				0
+			) - $4,
+			$5
+		)
+		ON CONFLICT (product_id, warehouse_id, snapshot_date)
+		DO UPDATE SET quantity = stock_snapshots.quantity - $4
+	`
+
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	_, err := r.pool.Exec(ctx, query, productID, warehouseID, acceptanceDate, acceptedQty, createdBy)
+	return err
+}

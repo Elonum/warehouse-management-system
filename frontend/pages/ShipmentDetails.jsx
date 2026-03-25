@@ -541,7 +541,10 @@ export default function ShipmentDetails() {
           }
         >
           <div className="flex items-center gap-3">
-            <StatusBadge status={maps.statusMap.get(shipment?.statusId) || '—'} />
+            <StatusBadge
+              status={maps.statusMap.get(shipment?.statusId) || '—'}
+              className={isFinalStatus ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20' : undefined}
+            />
             {shipment && !isFinalStatus && finalShipmentStatus && (
               <Button
                 type="button"

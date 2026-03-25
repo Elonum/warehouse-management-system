@@ -246,6 +246,11 @@ func (h *MpShipmentHandler) Delete(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusNotFound, "SHIPMENT_NOT_FOUND", "mp shipment not found")
 			return
 		}
+		if err == service.ErrMpShipmentCompleted {
+			log.Warn().Str("shipmentId", shipmentID.String()).Msg("Attempt to delete completed mp shipment")
+			writeError(w, http.StatusBadRequest, "SHIPMENT_COMPLETED", "Завершённую отгрузку нельзя удалять")
+			return
+		}
 		log.Error().Err(err).Str("shipmentId", shipmentID.String()).Msg("Failed to delete mp shipment")
 		writeError(w, http.StatusInternalServerError, "SHIPMENT_DELETE_FAILED", "failed to delete mp shipment")
 		return

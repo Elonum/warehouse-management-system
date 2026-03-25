@@ -59,7 +59,14 @@ func NewRouter(pg *db.Postgres, cfg config.Config) *chi.Mux {
 	supplierOrderService := service.NewSupplierOrderService(supplierOrderRepo, orderStatusRepo, supplierOrderItemRepo, stockRepo)
 	supplierOrderItemService := service.NewSupplierOrderItemService(supplierOrderItemRepo, supplierOrderRepo, orderStatusRepo, productRepo, warehouseRepo)
 	supplierOrderDocumentService := service.NewSupplierOrderDocumentService(supplierOrderDocumentRepo, supplierOrderRepo)
-	mpShipmentService := service.NewMpShipmentService(mpShipmentRepo, storeRepo, warehouseRepo, shipmentStatusRepo)
+	mpShipmentService := service.NewMpShipmentService(
+		mpShipmentRepo,
+		storeRepo,
+		warehouseRepo,
+		shipmentStatusRepo,
+		mpShipmentItemRepo,
+		stockRepo,
+	)
 	mpShipmentItemService := service.NewMpShipmentItemService(mpShipmentItemRepo, mpShipmentRepo, productRepo, shipmentStatusRepo)
 	orderStatusService := service.NewOrderStatusService(orderStatusRepo)
 	shipmentStatusService := service.NewShipmentStatusService(shipmentStatusRepo)

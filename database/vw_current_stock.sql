@@ -45,10 +45,13 @@ shipment_out AS (
     FROM mp_shipment_items msi
     JOIN mp_shipments ms
         ON ms.shipment_id = msi.shipment_id
+	    JOIN shipment_statuses ss
+	        ON ss.shipment_status_id = ms.status_id
     JOIN base_stock bs
         ON bs.product_id = msi.product_id
        AND bs.warehouse_id = ms.warehouse_id
-    WHERE ms.acceptance_date > bs.snapshot_date
+	    WHERE ss.is_final = true
+	      AND ms.acceptance_date > bs.snapshot_date
     GROUP BY msi.product_id, ms.warehouse_id
 ),
 

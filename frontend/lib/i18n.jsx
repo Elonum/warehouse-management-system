@@ -485,6 +485,7 @@ const translations = {
         notFound: 'Отгрузка не найдена или была удалена',
         amountTooLarge: 'Слишком большое значение суммы, уменьшите значение',
         cannotEditCompleted: 'Завершённую отгрузку нельзя изменять',
+        cannotDeleteCompleted: 'Завершённую отгрузку нельзя удалить, так как она уже применена к остаткам склада',
       },
     },
     shipmentDetails: {
@@ -1335,6 +1336,7 @@ const translations = {
         notFound: 'Shipment was not found or was deleted',
         amountTooLarge: 'Amount is too large, please enter a smaller value',
         cannotEditCompleted: 'Completed shipment cannot be edited',
+        cannotDeleteCompleted: 'Cannot delete a completed shipment because it has already been applied to stock levels',
       },
     },
     shipmentDetails: {

@@ -26,7 +26,10 @@ SELECT
 FROM mp_shipment_items msi
 JOIN mp_shipments ms
     ON ms.shipment_id = msi.shipment_id
+JOIN shipment_statuses ss
+    ON ss.shipment_status_id = ms.status_id
 WHERE ms.acceptance_date IS NOT NULL
+  AND ss.is_final = true
 
 UNION ALL
 

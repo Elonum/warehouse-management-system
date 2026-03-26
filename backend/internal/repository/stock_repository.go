@@ -19,6 +19,15 @@ type StockRepository struct {
 	pool *pgxpool.Pool
 }
 
+type CurrentStockSort string
+
+const (
+	CurrentStockSortProductAsc   CurrentStockSort = "product_asc"
+	CurrentStockSortProductDesc  CurrentStockSort = "product_desc"
+	CurrentStockSortQuantityAsc  CurrentStockSort = "quantity_asc"
+	CurrentStockSortQuantityDesc CurrentStockSort = "quantity_desc"
+)
+
 func NewStockRepository(pool *pgxpool.Pool) *StockRepository {
 	return &StockRepository{pool: pool}
 }
@@ -26,25 +35,55 @@ func NewStockRepository(pool *pgxpool.Pool) *StockRepository {
 func (r *StockRepository) GetCurrentStock(
 	ctx context.Context,
 	warehouseID *uuid.UUID,
+	productID *uuid.UUID,
+	q *string,
+	sort CurrentStockSort,
 	limit int,
 	offset int,
 ) ([]StockItem, error) {
 
 	query := `
-		SELECT product_id, warehouse_id, current_quantity
-		FROM vw_current_stock
+		SELECT cs.product_id, cs.warehouse_id, cs.current_quantity
+		FROM vw_current_stock cs
+		JOIN products p ON p.product_id = cs.product_id
 	`
 
 	args := []any{}
 	argPos := 1
+	where := " WHERE 1=1"
 
 	if warehouseID != nil {
-		query += ` WHERE warehouse_id = $1`
+		where += fmt.Sprintf(" AND cs.warehouse_id = $%d", argPos)
 		args = append(args, *warehouseID)
 		argPos++
 	}
 
-	query += fmt.Sprintf(` ORDER BY product_id LIMIT $%d OFFSET $%d`, argPos, argPos+1)
+	if productID != nil {
+		where += fmt.Sprintf(" AND cs.product_id = $%d", argPos)
+		args = append(args, *productID)
+		argPos++
+	}
+
+	if q != nil && *q != "" {
+		where += fmt.Sprintf(" AND (p.article ILIKE $%d OR p.barcode ILIKE $%d)", argPos, argPos)
+		args = append(args, "%"+*q+"%")
+		argPos++
+	}
+
+	query += where
+
+	switch sort {
+	case CurrentStockSortProductDesc:
+		query += " ORDER BY p.article DESC, cs.product_id DESC"
+	case CurrentStockSortQuantityAsc:
+		query += " ORDER BY cs.current_quantity ASC, p.article ASC"
+	case CurrentStockSortQuantityDesc:
+		query += " ORDER BY cs.current_quantity DESC, p.article ASC"
+	default:
+		query += " ORDER BY p.article ASC, cs.product_id ASC"
+	}
+
+	query += fmt.Sprintf(" LIMIT $%d OFFSET $%d", argPos, argPos+1)
 	args = append(args, limit, offset)
 
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)

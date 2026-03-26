@@ -81,7 +81,7 @@ function StockTable({ t, stock, productsMap, warehouseFilter, isLoading }) {
     <DataTable
       columns={columns}
       data={stock}
-      searchPlaceholder={t('stock.searchPlaceholder')}
+      searchable={false}
       emptyMessage={t('stock.emptyMessage')}
       isLoading={isLoading}
     />

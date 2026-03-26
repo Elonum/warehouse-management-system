@@ -358,6 +358,12 @@ const translations = {
         warehouse: 'Склад',
         quantity: 'Количество',
       },
+      sort: {
+        productAsc: 'Товар (А→Я)',
+        productDesc: 'Товар (Я→А)',
+        quantityDesc: 'Количество (убывание)',
+        quantityAsc: 'Количество (возрастание)',
+      },
     },
     supplierOrders: {
       title: 'Заказы поставщикам',
@@ -1208,6 +1214,12 @@ const translations = {
         product: 'Product',
         warehouse: 'Warehouse',
         quantity: 'Quantity',
+      },
+      sort: {
+        productAsc: 'Product (A→Z)',
+        productDesc: 'Product (Z→A)',
+        quantityDesc: 'Quantity (high→low)',
+        quantityAsc: 'Quantity (low→high)',
       },
     },
     supplierOrders: {

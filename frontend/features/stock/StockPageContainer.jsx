@@ -16,6 +16,7 @@ import PageHeader from '@/components/ui/PageHeader';
 import StockTable from '@/features/stock/components/StockTable';
 import { LoadingState } from '@/components/common/LoadingState';
 import { EmptyState } from '@/components/common/EmptyState';
+import { Input } from '@/components/ui/input';
 
 function StockPageContainer() {
   const { t } = useI18n();
@@ -23,20 +24,36 @@ function StockPageContainer() {
   const urlParams = new URLSearchParams(window.location.search);
   const initialProduct = urlParams.get('product') || 'all';
   const initialWarehouse = urlParams.get('warehouse') || 'all';
+  const initialQ = urlParams.get('q') || '';
+  const initialSort = urlParams.get('sort') || 'product_asc';
 
   const [productFilter, setProductFilter] = useState(initialProduct);
   const [warehouseFilter, setWarehouseFilter] = useState(initialWarehouse);
+  const [q, setQ] = useState(initialQ);
+  const [sort, setSort] = useState(initialSort);
+  const [limit, setLimit] = useState(50);
+  const [offset, setOffset] = useState(0);
 
   const { data: stockData, isLoading: loadingStock } = useQuery({
     queryKey: [
       'stock',
       warehouseFilter !== 'all' ? warehouseFilter : null,
       productFilter !== 'all' ? productFilter : null,
+      q || null,
+      sort,
+      limit,
+      offset,
     ],
     queryFn: async () => {
-      const params = { limit: 1000, offset: 0 };
+      const params = { limit, offset, sort };
       if (warehouseFilter !== 'all') {
         params.warehouseId = warehouseFilter;
+      }
+      if (productFilter !== 'all') {
+        params.productId = productFilter;
+      }
+      if (q) {
+        params.q = q;
       }
       const response = await api.stock.getCurrent(params);
       return Array.isArray(response) ? response : [];
@@ -96,38 +113,31 @@ function StockPageContainer() {
     [stock, productsMap, warehousesMap],
   );
 
-  const filteredStock = useMemo(
-    () =>
-      enrichedStock.filter((item) => {
-        const matchesProduct =
-          productFilter === 'all' ||
-          item.productId.toString() === productFilter.toString();
-        const matchesWarehouse =
-          warehouseFilter === 'all' ||
-          item.warehouseId.toString() === warehouseFilter.toString();
-        return matchesProduct && matchesWarehouse;
-      }),
-    [enrichedStock, productFilter, warehouseFilter],
-  );
-
   const totals = useMemo(
     () =>
-      filteredStock.reduce(
+      enrichedStock.reduce(
         (acc, item) => ({
           quantity: acc.quantity + (item.currentQuantity || 0),
           positions: acc.positions + (item.currentQuantity > 0 ? 1 : 0),
         }),
         { quantity: 0, positions: 0 },
       ),
-    [filteredStock],
+    [enrichedStock],
   );
 
   const clearFilters = () => {
     setProductFilter('all');
     setWarehouseFilter('all');
+    setQ('');
+    setSort('product_asc');
+    setOffset(0);
   };
 
-  const hasActiveFilters = productFilter !== 'all' || warehouseFilter !== 'all';
+  const hasActiveFilters =
+    productFilter !== 'all' || warehouseFilter !== 'all' || q || sort !== 'product_asc';
+
+  const canGoPrev = offset > 0;
+  const canGoNext = enrichedStock.length === limit;
 
   return (
     <div className="space-y-6">
@@ -218,7 +228,38 @@ function StockPageContainer() {
                   {t('stock.filters.title')}
                 </span>
               </div>
-              <Select value={productFilter} onValueChange={setProductFilter}>
+              <div className="relative w-72">
+                <Input
+                  value={q}
+                  onChange={(e) => {
+                    setQ(e.target.value);
+                    setOffset(0);
+                  }}
+                  placeholder={t('stock.searchPlaceholder')}
+                  className="pr-10"
+                />
+                {q && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
+                    onClick={() => {
+                      setQ('');
+                      setOffset(0);
+                    }}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+              <Select
+                value={productFilter}
+                onValueChange={(v) => {
+                  setProductFilter(v);
+                  setOffset(0);
+                }}
+              >
                 <SelectTrigger className="w-48">
                   <SelectValue>
                     {productFilter === 'all'
@@ -245,7 +286,13 @@ function StockPageContainer() {
                   ))}
                 </SelectContent>
               </Select>
-              <Select value={warehouseFilter} onValueChange={setWarehouseFilter}>
+              <Select
+                value={warehouseFilter}
+                onValueChange={(v) => {
+                  setWarehouseFilter(v);
+                  setOffset(0);
+                }}
+              >
                 <SelectTrigger className="w-48">
                   <SelectValue>
                     {warehouseFilter === 'all'
@@ -275,12 +322,65 @@ function StockPageContainer() {
                   ))}
                 </SelectContent>
               </Select>
+              <Select
+                value={sort}
+                onValueChange={(v) => {
+                  setSort(v);
+                  setOffset(0);
+                }}
+              >
+                <SelectTrigger className="w-48">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="product_asc">{t('stock.sort.productAsc')}</SelectItem>
+                  <SelectItem value="product_desc">{t('stock.sort.productDesc')}</SelectItem>
+                  <SelectItem value="quantity_desc">{t('stock.sort.quantityDesc')}</SelectItem>
+                  <SelectItem value="quantity_asc">{t('stock.sort.quantityAsc')}</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select
+                value={String(limit)}
+                onValueChange={(v) => {
+                  setLimit(Number(v));
+                  setOffset(0);
+                }}
+              >
+                <SelectTrigger className="w-32">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="25">25 / {t('common.page')}</SelectItem>
+                  <SelectItem value="50">50 / {t('common.page')}</SelectItem>
+                  <SelectItem value="100">100 / {t('common.page')}</SelectItem>
+                </SelectContent>
+              </Select>
               {hasActiveFilters && (
                 <Button variant="ghost" size="sm" onClick={clearFilters}>
                   <X className="w-4 h-4 mr-1" />
                   {t('stock.filters.clear')}
                 </Button>
               )}
+              <div className="ml-auto flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={!canGoPrev}
+                  onClick={() => setOffset((v) => Math.max(0, v - limit))}
+                >
+                  {t('common.previous')}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={!canGoNext}
+                  onClick={() => setOffset((v) => v + limit)}
+                >
+                  {t('common.next')}
+                </Button>
+              </div>
             </div>
           )}
         </CardContent>
@@ -292,7 +392,7 @@ function StockPageContainer() {
             <LoadingState />
           </CardContent>
         </Card>
-      ) : filteredStock.length === 0 ? (
+      ) : enrichedStock.length === 0 ? (
         <Card className="dark:bg-slate-900 dark:border-slate-800">
           <CardContent className="pt-6">
             <EmptyState message={t('stock.emptyMessage')} />
@@ -301,7 +401,7 @@ function StockPageContainer() {
       ) : (
         <StockTable
           t={t}
-          stock={filteredStock}
+          stock={enrichedStock}
           productsMap={productsMap}
           warehouseFilter={warehouseFilter}
           isLoading={loadingStock}

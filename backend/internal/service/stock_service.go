@@ -21,14 +21,20 @@ func NewStockService(repo *repository.StockRepository) *StockService {
 func (s *StockService) GetCurrentStock(
 	ctx context.Context,
 	warehouseID *uuid.UUID,
+	productID *uuid.UUID,
+	q *string,
+	sort repository.CurrentStockSort,
 	limit int,
 	offset int,
 ) ([]dto.StockItemResponse, error) {
 
-	items, err := s.repo.GetCurrentStock(ctx, warehouseID, limit, offset)
+	items, err := s.repo.GetCurrentStock(ctx, warehouseID, productID, q, sort, limit, offset)
 	if err != nil {
 		log.Error().Err(err).
 			Interface("warehouseId", warehouseID).
+			Interface("productId", productID).
+			Interface("q", q).
+			Str("sort", string(sort)).
 			Int("limit", limit).
 			Int("offset", offset).
 			Msg("Failed to get current stock")

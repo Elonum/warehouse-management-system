@@ -74,6 +74,7 @@ CREATE TABLE IF NOT EXISTS products (
     article VARCHAR(100) UNIQUE NOT NULL,
     barcode VARCHAR(50) UNIQUE NOT NULL,
     unit_weight INTEGER NOT NULL DEFAULT 0,
+    reorder_point INTEGER NOT NULL DEFAULT 0,
     unit_cost DECIMAL(10,2),
     purchase_price DECIMAL(10,2),
     processing_price DECIMAL(10,2)

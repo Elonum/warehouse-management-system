@@ -13,6 +13,7 @@ type StockItem struct {
 	ProductID       uuid.UUID
 	WarehouseID     uuid.UUID
 	CurrentQuantity int
+	ReorderPoint    int
 }
 
 type StockRepository struct {
@@ -20,12 +21,18 @@ type StockRepository struct {
 }
 
 type CurrentStockSort string
+type StockLevelFilter string
 
 const (
 	CurrentStockSortProductAsc   CurrentStockSort = "product_asc"
 	CurrentStockSortProductDesc  CurrentStockSort = "product_desc"
 	CurrentStockSortQuantityAsc  CurrentStockSort = "quantity_asc"
 	CurrentStockSortQuantityDesc CurrentStockSort = "quantity_desc"
+
+	StockLevelFilterAll          StockLevelFilter = "all"
+	StockLevelFilterPositive     StockLevelFilter = "positive"
+	StockLevelFilterZero         StockLevelFilter = "zero"
+	StockLevelFilterBelowReorder StockLevelFilter = "below_reorder"
 )
 
 func NewStockRepository(pool *pgxpool.Pool) *StockRepository {
@@ -38,12 +45,13 @@ func (r *StockRepository) GetCurrentStock(
 	productID *uuid.UUID,
 	q *string,
 	sort CurrentStockSort,
+	levelFilter StockLevelFilter,
 	limit int,
 	offset int,
 ) ([]StockItem, error) {
 
 	query := `
-		SELECT cs.product_id, cs.warehouse_id, cs.current_quantity
+		SELECT cs.product_id, cs.warehouse_id, cs.current_quantity, p.reorder_point
 		FROM vw_current_stock cs
 		JOIN products p ON p.product_id = cs.product_id
 	`
@@ -68,6 +76,14 @@ func (r *StockRepository) GetCurrentStock(
 		where += fmt.Sprintf(" AND (p.article ILIKE $%d OR p.barcode ILIKE $%d)", argPos, argPos)
 		args = append(args, "%"+*q+"%")
 		argPos++
+	}
+	switch levelFilter {
+	case StockLevelFilterPositive:
+		where += " AND cs.current_quantity > 0"
+	case StockLevelFilterZero:
+		where += " AND cs.current_quantity = 0"
+	case StockLevelFilterBelowReorder:
+		where += " AND cs.current_quantity <= p.reorder_point"
 	}
 
 	query += where
@@ -102,6 +118,7 @@ func (r *StockRepository) GetCurrentStock(
 			&item.ProductID,
 			&item.WarehouseID,
 			&item.CurrentQuantity,
+			&item.ReorderPoint,
 		); err != nil {
 			return nil, err
 		}

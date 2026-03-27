@@ -24,17 +24,19 @@ func (s *StockService) GetCurrentStock(
 	productID *uuid.UUID,
 	q *string,
 	sort repository.CurrentStockSort,
+	levelFilter repository.StockLevelFilter,
 	limit int,
 	offset int,
 ) ([]dto.StockItemResponse, error) {
 
-	items, err := s.repo.GetCurrentStock(ctx, warehouseID, productID, q, sort, limit, offset)
+	items, err := s.repo.GetCurrentStock(ctx, warehouseID, productID, q, sort, levelFilter, limit, offset)
 	if err != nil {
 		log.Error().Err(err).
 			Interface("warehouseId", warehouseID).
 			Interface("productId", productID).
 			Interface("q", q).
 			Str("sort", string(sort)).
+			Str("levelFilter", string(levelFilter)).
 			Int("limit", limit).
 			Int("offset", offset).
 			Msg("Failed to get current stock")
@@ -47,6 +49,7 @@ func (s *StockService) GetCurrentStock(
 			ProductID:       item.ProductID.String(),
 			WarehouseID:     item.WarehouseID.String(),
 			CurrentQuantity: item.CurrentQuantity,
+			ReorderPoint:    item.ReorderPoint,
 		})
 	}
 

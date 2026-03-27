@@ -93,6 +93,10 @@ func (h *ProductHandler) Create(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "article and barcode are required")
 		return
 	}
+	if req.ReorderPoint < 0 {
+		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "reorderPoint must be non-negative")
+		return
+	}
 
 	product, err := h.service.Create(r.Context(), req)
 	if err != nil {
@@ -131,6 +135,10 @@ func (h *ProductHandler) Update(w http.ResponseWriter, r *http.Request) {
 
 	if req.Article == "" || req.Barcode == "" {
 		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "article and barcode are required")
+		return
+	}
+	if req.ReorderPoint < 0 {
+		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "reorderPoint must be non-negative")
 		return
 	}
 

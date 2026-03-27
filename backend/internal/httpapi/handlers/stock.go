@@ -79,13 +79,28 @@ func (h *StockHandler) GetCurrentStock(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	items, err := h.service.GetCurrentStock(r.Context(), warehouseID, productID, q, sort, limit, offset)
+	levelFilter := repository.StockLevelFilterAll
+	if v := strings.TrimSpace(r.URL.Query().Get("levelFilter")); v != "" {
+		switch repository.StockLevelFilter(v) {
+		case repository.StockLevelFilterAll,
+			repository.StockLevelFilterPositive,
+			repository.StockLevelFilterZero,
+			repository.StockLevelFilterBelowReorder:
+			levelFilter = repository.StockLevelFilter(v)
+		default:
+			writeError(w, http.StatusBadRequest, "INVALID_LEVEL_FILTER", "invalid levelFilter")
+			return
+		}
+	}
+
+	items, err := h.service.GetCurrentStock(r.Context(), warehouseID, productID, q, sort, levelFilter, limit, offset)
 	if err != nil {
 		log.Error().Err(err).
 			Interface("warehouseId", warehouseID).
 			Interface("productId", productID).
 			Interface("q", q).
 			Str("sort", string(sort)).
+			Str("levelFilter", string(levelFilter)).
 			Int("limit", limit).
 			Int("offset", offset).
 			Msg("Failed to load stock")

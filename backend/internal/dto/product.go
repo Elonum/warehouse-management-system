@@ -5,6 +5,7 @@ type ProductResponse struct {
 	Article         string                `json:"article"`
 	Barcode         string                `json:"barcode"`
 	UnitWeight      int                   `json:"unitWeight"`
+	ReorderPoint    int                   `json:"reorderPoint"`
 	UnitCost        *float64              `json:"unitCost,omitempty"`
 	PurchasePrice   *float64              `json:"purchasePrice,omitempty"`
 	ProcessingPrice *float64              `json:"processingPrice,omitempty"`
@@ -22,6 +23,7 @@ type ProductCreateRequest struct {
 	Article         string    `json:"article"`
 	Barcode         string    `json:"barcode"`
 	UnitWeight      int       `json:"unitWeight"`
+	ReorderPoint    int       `json:"reorderPoint"`
 	UnitCost        *float64  `json:"unitCost,omitempty"`
 	PurchasePrice   *float64 `json:"purchasePrice,omitempty"`
 	ProcessingPrice *float64 `json:"processingPrice,omitempty"`
@@ -32,6 +34,7 @@ type ProductUpdateRequest struct {
 	Article         string    `json:"article"`
 	Barcode         string    `json:"barcode"`
 	UnitWeight      int       `json:"unitWeight"`
+	ReorderPoint    int       `json:"reorderPoint"`
 	UnitCost        *float64  `json:"unitCost,omitempty"`
 	PurchasePrice   *float64  `json:"purchasePrice,omitempty"`
 	ProcessingPrice *float64  `json:"processingPrice,omitempty"`

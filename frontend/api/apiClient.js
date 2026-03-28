@@ -761,7 +761,6 @@ const api = {
       if (params.warehouseId) queryParams.append('warehouseId', params.warehouseId);
       if (params.productId) queryParams.append('productId', params.productId);
       if (params.q) queryParams.append('q', params.q);
-      if (params.sort) queryParams.append('sort', params.sort);
       if (params.levelFilter) queryParams.append('levelFilter', params.levelFilter);
       if (params.limit != null) queryParams.append('limit', String(params.limit));
       if (params.offset != null) queryParams.append('offset', String(params.offset));

@@ -1,5 +1,6 @@
-import React, { useMemo, useState } from 'react';
+import React, { useLayoutEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useSearchParams } from 'react-router-dom';
 import { api } from '@/api';
 import { useI18n } from '@/lib/i18n';
 import { Filter, X } from 'lucide-react';
@@ -18,25 +19,59 @@ import { LoadingState } from '@/components/common/LoadingState';
 import { EmptyState } from '@/components/common/EmptyState';
 import { Input } from '@/components/ui/input';
 
+const LEVEL_FILTERS = new Set(['all', 'positive', 'zero', 'below_reorder']);
+
+function readFiltersFromSearchParams(searchParams) {
+  const levelRaw = searchParams.get('levelFilter') || 'all';
+  return {
+    product: searchParams.get('product') || 'all',
+    warehouse: searchParams.get('warehouse') || 'all',
+    q: (searchParams.get('q') || '').slice(0, 100),
+    levelFilter: LEVEL_FILTERS.has(levelRaw) ? levelRaw : 'all',
+  };
+}
+
 function StockPageContainer() {
   const { t } = useI18n();
+  const [searchParams] = useSearchParams();
 
-  const urlParams = new URLSearchParams(window.location.search);
-  const initialProduct = urlParams.get('product') || 'all';
-  const initialWarehouse = urlParams.get('warehouse') || 'all';
-  const initialQ = urlParams.get('q') || '';
-  const initialSort = urlParams.get('sort') || 'product_asc';
-  const initialLevelFilter = urlParams.get('levelFilter') || 'all';
+  const initial = useMemo(() => readFiltersFromSearchParams(searchParams), [searchParams]);
 
-  const [productFilter, setProductFilter] = useState(initialProduct);
-  const [warehouseFilter, setWarehouseFilter] = useState(initialWarehouse);
-  const [q, setQ] = useState(initialQ);
-  const [sort, setSort] = useState(initialSort);
-  const [levelFilter, setLevelFilter] = useState(initialLevelFilter);
+  const [productFilter, setProductFilter] = useState(initial.product);
+  const [warehouseFilter, setWarehouseFilter] = useState(initial.warehouse);
+  const [q, setQ] = useState(initial.q);
+  const [levelFilter, setLevelFilter] = useState(initial.levelFilter);
   const [limit, setLimit] = useState(50);
   const [offset, setOffset] = useState(0);
 
+  useLayoutEffect(() => {
+    const f = readFiltersFromSearchParams(searchParams);
+    setProductFilter(f.product);
+    setWarehouseFilter(f.warehouse);
+    setQ(f.q);
+    setLevelFilter(f.levelFilter);
+    setOffset(0);
+  }, [searchParams]);
+
   const qNormalized = useMemo(() => q.trim().slice(0, 100), [q]);
+
+  const selectedLevelLabel = useMemo(() => {
+    switch (levelFilter) {
+      case 'positive':
+        return t('stock.filters.levelPositive');
+      case 'zero':
+        return t('stock.filters.levelZero');
+      case 'below_reorder':
+        return t('stock.filters.levelBelowReorder');
+      default:
+        return t('stock.filters.allLevels');
+    }
+  }, [levelFilter, t]);
+
+  const pageSizeLabel = useMemo(
+    () => t('stock.filters.pageSizeOption', { count: limit }),
+    [limit, t],
+  );
 
   const { data: stockData, isLoading: loadingStock } = useQuery({
     queryKey: [
@@ -44,13 +79,12 @@ function StockPageContainer() {
       warehouseFilter !== 'all' ? warehouseFilter : null,
       productFilter !== 'all' ? productFilter : null,
       qNormalized || null,
-      sort,
       levelFilter,
       limit,
       offset,
     ],
     queryFn: async () => {
-      const params = { limit, offset, sort };
+      const params = { limit, offset };
       if (warehouseFilter !== 'all') {
         params.warehouseId = warehouseFilter;
       }
@@ -95,11 +129,10 @@ function StockPageContainer() {
     return product.article || t('stock.selectArticleFallback', { id: product.productId });
   }, [productFilter, products, t]);
 
-  const selectedWarehouseLabel = useMemo(() => {
+  const warehouseTriggerLabel = useMemo(() => {
     if (warehouseFilter === 'all') return t('stock.filters.allWarehouses');
     const warehouse = warehouses.find((w) => String(w.warehouseId) === String(warehouseFilter));
-    if (!warehouse) return t('stock.filters.warehouse');
-    return warehouse.name;
+    return warehouse?.name || t('stock.filters.warehouse');
   }, [warehouseFilter, warehouses, t]);
 
   const isLoadingAny = loadingStock || loadingProducts || loadingWarehouses;
@@ -156,7 +189,6 @@ function StockPageContainer() {
     setProductFilter('all');
     setWarehouseFilter('all');
     setQ('');
-    setSort('product_asc');
     setLevelFilter('all');
     setOffset(0);
   };
@@ -165,8 +197,7 @@ function StockPageContainer() {
     productFilter !== 'all' ||
     warehouseFilter !== 'all' ||
     levelFilter !== 'all' ||
-    !!qNormalized ||
-    sort !== 'product_asc';
+    !!qNormalized;
 
   const canGoPrev = offset > 0;
   const canGoNext = enrichedStock.length === limit;
@@ -296,13 +327,11 @@ function StockPageContainer() {
                   <SelectValue>{selectedProductLabel}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">
-                    {t('stock.filters.allProducts')}
-                  </SelectItem>
+                  <SelectItem value="all">{t('stock.filters.allProducts')}</SelectItem>
                   {products.map((product) => (
                     <SelectItem
                       key={product.productId}
-                      value={product.productId.toString()}
+                      value={String(product.productId)}
                     >
                       {product.article ||
                         t('stock.selectArticleFallback', { id: product.productId })}
@@ -318,7 +347,7 @@ function StockPageContainer() {
                 }}
               >
                 <SelectTrigger className="w-48">
-                  <SelectValue>{selectedWarehouseLabel}</SelectValue>
+                  <SelectValue>{warehouseTriggerLabel}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">
@@ -341,31 +370,16 @@ function StockPageContainer() {
                   setOffset(0);
                 }}
               >
-                <SelectTrigger className="w-48">
-                  <SelectValue />
+                <SelectTrigger className="w-56 min-w-[12rem]">
+                  <SelectValue>{selectedLevelLabel}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">{t('stock.filters.allLevels')}</SelectItem>
                   <SelectItem value="positive">{t('stock.filters.levelPositive')}</SelectItem>
                   <SelectItem value="zero">{t('stock.filters.levelZero')}</SelectItem>
-                  <SelectItem value="below_reorder">{t('stock.filters.levelBelowReorder')}</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select
-                value={sort}
-                onValueChange={(v) => {
-                  setSort(v);
-                  setOffset(0);
-                }}
-              >
-                <SelectTrigger className="w-48">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="product_asc">{t('stock.sort.productAsc')}</SelectItem>
-                  <SelectItem value="product_desc">{t('stock.sort.productDesc')}</SelectItem>
-                  <SelectItem value="quantity_desc">{t('stock.sort.quantityDesc')}</SelectItem>
-                  <SelectItem value="quantity_asc">{t('stock.sort.quantityAsc')}</SelectItem>
+                  <SelectItem value="below_reorder">
+                    {t('stock.filters.levelBelowReorder')}
+                  </SelectItem>
                 </SelectContent>
               </Select>
               <Select
@@ -375,13 +389,13 @@ function StockPageContainer() {
                   setOffset(0);
                 }}
               >
-                <SelectTrigger className="w-32">
-                  <SelectValue />
+                <SelectTrigger className="w-40 min-w-[9rem]">
+                  <SelectValue>{pageSizeLabel}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="25">25 / {t('common.page')}</SelectItem>
-                  <SelectItem value="50">50 / {t('common.page')}</SelectItem>
-                  <SelectItem value="100">100 / {t('common.page')}</SelectItem>
+                  <SelectItem value="25">{t('stock.filters.pageSizeOption', { count: 25 })}</SelectItem>
+                  <SelectItem value="50">{t('stock.filters.pageSizeOption', { count: 50 })}</SelectItem>
+                  <SelectItem value="100">{t('stock.filters.pageSizeOption', { count: 100 })}</SelectItem>
                 </SelectContent>
               </Select>
               {hasActiveFilters && (
@@ -440,4 +454,3 @@ function StockPageContainer() {
 }
 
 export default StockPageContainer;
-

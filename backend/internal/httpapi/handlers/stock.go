@@ -65,20 +65,6 @@ func (h *StockHandler) GetCurrentStock(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sort := repository.CurrentStockSortProductAsc
-	if v := strings.TrimSpace(r.URL.Query().Get("sort")); v != "" {
-		switch repository.CurrentStockSort(v) {
-		case repository.CurrentStockSortProductAsc,
-			repository.CurrentStockSortProductDesc,
-			repository.CurrentStockSortQuantityAsc,
-			repository.CurrentStockSortQuantityDesc:
-			sort = repository.CurrentStockSort(v)
-		default:
-			writeError(w, http.StatusBadRequest, "INVALID_SORT", "invalid sort")
-			return
-		}
-	}
-
 	levelFilter := repository.StockLevelFilterAll
 	if v := strings.TrimSpace(r.URL.Query().Get("levelFilter")); v != "" {
 		switch repository.StockLevelFilter(v) {
@@ -93,13 +79,12 @@ func (h *StockHandler) GetCurrentStock(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	items, err := h.service.GetCurrentStock(r.Context(), warehouseID, productID, q, sort, levelFilter, limit, offset)
+	items, err := h.service.GetCurrentStock(r.Context(), warehouseID, productID, q, levelFilter, limit, offset)
 	if err != nil {
 		log.Error().Err(err).
 			Interface("warehouseId", warehouseID).
 			Interface("productId", productID).
 			Interface("q", q).
-			Str("sort", string(sort)).
 			Str("levelFilter", string(levelFilter)).
 			Int("limit", limit).
 			Int("offset", offset).

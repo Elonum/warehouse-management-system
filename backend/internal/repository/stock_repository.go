@@ -20,15 +20,9 @@ type StockRepository struct {
 	pool *pgxpool.Pool
 }
 
-type CurrentStockSort string
 type StockLevelFilter string
 
 const (
-	CurrentStockSortProductAsc   CurrentStockSort = "product_asc"
-	CurrentStockSortProductDesc  CurrentStockSort = "product_desc"
-	CurrentStockSortQuantityAsc  CurrentStockSort = "quantity_asc"
-	CurrentStockSortQuantityDesc CurrentStockSort = "quantity_desc"
-
 	StockLevelFilterAll          StockLevelFilter = "all"
 	StockLevelFilterPositive     StockLevelFilter = "positive"
 	StockLevelFilterZero         StockLevelFilter = "zero"
@@ -44,7 +38,6 @@ func (r *StockRepository) GetCurrentStock(
 	warehouseID *uuid.UUID,
 	productID *uuid.UUID,
 	q *string,
-	sort CurrentStockSort,
 	levelFilter StockLevelFilter,
 	limit int,
 	offset int,
@@ -88,13 +81,10 @@ func (r *StockRepository) GetCurrentStock(
 
 	query += where
 
-	switch sort {
-	case CurrentStockSortProductDesc:
-		query += " ORDER BY p.article DESC, cs.product_id DESC"
-	case CurrentStockSortQuantityAsc:
-		query += " ORDER BY cs.current_quantity ASC, p.article ASC"
-	case CurrentStockSortQuantityDesc:
-		query += " ORDER BY cs.current_quantity DESC, p.article ASC"
+	// No client-controlled sort: stable product order; lowest quantity first when filtered "below reorder".
+	switch levelFilter {
+	case StockLevelFilterBelowReorder:
+		query += " ORDER BY cs.current_quantity ASC, p.article ASC, cs.product_id ASC"
 	default:
 		query += " ORDER BY p.article ASC, cs.product_id ASC"
 	}

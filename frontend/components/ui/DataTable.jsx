@@ -36,6 +36,8 @@ export default function DataTable({
   searchable = true,
   searchPlaceholder = "Поиск...",
   pageSize = 10,
+  /** No outer border/radius — for embedding inside Card */
+  embedded = false,
   onRowClick,
   onRowDoubleClick,
   emptyMessage,
@@ -152,7 +154,12 @@ export default function DataTable({
       )}
 
       {/* Table */}
-      <div className="rounded-lg border bg-white dark:bg-slate-900 dark:border-slate-800 overflow-hidden">
+      <div
+        className={cn(
+          'overflow-hidden bg-white dark:bg-slate-900',
+          !embedded && 'rounded-lg border dark:border-slate-800',
+        )}
+      >
         <Table>
           <TableHeader>
             <TableRow className="bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-50 dark:hover:bg-slate-800/50">

@@ -61,20 +61,20 @@ export default function Dashboard() {
   const { data: stock = [], isLoading: loadingStock } = useQuery({
     queryKey: ['stock-current'],
     queryFn: async () => {
-      const response = await api.stock.getCurrent({});
-      return Array.isArray(response) ? response : [];
+      const { items } = await api.stock.getCurrent({});
+      return items;
     },
   });
 
   const { data: lowStockRows = [], isLoading: loadingLowStock } = useQuery({
     queryKey: ['stock-current-low', LOW_STOCK_DASHBOARD_LIMIT],
     queryFn: async () => {
-      const response = await api.stock.getCurrent({
+      const { items } = await api.stock.getCurrent({
         levelFilter: 'below_reorder',
         limit: LOW_STOCK_DASHBOARD_LIMIT,
         offset: 0,
       });
-      return Array.isArray(response) ? response : [];
+      return items;
     },
   });
 

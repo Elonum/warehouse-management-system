@@ -13,6 +13,7 @@ class ApiError extends Error {
 }
 
 async function request(endpoint, options = {}) {
+  const { envelope, ...fetchOptions } = options;
   const url = `${API_BASE_URL}${endpoint}`;
   const token = localStorage.getItem('auth_token');
 
@@ -20,9 +21,9 @@ async function request(endpoint, options = {}) {
     headers: {
       'Content-Type': 'application/json',
       ...(token && { Authorization: `Bearer ${token}` }),
-      ...options.headers,
+      ...fetchOptions.headers,
     },
-    ...options,
+    ...fetchOptions,
   };
 
   if (config.body && typeof config.body === 'object') {
@@ -74,6 +75,12 @@ async function request(endpoint, options = {}) {
     const contentType = response.headers.get('content-type');
     if (contentType && contentType.includes('application/json')) {
       const data = await response.json();
+      if (envelope) {
+        return {
+          data: data.data,
+          meta: data.meta ?? null,
+        };
+      }
       return data.data !== undefined ? data.data : data;
     }
     return null;
@@ -756,6 +763,7 @@ const api = {
   },
 
   stock: {
+    /** @returns {{ items: any[], meta: { limit?: number, offset?: number, total?: number } }} */
     getCurrent: async (params = {}) => {
       const queryParams = new URLSearchParams();
       if (params.warehouseId) queryParams.append('warehouseId', params.warehouseId);
@@ -765,7 +773,19 @@ const api = {
       if (params.limit != null) queryParams.append('limit', String(params.limit));
       if (params.offset != null) queryParams.append('offset', String(params.offset));
       const query = queryParams.toString();
-      return await request(`/stock/current${query ? `?${query}` : ''}`);
+      const raw = await request(`/stock/current${query ? `?${query}` : ''}`, {
+        envelope: true,
+      });
+      const items = Array.isArray(raw.data) ? raw.data : [];
+      const m = raw.meta || {};
+      return {
+        items,
+        meta: {
+          limit: Number(m.limit) || 50,
+          offset: Number(m.offset) || 0,
+          total: Number(m.total) || 0,
+        },
+      };
     },
   },
 

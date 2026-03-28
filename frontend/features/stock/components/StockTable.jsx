@@ -87,6 +87,8 @@ function StockTable({ t, stock, warehouseFilter, isLoading }) {
       columns={columns}
       data={stock}
       searchable={false}
+      embedded
+      pageSize={Math.max(stock.length, 1)}
       emptyMessage={t('stock.emptyMessage')}
       isLoading={isLoading}
     />

@@ -1,4 +1,4 @@
-import React, { useLayoutEffect, useMemo, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
 import { api } from '@/api';
@@ -15,6 +15,7 @@ import {
 import { Card, CardContent } from '@/components/ui/card';
 import PageHeader from '@/components/ui/PageHeader';
 import StockTable from '@/features/stock/components/StockTable';
+import StockPaginationBar from '@/features/stock/components/StockPaginationBar';
 import { LoadingState } from '@/components/common/LoadingState';
 import { EmptyState } from '@/components/common/EmptyState';
 import { Input } from '@/components/ui/input';
@@ -73,7 +74,7 @@ function StockPageContainer() {
     [limit, t],
   );
 
-  const { data: stockData, isLoading: loadingStock } = useQuery({
+  const { data: stockPayload, isLoading: loadingStock } = useQuery({
     queryKey: [
       'stock',
       warehouseFilter !== 'all' ? warehouseFilter : null,
@@ -97,10 +98,32 @@ function StockPageContainer() {
       if (levelFilter && levelFilter !== 'all') {
         params.levelFilter = levelFilter;
       }
-      const response = await api.stock.getCurrent(params);
-      return Array.isArray(response) ? response : [];
+      const { items, meta } = await api.stock.getCurrent(params);
+      return { items, total: meta.total };
     },
   });
+
+  const stock = stockPayload?.items ?? [];
+  const totalRows = stockPayload?.total ?? 0;
+
+  const totalPages = useMemo(
+    () => Math.max(1, Math.ceil(totalRows / limit)),
+    [totalRows, limit],
+  );
+
+  const page = useMemo(() => Math.floor(offset / limit) + 1, [offset, limit]);
+
+  const pageRange = useMemo(() => {
+    const n = stock.length;
+    if (n === 0) return { from: 0, to: 0 };
+    return { from: offset + 1, to: offset + n };
+  }, [offset, stock.length]);
+
+  useEffect(() => {
+    if (totalRows === 0) return;
+    const lastOffset = (totalPages - 1) * limit;
+    if (offset > lastOffset) setOffset(lastOffset);
+  }, [totalRows, totalPages, limit, offset]);
 
   const { data: productsData, isLoading: loadingProducts } = useQuery({
     queryKey: ['products'],
@@ -118,7 +141,6 @@ function StockPageContainer() {
     },
   });
 
-  const stock = Array.isArray(stockData) ? stockData : [];
   const products = Array.isArray(productsData) ? productsData : [];
   const warehouses = Array.isArray(warehousesData) ? warehousesData : [];
 
@@ -198,9 +220,6 @@ function StockPageContainer() {
     warehouseFilter !== 'all' ||
     levelFilter !== 'all' ||
     !!qNormalized;
-
-  const canGoPrev = offset > 0;
-  const canGoNext = enrichedStock.length === limit;
 
   return (
     <div className="space-y-6">
@@ -404,26 +423,6 @@ function StockPageContainer() {
                   {t('stock.filters.clear')}
                 </Button>
               )}
-              <div className="ml-auto flex items-center gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  disabled={!canGoPrev}
-                  onClick={() => setOffset((v) => Math.max(0, v - limit))}
-                >
-                  {t('common.previous')}
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  disabled={!canGoNext}
-                  onClick={() => setOffset((v) => v + limit)}
-                >
-                  {t('common.next')}
-                </Button>
-              </div>
             </div>
           )}
         </CardContent>
@@ -442,12 +441,30 @@ function StockPageContainer() {
           </CardContent>
         </Card>
       ) : (
-        <StockTable
-          t={t}
-          stock={enrichedStock}
-          warehouseFilter={warehouseFilter}
-          isLoading={loadingStock}
-        />
+        <Card className="overflow-hidden p-0 dark:border-slate-800 dark:bg-slate-900">
+          <StockTable
+            t={t}
+            stock={enrichedStock}
+            warehouseFilter={warehouseFilter}
+            isLoading={loadingStock}
+          />
+          <StockPaginationBar
+            t={t}
+            page={page}
+            totalPages={totalPages}
+            totalRows={totalRows}
+            limit={limit}
+            pageRowCount={enrichedStock.length}
+            from={pageRange.from}
+            to={pageRange.to}
+            isLoading={loadingStock}
+            onPrev={() => setOffset((v) => Math.max(0, v - limit))}
+            onNext={() =>
+              setOffset((v) => Math.min(v + limit, Math.max(0, totalPages - 1) * limit))
+            }
+            onPageSelect={(p) => setOffset((p - 1) * limit)}
+          />
+        </Card>
       )}
     </div>
   );

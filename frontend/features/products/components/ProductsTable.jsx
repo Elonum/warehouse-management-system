@@ -155,6 +155,18 @@ function ProductsTable({
         ),
       },
       {
+        accessorKey: 'reorderPoint',
+        header: t('products.table.reorderPoint'),
+        headerClassName: 'text-center',
+        cell: ({ row }) => (
+          <div className="flex items-center justify-center h-full">
+            <span className="text-slate-600 dark:text-slate-400">
+              {row.original.reorderPoint ?? 0}
+            </span>
+          </div>
+        ),
+      },
+      {
         accessorKey: 'unitCost',
         header: t('products.table.price'),
         headerClassName: 'text-center',

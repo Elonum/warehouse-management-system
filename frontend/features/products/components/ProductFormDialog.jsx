@@ -77,6 +77,18 @@ function ProductFormDialog({
               />
             </div>
             <div className="space-y-2">
+              <Label htmlFor="reorderPoint">{t('products.form.reorderPoint')}</Label>
+              <Input
+                id="reorderPoint"
+                type="number"
+                min="0"
+                value={formData.reorderPoint ?? 0}
+                onChange={(e) => onChangeField('reorderPoint', e.target.value)}
+              />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
               <Label htmlFor="unitCost">{t('products.form.price')}</Label>
               <Input
                 id="unitCost"

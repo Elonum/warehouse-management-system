@@ -5,32 +5,28 @@ import DataTable from '@/components/ui/DataTable';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 
-function StockTable({ t, stock, productsMap, warehouseFilter, isLoading }) {
+function StockTable({ t, stock, warehouseFilter, isLoading }) {
   const columns = useMemo(() => {
     const cols = [
       {
         accessorKey: 'productName',
         header: t('stock.table.product'),
-        cell: ({ row }) => {
-          const product = productsMap.get(row.original.productId);
-          return (
-            <div className="flex items-center gap-3">
-              <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-slate-100 dark:bg-slate-800">
-                <Package className="w-5 h-5 text-slate-500" />
-              </div>
-              <div>
-                <p className="font-medium text-slate-900 dark:text-slate-100">
-                  {row.original.productName}
-                </p>
-                {product && (
-                  <p className="text-sm text-slate-500 dark:text-slate-400">
-                    {product.barcode || `ID: ${row.original.productId}`}
-                  </p>
-                )}
-              </div>
+        cell: ({ row }) => (
+          <div className="flex items-center gap-3">
+            <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-slate-100 dark:bg-slate-800">
+              <Package className="w-5 h-5 text-slate-500" />
             </div>
-          );
-        },
+            <div>
+              <p className="font-medium text-slate-900 dark:text-slate-100">
+                {row.original.productName}
+              </p>
+              <p className="text-sm text-slate-500 dark:text-slate-400">
+                {row.original.productBarcode ||
+                  t('stock.table.productIdLine', { id: row.original.productId })}
+              </p>
+            </div>
+          </div>
+        ),
       },
     ];
 
@@ -60,6 +56,15 @@ function StockTable({ t, stock, productsMap, warehouseFilter, isLoading }) {
         ),
       },
       {
+        accessorKey: 'reorderPoint',
+        header: t('products.table.reorderPoint'),
+        cell: ({ row }) => (
+          <span className="text-slate-600 dark:text-slate-400">
+            {row.original.reorderPoint ?? 0}
+          </span>
+        ),
+      },
+      {
         id: 'actions',
         header: '',
         sortable: false,
@@ -75,7 +80,7 @@ function StockTable({ t, stock, productsMap, warehouseFilter, isLoading }) {
     );
 
     return cols;
-  }, [warehouseFilter, productsMap, t]);
+  }, [warehouseFilter, t]);
 
   return (
     <DataTable

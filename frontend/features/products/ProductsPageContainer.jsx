@@ -24,6 +24,7 @@ const emptyProduct = {
   article: '',
   barcode: '',
   unitWeight: 0,
+  reorderPoint: 0,
   unitCost: null,
   purchasePrice: null,
   processingPrice: null,
@@ -179,6 +180,7 @@ function ProductsPageContainer() {
       article: product.article || '',
       barcode: product.barcode || '',
       unitWeight: product.unitWeight || 0,
+      reorderPoint: product.reorderPoint || 0,
       unitCost: product.unitCost || null,
       purchasePrice: product.purchasePrice || null,
       processingPrice: product.processingPrice || null,
@@ -197,6 +199,7 @@ function ProductsPageContainer() {
     const article = formData.article.trim();
     const barcode = formData.barcode.trim();
     const unitWeight = parseInt(formData.unitWeight, 10) || 0;
+    const reorderPoint = parseInt(formData.reorderPoint, 10) || 0;
 
     if (!article) {
       setError(t('products.form.articleRequired'));
@@ -220,6 +223,10 @@ function ProductsPageContainer() {
 
     if (unitWeight < 0) {
       setError(t('products.form.weightInvalid'));
+      return null;
+    }
+    if (reorderPoint < 0) {
+      setError(t('products.form.reorderPointInvalid'));
       return null;
     }
 
@@ -253,6 +260,7 @@ function ProductsPageContainer() {
       article,
       barcode,
       unitWeight,
+      reorderPoint,
       unitCost,
       purchasePrice,
       processingPrice,

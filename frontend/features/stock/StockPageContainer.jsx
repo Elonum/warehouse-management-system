@@ -26,21 +26,26 @@ function StockPageContainer() {
   const initialWarehouse = urlParams.get('warehouse') || 'all';
   const initialQ = urlParams.get('q') || '';
   const initialSort = urlParams.get('sort') || 'product_asc';
+  const initialLevelFilter = urlParams.get('levelFilter') || 'all';
 
   const [productFilter, setProductFilter] = useState(initialProduct);
   const [warehouseFilter, setWarehouseFilter] = useState(initialWarehouse);
   const [q, setQ] = useState(initialQ);
   const [sort, setSort] = useState(initialSort);
+  const [levelFilter, setLevelFilter] = useState(initialLevelFilter);
   const [limit, setLimit] = useState(50);
   const [offset, setOffset] = useState(0);
+
+  const qNormalized = useMemo(() => q.trim().slice(0, 100), [q]);
 
   const { data: stockData, isLoading: loadingStock } = useQuery({
     queryKey: [
       'stock',
       warehouseFilter !== 'all' ? warehouseFilter : null,
       productFilter !== 'all' ? productFilter : null,
-      q || null,
+      qNormalized || null,
       sort,
+      levelFilter,
       limit,
       offset,
     ],
@@ -52,8 +57,11 @@ function StockPageContainer() {
       if (productFilter !== 'all') {
         params.productId = productFilter;
       }
-      if (q) {
-        params.q = q;
+      if (qNormalized) {
+        params.q = qNormalized;
+      }
+      if (levelFilter && levelFilter !== 'all') {
+        params.levelFilter = levelFilter;
       }
       const response = await api.stock.getCurrent(params);
       return Array.isArray(response) ? response : [];
@@ -80,6 +88,20 @@ function StockPageContainer() {
   const products = Array.isArray(productsData) ? productsData : [];
   const warehouses = Array.isArray(warehousesData) ? warehousesData : [];
 
+  const selectedProductLabel = useMemo(() => {
+    if (productFilter === 'all') return t('stock.filters.allProducts');
+    const product = products.find((p) => String(p.productId) === String(productFilter));
+    if (!product) return t('stock.filters.product');
+    return product.article || t('stock.selectArticleFallback', { id: product.productId });
+  }, [productFilter, products, t]);
+
+  const selectedWarehouseLabel = useMemo(() => {
+    if (warehouseFilter === 'all') return t('stock.filters.allWarehouses');
+    const warehouse = warehouses.find((w) => String(w.warehouseId) === String(warehouseFilter));
+    if (!warehouse) return t('stock.filters.warehouse');
+    return warehouse.name;
+  }, [warehouseFilter, warehouses, t]);
+
   const isLoadingAny = loadingStock || loadingProducts || loadingWarehouses;
 
   const productsMap = useMemo(() => {
@@ -96,8 +118,10 @@ function StockPageContainer() {
 
   const selectedWarehouse = useMemo(() => {
     if (warehouseFilter === 'all') return null;
-    return warehousesMap.get(warehouseFilter) || null;
-  }, [warehouseFilter, warehousesMap]);
+    return (
+      warehouses.find((w) => String(w.warehouseId) === String(warehouseFilter)) || null
+    );
+  }, [warehouseFilter, warehouses]);
 
   const enrichedStock = useMemo(
     () =>
@@ -106,11 +130,14 @@ function StockPageContainer() {
         const warehouse = warehousesMap.get(item.warehouseId);
         return {
           ...item,
-          productName: product?.article || `Товар #${item.productId}`,
-          warehouseName: warehouse?.name || `Склад #${item.warehouseId}`,
+          productName:
+            product?.article || t('stock.unknownProduct', { id: item.productId }),
+          productBarcode: product?.barcode ?? null,
+          warehouseName:
+            warehouse?.name || t('stock.unknownWarehouse', { id: item.warehouseId }),
         };
       }),
-    [stock, productsMap, warehousesMap],
+    [stock, productsMap, warehousesMap, t],
   );
 
   const totals = useMemo(
@@ -130,11 +157,16 @@ function StockPageContainer() {
     setWarehouseFilter('all');
     setQ('');
     setSort('product_asc');
+    setLevelFilter('all');
     setOffset(0);
   };
 
   const hasActiveFilters =
-    productFilter !== 'all' || warehouseFilter !== 'all' || q || sort !== 'product_asc';
+    productFilter !== 'all' ||
+    warehouseFilter !== 'all' ||
+    levelFilter !== 'all' ||
+    !!qNormalized ||
+    sort !== 'product_asc';
 
   const canGoPrev = offset > 0;
   const canGoNext = enrichedStock.length === limit;
@@ -261,16 +293,7 @@ function StockPageContainer() {
                 }}
               >
                 <SelectTrigger className="w-48">
-                  <SelectValue>
-                    {productFilter === 'all'
-                      ? t('stock.filters.allProducts')
-                      : (() => {
-                          const product = products.find(
-                            (p) => p.productId.toString() === productFilter.toString(),
-                          );
-                          return product ? product.article : t('stock.filters.product');
-                        })()}
-                  </SelectValue>
+                  <SelectValue>{selectedProductLabel}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">
@@ -281,7 +304,8 @@ function StockPageContainer() {
                       key={product.productId}
                       value={product.productId.toString()}
                     >
-                      {product.article || `ID: ${product.productId}`}
+                      {product.article ||
+                        t('stock.selectArticleFallback', { id: product.productId })}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -294,19 +318,7 @@ function StockPageContainer() {
                 }}
               >
                 <SelectTrigger className="w-48">
-                  <SelectValue>
-                    {warehouseFilter === 'all'
-                      ? t('stock.filters.allWarehouses')
-                      : (() => {
-                          const warehouse = warehouses.find(
-                            (w) =>
-                              w.warehouseId.toString() === warehouseFilter.toString(),
-                          );
-                          return warehouse
-                            ? warehouse.name
-                            : t('stock.filters.warehouse');
-                        })()}
-                  </SelectValue>
+                  <SelectValue>{selectedWarehouseLabel}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">
@@ -320,6 +332,23 @@ function StockPageContainer() {
                       {warehouse.name}
                     </SelectItem>
                   ))}
+                </SelectContent>
+              </Select>
+              <Select
+                value={levelFilter}
+                onValueChange={(v) => {
+                  setLevelFilter(v);
+                  setOffset(0);
+                }}
+              >
+                <SelectTrigger className="w-48">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">{t('stock.filters.allLevels')}</SelectItem>
+                  <SelectItem value="positive">{t('stock.filters.levelPositive')}</SelectItem>
+                  <SelectItem value="zero">{t('stock.filters.levelZero')}</SelectItem>
+                  <SelectItem value="below_reorder">{t('stock.filters.levelBelowReorder')}</SelectItem>
                 </SelectContent>
               </Select>
               <Select
@@ -402,7 +431,6 @@ function StockPageContainer() {
         <StockTable
           t={t}
           stock={enrichedStock}
-          productsMap={productsMap}
           warehouseFilter={warehouseFilter}
           isLoading={loadingStock}
         />

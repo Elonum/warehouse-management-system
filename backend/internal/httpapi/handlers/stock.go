@@ -79,7 +79,7 @@ func (h *StockHandler) GetCurrentStock(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	items, err := h.service.GetCurrentStock(r.Context(), warehouseID, productID, q, levelFilter, limit, offset)
+	items, total, err := h.service.GetCurrentStock(r.Context(), warehouseID, productID, q, levelFilter, limit, offset)
 	if err != nil {
 		log.Error().Err(err).
 			Interface("warehouseId", warehouseID).
@@ -98,6 +98,7 @@ func (h *StockHandler) GetCurrentStock(w http.ResponseWriter, r *http.Request) {
 		Meta: &dto.Meta{
 			Limit:  limit,
 			Offset: offset,
+			Total:  total,
 		},
 	}
 

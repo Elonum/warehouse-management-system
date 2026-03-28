@@ -33,6 +33,76 @@ func NewStockRepository(pool *pgxpool.Pool) *StockRepository {
 	return &StockRepository{pool: pool}
 }
 
+func stockCurrentWhereAndArgs(
+	warehouseID *uuid.UUID,
+	productID *uuid.UUID,
+	q *string,
+	levelFilter StockLevelFilter,
+) (where string, args []any, nextArg int) {
+	args = []any{}
+	n := 1
+	where = " WHERE 1=1"
+	if warehouseID != nil {
+		where += fmt.Sprintf(" AND cs.warehouse_id = $%d", n)
+		args = append(args, *warehouseID)
+		n++
+	}
+	if productID != nil {
+		where += fmt.Sprintf(" AND cs.product_id = $%d", n)
+		args = append(args, *productID)
+		n++
+	}
+	if q != nil && *q != "" {
+		where += fmt.Sprintf(" AND (p.article ILIKE $%d OR p.barcode ILIKE $%d)", n, n)
+		args = append(args, "%"+*q+"%")
+		n++
+	}
+	switch levelFilter {
+	case StockLevelFilterPositive:
+		where += " AND cs.current_quantity > 0"
+	case StockLevelFilterZero:
+		where += " AND cs.current_quantity = 0"
+	case StockLevelFilterBelowReorder:
+		where += " AND cs.current_quantity <= p.reorder_point"
+	}
+	return where, args, n
+}
+
+func stockCurrentOrderBy(levelFilter StockLevelFilter) string {
+	switch levelFilter {
+	case StockLevelFilterBelowReorder:
+		return " ORDER BY cs.current_quantity ASC, p.article ASC, cs.product_id ASC"
+	default:
+		return " ORDER BY p.article ASC, cs.product_id ASC"
+	}
+}
+
+const stockCurrentFrom = `
+		SELECT cs.product_id, cs.warehouse_id, cs.current_quantity, p.reorder_point
+		FROM vw_current_stock cs
+		JOIN products p ON p.product_id = cs.product_id`
+
+func (r *StockRepository) CountCurrentStock(
+	ctx context.Context,
+	warehouseID *uuid.UUID,
+	productID *uuid.UUID,
+	q *string,
+	levelFilter StockLevelFilter,
+) (int64, error) {
+	where, args, _ := stockCurrentWhereAndArgs(warehouseID, productID, q, levelFilter)
+	query := `SELECT COUNT(*)::bigint FROM vw_current_stock cs JOIN products p ON p.product_id = cs.product_id` + where
+
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	var n int64
+	err := r.pool.QueryRow(ctx, query, args...).Scan(&n)
+	if err != nil {
+		return 0, err
+	}
+	return n, nil
+}
+
 func (r *StockRepository) GetCurrentStock(
 	ctx context.Context,
 	warehouseID *uuid.UUID,
@@ -43,52 +113,8 @@ func (r *StockRepository) GetCurrentStock(
 	offset int,
 ) ([]StockItem, error) {
 
-	query := `
-		SELECT cs.product_id, cs.warehouse_id, cs.current_quantity, p.reorder_point
-		FROM vw_current_stock cs
-		JOIN products p ON p.product_id = cs.product_id
-	`
-
-	args := []any{}
-	argPos := 1
-	where := " WHERE 1=1"
-
-	if warehouseID != nil {
-		where += fmt.Sprintf(" AND cs.warehouse_id = $%d", argPos)
-		args = append(args, *warehouseID)
-		argPos++
-	}
-
-	if productID != nil {
-		where += fmt.Sprintf(" AND cs.product_id = $%d", argPos)
-		args = append(args, *productID)
-		argPos++
-	}
-
-	if q != nil && *q != "" {
-		where += fmt.Sprintf(" AND (p.article ILIKE $%d OR p.barcode ILIKE $%d)", argPos, argPos)
-		args = append(args, "%"+*q+"%")
-		argPos++
-	}
-	switch levelFilter {
-	case StockLevelFilterPositive:
-		where += " AND cs.current_quantity > 0"
-	case StockLevelFilterZero:
-		where += " AND cs.current_quantity = 0"
-	case StockLevelFilterBelowReorder:
-		where += " AND cs.current_quantity <= p.reorder_point"
-	}
-
-	query += where
-
-	// No client-controlled sort: stable product order; lowest quantity first when filtered "below reorder".
-	switch levelFilter {
-	case StockLevelFilterBelowReorder:
-		query += " ORDER BY cs.current_quantity ASC, p.article ASC, cs.product_id ASC"
-	default:
-		query += " ORDER BY p.article ASC, cs.product_id ASC"
-	}
-
+	where, args, argPos := stockCurrentWhereAndArgs(warehouseID, productID, q, levelFilter)
+	query := stockCurrentFrom + where + stockCurrentOrderBy(levelFilter)
 	query += fmt.Sprintf(" LIMIT $%d OFFSET $%d", argPos, argPos+1)
 	args = append(args, limit, offset)
 

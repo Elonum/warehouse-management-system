@@ -31,7 +31,6 @@ const translations = {
       noData: 'Нет данных',
       calculated: 'Расчётные значения',
       pagination: {
-        range: 'Показано {from}–{to} из {total}',
         navLabel: 'Постраничная навигация',
         firstPage: 'Первая страница',
         prevPage: 'Предыдущая страница',
@@ -921,7 +920,6 @@ const translations = {
       noData: 'No data',
       calculated: 'Calculated values',
       pagination: {
-        range: 'Showing {from}–{to} of {total}',
         navLabel: 'Table pagination',
         firstPage: 'First page',
         prevPage: 'Previous page',

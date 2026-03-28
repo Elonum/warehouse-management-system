@@ -10,17 +10,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { 
-  ChevronLeft, 
-  ChevronRight, 
-  ChevronsLeft, 
-  ChevronsRight,
   Search,
   X
 } from 'lucide-react';
@@ -30,6 +19,7 @@ import { usePagination } from '@/hooks/usePagination';
 import { LoadingState } from '@/components/common/LoadingState';
 import { EmptyState } from '@/components/common/EmptyState';
 import ServerPaginationFooter from '@/components/ui/ServerPaginationFooter';
+import { CLIENT_TABLE_PAGE_SIZES } from '@/lib/pagination/constants';
 
 export default function DataTable({
   columns,
@@ -83,12 +73,11 @@ export default function DataTable({
     setPage,
     setPageSize,
     totalPages,
-    canGoPrevious,
-    canGoNext,
     goToFirst,
     goToLast,
     goToPrevious,
     goToNext,
+    goToPage,
     range,
   } = usePagination({
     totalItems: serverPagination ? 1 : sortedData.length,
@@ -111,6 +100,52 @@ export default function DataTable({
     }));
   };
 
+  const clientPaginationFooterProps = useMemo(() => {
+    if (serverPagination) return null;
+    if (sortedData.length === 0) return null;
+    return {
+      page,
+      totalPages,
+      totalRows: sortedData.length,
+      pageSize: itemsPerPage,
+      pageSizeOptions: CLIENT_TABLE_PAGE_SIZES,
+      from: range.from,
+      to: range.to,
+      pageRowCount: paginatedData.length,
+      isLoading,
+      onPrev: goToPrevious,
+      onNext: goToNext,
+      onFirst: goToFirst,
+      onLast: goToLast,
+      onPageSelect: goToPage,
+      onPageSizeChange: (n) => {
+        setPageSize(n);
+        setPage(1);
+      },
+      ariaLabel: t('common.pagination.navLabel'),
+    };
+  }, [
+    serverPagination,
+    sortedData.length,
+    page,
+    totalPages,
+    itemsPerPage,
+    range.from,
+    range.to,
+    paginatedData.length,
+    isLoading,
+    goToPrevious,
+    goToNext,
+    goToFirst,
+    goToLast,
+    goToPage,
+    setPageSize,
+    setPage,
+    t,
+  ]);
+
+  const footerProps = serverPagination || clientPaginationFooterProps;
+
   return (
     <div className={cn("space-y-4", className)}>
       {/* Search and controls */}
@@ -132,29 +167,15 @@ export default function DataTable({
                 variant="ghost"
                 size="icon"
                 className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
-                onClick={() => setSearchQuery('')}
+                onClick={() => {
+                  setSearchQuery('');
+                  setPage(1);
+                }}
               >
                 <X className="h-4 w-4" />
               </Button>
             )}
           </div>
-          <Select
-            value={String(itemsPerPage)}
-            onValueChange={(value) => {
-              setPageSize(Number(value));
-              setPage(1);
-            }}
-          >
-            <SelectTrigger className="w-32">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="10">10 / стр</SelectItem>
-              <SelectItem value="25">25 / стр</SelectItem>
-              <SelectItem value="50">50 / стр</SelectItem>
-              <SelectItem value="100">100 / стр</SelectItem>
-            </SelectContent>
-          </Select>
         </div>
       )}
 
@@ -237,62 +258,8 @@ export default function DataTable({
             )}
           </TableBody>
         </Table>
-        {serverPagination ? <ServerPaginationFooter {...serverPagination} /> : null}
+        {footerProps ? <ServerPaginationFooter {...footerProps} /> : null}
       </div>
-
-      {/* Client-side pagination */}
-      {!serverPagination && totalPages > 1 && (
-        <div className="flex items-center justify-between">
-          <p className="text-sm text-slate-500">
-            {t('common.pagination.range', {
-              from: range.from,
-              to: range.to,
-              total: sortedData.length,
-            }) || `Показано ${range.from}–${range.to} из ${sortedData.length}`}
-          </p>
-          <div className="flex items-center gap-1">
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={goToFirst}
-              disabled={!canGoPrevious}
-              className="h-8 w-8"
-            >
-              <ChevronsLeft className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={goToPrevious}
-              disabled={!canGoPrevious}
-              className="h-8 w-8"
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <span className="px-3 text-sm font-medium">
-              {page} / {totalPages}
-            </span>
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={goToNext}
-              disabled={!canGoNext}
-              className="h-8 w-8"
-            >
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={goToLast}
-              disabled={!canGoNext}
-              className="h-8 w-8"
-            >
-              <ChevronsRight className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

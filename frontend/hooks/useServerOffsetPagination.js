@@ -6,6 +6,7 @@ import {
   pageRangeFromSlice,
   totalPagesFromTotal,
 } from '@/lib/pagination/serverPagination';
+import { SERVER_TABLE_PAGE_SIZES } from '@/lib/pagination/constants';
 
 /**
  * limit/offset for server lists (API: limit, offset, meta.total).
@@ -13,10 +14,12 @@ import {
  * list query is fetching (otherwise `total` can be 0 and offset resets to the first page).
  *
  * Build props for DataTable via `toDataTableServerPagination({ totalRows, ... })`.
+ * If overriding `pageSizeOptions`, use a stable array (module constant / useMemo), not an
+ * inline literal, so `toDataTableServerPagination` identity does not churn every render.
  */
 export function useServerOffsetPagination({
   initialLimit = 50,
-  pageSizeOptions = [25, 50, 100],
+  pageSizeOptions = SERVER_TABLE_PAGE_SIZES,
 } = {}) {
   const [limit, setLimitState] = useState(initialLimit);
   const [offset, setOffset] = useState(0);

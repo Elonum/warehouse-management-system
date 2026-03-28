@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import {
   Plus,
@@ -35,6 +35,9 @@ import { format } from 'date-fns';
 import { createPageUrl } from '@/utils';
 import { LoadingState } from '@/components/common/LoadingState';
 import { EmptyState } from '@/components/common/EmptyState';
+import { usePagination } from '@/hooks/usePagination';
+import ServerPaginationFooter from '@/components/ui/ServerPaginationFooter';
+import { CLIENT_TABLE_PAGE_SIZES } from '@/lib/pagination/constants';
 
 function SupplierOrdersTable({
   t,
@@ -162,6 +165,37 @@ function SupplierOrdersTable({
 
     return sorted;
   }, [parentOrders, search, statusFilter, sortConfig, getOrderStatusName]);
+
+  const {
+    page,
+    pageSize: ordersPageSize,
+    setPage,
+    setPageSize,
+    totalPages: ordersTotalPages,
+    goToFirst,
+    goToLast,
+    goToNext,
+    goToPrevious,
+    goToPage,
+    range: ordersRange,
+  } = usePagination({
+    totalItems: filteredParentOrders.length,
+    initialPage: 1,
+    initialPageSize: 10,
+  });
+
+  const paginatedParentOrders = useMemo(
+    () =>
+      filteredParentOrders.slice(
+        (page - 1) * ordersPageSize,
+        page * ordersPageSize,
+      ),
+    [filteredParentOrders, page, ordersPageSize],
+  );
+
+  useEffect(() => {
+    setPage(1);
+  }, [search, statusFilter, sortConfig.field, sortConfig.direction, setPage]);
 
   const handleSort = (field) => {
     setSortConfig((prev) => {
@@ -459,6 +493,7 @@ function SupplierOrdersTable({
         {isLoading ? (
           <LoadingState className="px-4 py-12" />
         ) : (
+          <>
           <table className="w-full">
             <thead>
               <tr className="border-b bg-slate-50 dark:bg-slate-800/50 dark:border-slate-800">
@@ -593,12 +628,36 @@ function SupplierOrdersTable({
                   </td>
                 </tr>
               ) : (
-                filteredParentOrders.map((order) => (
+                paginatedParentOrders.map((order) => (
                   <OrderRow key={order.orderId} order={order} />
                 ))
               )}
             </tbody>
           </table>
+          {filteredParentOrders.length > 0 ? (
+            <ServerPaginationFooter
+              page={page}
+              totalPages={ordersTotalPages}
+              totalRows={filteredParentOrders.length}
+              pageSize={ordersPageSize}
+              pageSizeOptions={CLIENT_TABLE_PAGE_SIZES}
+              from={ordersRange.from}
+              to={ordersRange.to}
+              pageRowCount={paginatedParentOrders.length}
+              isLoading={isLoading}
+              onPrev={goToPrevious}
+              onNext={goToNext}
+              onFirst={goToFirst}
+              onLast={goToLast}
+              onPageSelect={goToPage}
+              onPageSizeChange={(n) => {
+                setPageSize(n);
+                setPage(1);
+              }}
+              ariaLabel={t('common.pagination.navLabel')}
+            />
+          ) : null}
+          </>
         )}
       </div>
     </div>

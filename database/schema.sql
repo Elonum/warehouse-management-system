@@ -2,6 +2,8 @@
 -- Включение UUID
 -- =====================================================
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+-- Trigram indexes for ILIKE substring search on products (stock filters).
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
 
 -- =====================================================
 -- Роли и пользователи
@@ -79,6 +81,8 @@ CREATE TABLE IF NOT EXISTS products (
     purchase_price DECIMAL(10,2),
     processing_price DECIMAL(10,2)
 );
+-- UNIQUE (article), UNIQUE (barcode) create B-tree indexes for exact match and sort by article.
+-- Substring search (ILIKE '%…%') uses trigram GIN indexes defined in the indexes section.
 
 -- =====================================================
 -- Изображения товаров
@@ -108,7 +112,7 @@ CREATE INDEX IF NOT EXISTS idx_product_images_display_order ON product_images(pr
 CREATE TABLE IF NOT EXISTS order_statuses (
     order_status_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     name VARCHAR(50) UNIQUE NOT NULL,
-	is_final boolean NOT NULL DEFAULT FALSE;
+    is_final BOOLEAN NOT NULL DEFAULT FALSE
 );
 
 CREATE TABLE IF NOT EXISTS supplier_orders (
@@ -224,7 +228,7 @@ CREATE TABLE IF NOT EXISTS mp_shipment_items (
 CREATE TABLE IF NOT EXISTS inventory_statuses (
     inventory_status_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     name VARCHAR(50) UNIQUE NOT NULL,
-	is_final BOOLEAN NOT NULL DEFAULT FALSE;
+    is_final BOOLEAN NOT NULL DEFAULT FALSE
 );
 
 CREATE TABLE IF NOT EXISTS inventories (
@@ -279,6 +283,12 @@ CREATE TABLE IF NOT EXISTS stock_snapshots (
 -- =====================================================
 -- Индексы
 -- =====================================================
+
+-- Stock API: ILIKE '%q%' on article/barcode cannot use UNIQUE B-trees; GIN (pg_trgm) speeds substring search.
+-- Exact match / joins use existing UNIQUE indexes on products(article), products(barcode) and PK on product_id.
+-- vw_current_stock is bounded by stock_snapshots UNIQUE (product_id, warehouse_id, snapshot_date).
+CREATE INDEX IF NOT EXISTS idx_products_article_trgm ON products USING gin (article gin_trgm_ops);
+CREATE INDEX IF NOT EXISTS idx_products_barcode_trgm ON products USING gin (barcode gin_trgm_ops);
 
 CREATE INDEX IF NOT EXISTS idx_users_role ON users(role_id);
 

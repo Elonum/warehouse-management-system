@@ -62,16 +62,17 @@ export function SelectValue({ placeholder = 'Select...', children }) {
   return <span>{value || placeholder}</span>
 }
 
-export function SelectContent({ className, children, ...props }) {
-  const { isOpen, setIsOpen } = React.useContext(SelectContext)
+export function SelectContent({ className, children, side = 'bottom', ...props }) {
+  const { isOpen } = React.useContext(SelectContext)
 
   if (!isOpen) return null
 
   return (
     <div
       className={cn(
-        'absolute z-50 mt-1 min-w-[8rem] overflow-hidden rounded-lg border bg-white shadow-md dark:bg-slate-950 dark:border-slate-800',
-        className
+        'absolute left-0 z-50 max-h-[min(50vh,20rem)] min-w-[8rem] w-full overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-lg ring-1 ring-black/5 dark:border-slate-800 dark:bg-slate-950 dark:ring-white/10',
+        side === 'top' ? 'bottom-full mb-1' : 'top-full mt-1',
+        className,
       )}
       {...props}
     >

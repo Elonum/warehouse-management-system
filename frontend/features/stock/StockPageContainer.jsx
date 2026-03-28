@@ -2,6 +2,7 @@ import React, { useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
 import { api } from '@/api';
+import { useServerOffsetPagination } from '@/hooks/useServerOffsetPagination';
 import { useI18n } from '@/lib/i18n';
 import { Filter, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -15,7 +16,6 @@ import {
 import { Card, CardContent } from '@/components/ui/card';
 import PageHeader from '@/components/ui/PageHeader';
 import StockTable from '@/features/stock/components/StockTable';
-import StockPaginationBar from '@/features/stock/components/StockPaginationBar';
 import { LoadingState } from '@/components/common/LoadingState';
 import { EmptyState } from '@/components/common/EmptyState';
 import { Input } from '@/components/ui/input';
@@ -42,8 +42,14 @@ function StockPageContainer() {
   const [warehouseFilter, setWarehouseFilter] = useState(initial.warehouse);
   const [q, setQ] = useState(initial.q);
   const [levelFilter, setLevelFilter] = useState(initial.levelFilter);
-  const [limit, setLimit] = useState(50);
-  const [offset, setOffset] = useState(0);
+
+  const {
+    limit,
+    offset,
+    resetPage,
+    clampToTotal,
+    toDataTableServerPagination,
+  } = useServerOffsetPagination();
 
   useLayoutEffect(() => {
     const f = readFiltersFromSearchParams(searchParams);
@@ -51,8 +57,8 @@ function StockPageContainer() {
     setWarehouseFilter(f.warehouse);
     setQ(f.q);
     setLevelFilter(f.levelFilter);
-    setOffset(0);
-  }, [searchParams]);
+    resetPage();
+  }, [searchParams, resetPage]);
 
   const qNormalized = useMemo(() => q.trim().slice(0, 100), [q]);
 
@@ -69,12 +75,11 @@ function StockPageContainer() {
     }
   }, [levelFilter, t]);
 
-  const pageSizeLabel = useMemo(
-    () => t('stock.filters.pageSizeOption', { count: limit }),
-    [limit, t],
-  );
-
-  const { data: stockPayload, isLoading: loadingStock } = useQuery({
+  const {
+    data: stockPayload,
+    isLoading: loadingStock,
+    isFetching: fetchingStock,
+  } = useQuery({
     queryKey: [
       'stock',
       warehouseFilter !== 'all' ? warehouseFilter : null,
@@ -106,24 +111,10 @@ function StockPageContainer() {
   const stock = stockPayload?.items ?? [];
   const totalRows = stockPayload?.total ?? 0;
 
-  const totalPages = useMemo(
-    () => Math.max(1, Math.ceil(totalRows / limit)),
-    [totalRows, limit],
-  );
-
-  const page = useMemo(() => Math.floor(offset / limit) + 1, [offset, limit]);
-
-  const pageRange = useMemo(() => {
-    const n = stock.length;
-    if (n === 0) return { from: 0, to: 0 };
-    return { from: offset + 1, to: offset + n };
-  }, [offset, stock.length]);
-
   useEffect(() => {
-    if (totalRows === 0) return;
-    const lastOffset = (totalPages - 1) * limit;
-    if (offset > lastOffset) setOffset(lastOffset);
-  }, [totalRows, totalPages, limit, offset]);
+    if (fetchingStock) return;
+    clampToTotal(totalRows);
+  }, [totalRows, clampToTotal, fetchingStock]);
 
   const { data: productsData, isLoading: loadingProducts } = useQuery({
     queryKey: ['products'],
@@ -195,6 +186,23 @@ function StockPageContainer() {
     [stock, productsMap, warehousesMap, t],
   );
 
+  const serverPagination = useMemo(
+    () =>
+      toDataTableServerPagination({
+        totalRows,
+        pageRowCount: enrichedStock.length,
+        isLoading: loadingStock,
+        ariaLabel: t('stock.paginationNav'),
+      }),
+    [
+      toDataTableServerPagination,
+      totalRows,
+      enrichedStock.length,
+      loadingStock,
+      t,
+    ],
+  );
+
   const totals = useMemo(
     () =>
       enrichedStock.reduce(
@@ -212,7 +220,7 @@ function StockPageContainer() {
     setWarehouseFilter('all');
     setQ('');
     setLevelFilter('all');
-    setOffset(0);
+    resetPage();
   };
 
   const hasActiveFilters =
@@ -315,7 +323,7 @@ function StockPageContainer() {
                   value={q}
                   onChange={(e) => {
                     setQ(e.target.value);
-                    setOffset(0);
+                    resetPage();
                   }}
                   placeholder={t('stock.searchPlaceholder')}
                   className="pr-10"
@@ -328,7 +336,7 @@ function StockPageContainer() {
                     className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
                     onClick={() => {
                       setQ('');
-                      setOffset(0);
+                      resetPage();
                     }}
                   >
                     <X className="h-4 w-4" />
@@ -339,7 +347,7 @@ function StockPageContainer() {
                 value={productFilter}
                 onValueChange={(v) => {
                   setProductFilter(v);
-                  setOffset(0);
+                  resetPage();
                 }}
               >
                 <SelectTrigger className="w-48">
@@ -362,7 +370,7 @@ function StockPageContainer() {
                 value={warehouseFilter}
                 onValueChange={(v) => {
                   setWarehouseFilter(v);
-                  setOffset(0);
+                  resetPage();
                 }}
               >
                 <SelectTrigger className="w-48">
@@ -386,7 +394,7 @@ function StockPageContainer() {
                 value={levelFilter}
                 onValueChange={(v) => {
                   setLevelFilter(v);
-                  setOffset(0);
+                  resetPage();
                 }}
               >
                 <SelectTrigger className="w-56 min-w-[12rem]">
@@ -399,22 +407,6 @@ function StockPageContainer() {
                   <SelectItem value="below_reorder">
                     {t('stock.filters.levelBelowReorder')}
                   </SelectItem>
-                </SelectContent>
-              </Select>
-              <Select
-                value={String(limit)}
-                onValueChange={(v) => {
-                  setLimit(Number(v));
-                  setOffset(0);
-                }}
-              >
-                <SelectTrigger className="w-40 min-w-[9rem]">
-                  <SelectValue>{pageSizeLabel}</SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="25">{t('stock.filters.pageSizeOption', { count: 25 })}</SelectItem>
-                  <SelectItem value="50">{t('stock.filters.pageSizeOption', { count: 50 })}</SelectItem>
-                  <SelectItem value="100">{t('stock.filters.pageSizeOption', { count: 100 })}</SelectItem>
                 </SelectContent>
               </Select>
               {hasActiveFilters && (
@@ -447,22 +439,7 @@ function StockPageContainer() {
             stock={enrichedStock}
             warehouseFilter={warehouseFilter}
             isLoading={loadingStock}
-          />
-          <StockPaginationBar
-            t={t}
-            page={page}
-            totalPages={totalPages}
-            totalRows={totalRows}
-            limit={limit}
-            pageRowCount={enrichedStock.length}
-            from={pageRange.from}
-            to={pageRange.to}
-            isLoading={loadingStock}
-            onPrev={() => setOffset((v) => Math.max(0, v - limit))}
-            onNext={() =>
-              setOffset((v) => Math.min(v + limit, Math.max(0, totalPages - 1) * limit))
-            }
-            onPageSelect={(p) => setOffset((p - 1) * limit)}
+            serverPagination={serverPagination}
           />
         </Card>
       )}

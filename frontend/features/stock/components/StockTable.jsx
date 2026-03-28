@@ -5,7 +5,7 @@ import DataTable from '@/components/ui/DataTable';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 
-function StockTable({ t, stock, warehouseFilter, isLoading }) {
+function StockTable({ t, stock, warehouseFilter, isLoading, serverPagination }) {
   const columns = useMemo(() => {
     const cols = [
       {
@@ -88,7 +88,7 @@ function StockTable({ t, stock, warehouseFilter, isLoading }) {
       data={stock}
       searchable={false}
       embedded
-      pageSize={Math.max(stock.length, 1)}
+      serverPagination={serverPagination}
       emptyMessage={t('stock.emptyMessage')}
       isLoading={isLoading}
     />

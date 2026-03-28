@@ -29,6 +29,7 @@ import { useI18n } from '@/lib/i18n';
 import { usePagination } from '@/hooks/usePagination';
 import { LoadingState } from '@/components/common/LoadingState';
 import { EmptyState } from '@/components/common/EmptyState';
+import ServerPaginationFooter from '@/components/ui/ServerPaginationFooter';
 
 export default function DataTable({
   columns,
@@ -38,6 +39,11 @@ export default function DataTable({
   pageSize = 10,
   /** No outer border/radius — for embedding inside Card */
   embedded = false,
+  /**
+   * Server-driven paging: full page in `data`, footer under the table.
+   * Build with `useServerOffsetPagination().toDataTableServerPagination(...)`.
+   */
+  serverPagination = null,
   onRowClick,
   onRowDoubleClick,
   emptyMessage,
@@ -85,19 +91,18 @@ export default function DataTable({
     goToNext,
     range,
   } = usePagination({
-    totalItems: sortedData.length,
+    totalItems: serverPagination ? 1 : sortedData.length,
     initialPage: 1,
-    initialPageSize: pageSize,
+    initialPageSize: serverPagination ? 1 : pageSize,
   });
 
-  const paginatedData = useMemo(
-    () =>
-      sortedData.slice(
-        (page - 1) * itemsPerPage,
-        page * itemsPerPage,
-      ),
-    [sortedData, page, itemsPerPage],
-  );
+  const paginatedData = useMemo(() => {
+    if (serverPagination) return sortedData;
+    return sortedData.slice(
+      (page - 1) * itemsPerPage,
+      page * itemsPerPage,
+    );
+  }, [serverPagination, sortedData, page, itemsPerPage]);
 
   const handleSort = (key) => {
     setSortConfig(prev => ({
@@ -232,10 +237,11 @@ export default function DataTable({
             )}
           </TableBody>
         </Table>
+        {serverPagination ? <ServerPaginationFooter {...serverPagination} /> : null}
       </div>
 
-      {/* Pagination */}
-      {totalPages > 1 && (
+      {/* Client-side pagination */}
+      {!serverPagination && totalPages > 1 && (
         <div className="flex items-center justify-between">
           <p className="text-sm text-slate-500">
             {t('common.pagination.range', {

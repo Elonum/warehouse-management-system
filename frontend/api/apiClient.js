@@ -487,6 +487,20 @@ const api = {
     getItems: async (shipmentId) => {
       return await request(`/mp-shipments/${shipmentId}/items`);
     },
+
+    wildberriesPreview: async (shipmentId, body) => {
+      return await request(`/mp-shipments/${shipmentId}/import/wildberries/preview`, {
+        method: 'POST',
+        body,
+      });
+    },
+
+    wildberriesApply: async (shipmentId, body) => {
+      return await request(`/mp-shipments/${shipmentId}/import/wildberries/apply`, {
+        method: 'POST',
+        body,
+      });
+    },
   },
 
   mpShipmentItems: {

@@ -15,6 +15,8 @@ import SupplierOrders from '../pages/SupplierOrders'
 import SupplierOrderDetails from '../pages/SupplierOrderDetails'
 import Shipments from '../pages/Shipments'
 import ShipmentDetails from '../pages/ShipmentDetails'
+import ShipmentImportWildberries from '../pages/ShipmentImportWildberries'
+import ShipmentImportOzon from '../pages/ShipmentImportOzon'
 import InventoryAdjustments from '../pages/InventoryAdjustments'
 import InventoryAdjustmentDetails from '../pages/InventoryAdjustmentDetails'
 import ProductCosts from '../pages/ProductCosts'
@@ -37,6 +39,13 @@ const pageNameMap = {
   '/product-costs': 'ProductCosts',
   '/users-roles': 'UsersRoles',
   '/reference-data': 'ReferenceData',
+}
+
+function currentPageNameFromPath(pathname) {
+  if (pathname.startsWith('/shipments/import')) {
+    return 'Shipments';
+  }
+  return pageNameMap[pathname] || 'Dashboard';
 }
 
 function ProtectedRoute({ children }) {
@@ -71,7 +80,7 @@ function ProtectedRoute({ children }) {
 
 function App() {
   const location = useLocation()
-  const currentPageName = pageNameMap[location.pathname] || 'Dashboard'
+  const currentPageName = currentPageNameFromPath(location.pathname)
 
   return (
     <I18nProvider>
@@ -95,6 +104,11 @@ function App() {
                   <Route path="/supplier-orders" element={<SupplierOrders />} />
                   <Route path="/supplier-orders/details" element={<SupplierOrderDetails />} />
                   <Route path="/shipments" element={<Shipments />} />
+                  <Route
+                    path="/shipments/import/wildberries"
+                    element={<ShipmentImportWildberries />}
+                  />
+                  <Route path="/shipments/import/ozon" element={<ShipmentImportOzon />} />
                   <Route path="/shipments/details" element={<ShipmentDetails />} />
                   <Route path="/inventory-adjustments" element={<InventoryAdjustments />} />
                   <Route path="/inventory-adjustments/details" element={<InventoryAdjustmentDetails />} />

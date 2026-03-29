@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, Loader2 } from 'lucide-react';
-import { api, ApiError } from '@/api';
+import { api } from '@/api';
 import PageHeader from '@/components/ui/PageHeader';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -19,14 +19,17 @@ import { createPageUrl } from '@/utils';
 import { useI18n } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
 import { WildberriesSuppliesPicker } from '@/features/mpShipments/import/WildberriesSuppliesPicker';
+import {
+  formatWbPreviewWarningLine,
+  shipmentImportErrorMessage,
+} from '@/features/mpShipments/import/shipmentImportErrorMessage';
 
 export default function ShipmentImportWildberries() {
   const { t } = useI18n();
   const queryClient = useQueryClient();
   const [searchParams] = useSearchParams();
-  const shipmentIdFromUrl = searchParams.get('shipmentId') || '';
 
-  const [shipmentId, setShipmentId] = useState(shipmentIdFromUrl);
+  const [shipmentId, setShipmentId] = useState(() => searchParams.get('shipmentId') || '');
   const [supplyIdRaw, setSupplyIdRaw] = useState('');
   const [matchBy, setMatchBy] = useState('barcode');
   const [isPreorderID, setIsPreorderID] = useState(false);
@@ -67,11 +70,7 @@ export default function ShipmentImportWildberries() {
     },
     onError: (err) => {
       setPreview(null);
-      if (err instanceof ApiError) {
-        setFormError(err.message);
-        return;
-      }
-      setFormError(String(err?.message || err));
+      setFormError(shipmentImportErrorMessage(err, t));
     },
   });
 
@@ -93,11 +92,7 @@ export default function ShipmentImportWildberries() {
       previewMutation.mutate();
     },
     onError: (err) => {
-      if (err instanceof ApiError) {
-        setFormError(err.message);
-        return;
-      }
-      setFormError(String(err?.message || err));
+      setFormError(shipmentImportErrorMessage(err, t));
     },
   });
 
@@ -128,13 +123,6 @@ export default function ShipmentImportWildberries() {
         }
         description={t('shipments.import.wildberriesPageDescription')}
       />
-
-      <div
-        className="rounded-lg border border-sky-200/80 bg-sky-50/90 px-4 py-3 text-sm text-sky-950 dark:border-sky-900/40 dark:bg-sky-950/25 dark:text-sky-100"
-        role="status"
-      >
-        {t('shipments.import.wbServerTokenHint')}
-      </div>
 
       {formError ? (
         <div
@@ -235,8 +223,9 @@ export default function ShipmentImportWildberries() {
               type="button"
               disabled={busy || !shipmentId || supplyId <= 0}
               onClick={() => previewMutation.mutate()}
+              className="gap-2"
             >
-              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+              {previewMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
               {t('shipments.import.wbPreview')}
             </Button>
             <Button
@@ -244,7 +233,9 @@ export default function ShipmentImportWildberries() {
               variant="secondary"
               disabled={busy || !shipmentId || supplyId <= 0 || !preview}
               onClick={() => applyMutation.mutate()}
+              className="gap-2"
             >
+              {applyMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
               {t('shipments.import.wbApply')}
             </Button>
           </div>
@@ -275,7 +266,7 @@ export default function ShipmentImportWildberries() {
               <p className="font-medium">{t('shipments.import.wbWarnings')}</p>
               <ul className="mt-2 list-inside list-disc">
                 {preview.warnings.map((w, i) => (
-                  <li key={i}>{w}</li>
+                  <li key={i}>{formatWbPreviewWarningLine(w, t)}</li>
                 ))}
               </ul>
             </div>
@@ -325,7 +316,7 @@ export default function ShipmentImportWildberries() {
                   <table className="w-full min-w-[640px] text-left text-sm">
                     <thead className="bg-slate-50 text-xs uppercase text-slate-500 dark:bg-slate-800/80 dark:text-slate-400">
                       <tr>
-                        <th className="px-3 py-2">nmID</th>
+                        <th className="px-3 py-2">{t('shipments.import.wbColNmId')}</th>
                         <th className="px-3 py-2">{t('shipments.import.wbColBarcode')}</th>
                         <th className="px-3 py-2">{t('shipments.import.wbColVendor')}</th>
                         <th className="px-3 py-2 text-right">{t('shipments.import.wbColAccepted')}</th>
@@ -348,8 +339,6 @@ export default function ShipmentImportWildberries() {
           ) : null}
         </div>
       ) : null}
-
-      <p className="text-xs text-slate-500 dark:text-slate-500">{t('shipments.import.wbDocFooter')}</p>
     </div>
   );
 }

@@ -31,6 +31,7 @@ func Logger(next http.Handler) http.Handler {
 		duration := time.Since(start)
 
 		log.Info().
+			Str("request_id", GetRequestID(r.Context())).
 			Str("method", r.Method).
 			Str("path", r.URL.Path).
 			Str("query", r.URL.RawQuery).

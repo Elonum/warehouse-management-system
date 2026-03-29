@@ -19,6 +19,7 @@ func NewRouter(pg *db.Postgres, cfg config.Config) *chi.Mux {
 
 	// Security headers should be applied first to all responses
 	r.Use(middleware.SecurityHeaders)
+	r.Use(middleware.RequestID)
 	r.Use(middleware.CORS)
 	r.Use(middleware.Recovery)
 	r.Use(middleware.Logger)

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { Loader2 } from 'lucide-react';
-import { api, ApiError } from '@/api';
+import { api } from '@/api';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -14,6 +14,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useI18n } from '@/lib/i18n';
+import { shipmentImportErrorMessage } from '@/features/mpShipments/import/shipmentImportErrorMessage';
 
 const DEFAULT_STATUS_IDS = [4, 5];
 
@@ -31,13 +32,7 @@ export function WildberriesSuppliesPicker({ onPick, disabled: parentDisabled }) 
     mutationFn: async () => {
       const dates =
         dateFrom && dateTill
-          ? [
-              {
-                from: dateFrom,
-                till: dateTill,
-                type: dateType,
-              },
-            ]
+          ? [{ from: dateFrom, till: dateTill, type: dateType }]
           : [];
       return api.integrations.wildberries.listSupplies({
         limit: 100,
@@ -47,14 +42,21 @@ export function WildberriesSuppliesPicker({ onPick, disabled: parentDisabled }) 
       });
     },
     onSuccess: () => setListError(''),
-    onError: (err) => {
-      if (err instanceof ApiError) {
-        setListError(err.message);
-        return;
-      }
-      setListError(String(err?.message || err));
-    },
+    onError: (err) => setListError(shipmentImportErrorMessage(err, t)),
   });
+
+  const handleLoadList = () => {
+    if ((dateFrom && !dateTill) || (!dateFrom && dateTill)) {
+      setListError(t('shipments.import.errors.dateRangeIncomplete'));
+      return;
+    }
+    if (dateFrom && dateTill && dateFrom > dateTill) {
+      setListError(t('shipments.import.errors.dateRangeOrder'));
+      return;
+    }
+    setListError('');
+    listMutation.mutate();
+  };
 
   const items = listMutation.data?.items ?? [];
   const busy = listMutation.isPending || parentDisabled;
@@ -91,7 +93,7 @@ export function WildberriesSuppliesPicker({ onPick, disabled: parentDisabled }) 
           </div>
         </div>
 
-        <Button type="button" variant="outline" disabled={busy} onClick={() => listMutation.mutate()} className="gap-2">
+        <Button type="button" variant="outline" disabled={busy} onClick={handleLoadList} className="gap-2">
           {listMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
           {t('shipments.import.wbListLoad')}
         </Button>

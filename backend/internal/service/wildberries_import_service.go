@@ -74,6 +74,81 @@ type wbImportPlan struct {
 	warnings  []string
 }
 
+func buildWbImportLines(
+	items []repository.MpShipmentItem,
+	products map[uuid.UUID]*repository.Product,
+	goods []wildberries.SupplyGood,
+	matchBy string,
+) (lines []dto.WildberriesImportLine, unmatched []dto.WildberriesUnmatchedGood, warnings []string) {
+	wbTotals := make(map[uuid.UUID]int)
+	wbSeen := make(map[uuid.UUID]bool)
+
+	for _, g := range goods {
+		var matchedPID uuid.UUID
+		found := false
+		for _, p := range products {
+			if goodMatchesProduct(g, p, matchBy) {
+				matchedPID = p.ProductID
+				found = true
+				break
+			}
+		}
+		if !found {
+			unmatched = append(unmatched, dto.WildberriesUnmatchedGood{
+				Barcode:          g.Barcode,
+				VendorCode:       g.VendorCode,
+				NmID:             g.NmID,
+				TechSize:         g.TechSize,
+				AcceptedQuantity: g.AcceptedQuantity,
+			})
+			continue
+		}
+		wbSeen[matchedPID] = true
+		if g.AcceptedQuantity > 0 {
+			wbTotals[matchedPID] += g.AcceptedQuantity
+		}
+	}
+
+	remaining := make(map[uuid.UUID]int, len(wbTotals))
+	for pid, qty := range wbTotals {
+		remaining[pid] = qty
+	}
+
+	lines = make([]dto.WildberriesImportLine, 0, len(items))
+	for _, it := range items {
+		p := products[it.ProductID]
+		take := remaining[it.ProductID]
+		if take > it.SentQty {
+			take = it.SentQty
+		}
+		if take < 0 {
+			take = 0
+		}
+		remaining[it.ProductID] -= take
+
+		lines = append(lines, dto.WildberriesImportLine{
+			ShipmentItemID:    it.ShipmentItemID.String(),
+			ProductID:         it.ProductID.String(),
+			Article:           p.Article,
+			Barcode:           p.Barcode,
+			SentQty:           it.SentQty,
+			CurrentAccepted:   it.AcceptedQty,
+			ImportAcceptedQty: take,
+			Matched:           wbSeen[it.ProductID],
+		})
+	}
+
+	for pid, left := range remaining {
+		if left > 0 {
+			p := products[pid]
+			warnings = append(warnings,
+				"WB accepted "+strconv.Itoa(left)+" extra units for article "+p.Article+"; surplus not allocated to shipment lines (cap is sent qty).")
+		}
+	}
+
+	return lines, unmatched, warnings
+}
+
 func (s *WildberriesImportService) buildPlan(ctx context.Context, shipmentID uuid.UUID, supplyID int64, matchBy string, isPreorderID bool) (*wbImportPlan, error) {
 	wb, err := s.wbClient()
 	if err != nil {
@@ -107,74 +182,7 @@ func (s *WildberriesImportService) buildPlan(ctx context.Context, shipmentID uui
 		products[it.ProductID] = p
 	}
 
-	wbTotals := make(map[uuid.UUID]int)
-	wbSeen := make(map[uuid.UUID]bool)
-	var unmatched []dto.WildberriesUnmatchedGood
-
-	for _, g := range goods {
-		var matchedPID uuid.UUID
-		found := false
-		for _, p := range products {
-			if goodMatchesProduct(g, p, matchBy) {
-				matchedPID = p.ProductID
-				found = true
-				break
-			}
-		}
-		if !found {
-			unmatched = append(unmatched, dto.WildberriesUnmatchedGood{
-				Barcode:          g.Barcode,
-				VendorCode:       g.VendorCode,
-				NmID:             g.NmID,
-				TechSize:         g.TechSize,
-				AcceptedQuantity: g.AcceptedQuantity,
-			})
-			continue
-		}
-		wbSeen[matchedPID] = true
-		if g.AcceptedQuantity > 0 {
-			wbTotals[matchedPID] += g.AcceptedQuantity
-		}
-	}
-
-	remaining := make(map[uuid.UUID]int)
-	for pid, qty := range wbTotals {
-		remaining[pid] = qty
-	}
-
-	lines := make([]dto.WildberriesImportLine, 0, len(items))
-	var warnings []string
-
-	for _, it := range items {
-		p := products[it.ProductID]
-		take := remaining[it.ProductID]
-		if take > it.SentQty {
-			take = it.SentQty
-		}
-		if take < 0 {
-			take = 0
-		}
-		remaining[it.ProductID] -= take
-
-		lines = append(lines, dto.WildberriesImportLine{
-			ShipmentItemID:    it.ShipmentItemID.String(),
-			ProductID:         it.ProductID.String(),
-			Article:           p.Article,
-			Barcode:           p.Barcode,
-			SentQty:           it.SentQty,
-			CurrentAccepted:   it.AcceptedQty,
-			ImportAcceptedQty: take,
-			Matched:           wbSeen[it.ProductID],
-		})
-	}
-
-	for pid, left := range remaining {
-		if left > 0 {
-			p := products[pid]
-			warnings = append(warnings,
-				"WB accepted "+strconv.Itoa(left)+" extra units for article "+p.Article+"; surplus not allocated to shipment lines (cap is sent qty).")
-		}
-	}
+	lines, unmatched, warnings := buildWbImportLines(items, products, goods, matchBy)
 
 	plan := &wbImportPlan{
 		summary: dto.WildberriesSupplySummary{

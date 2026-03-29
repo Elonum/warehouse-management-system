@@ -21,8 +21,8 @@ type MpShipmentService struct {
 	storeRepo          *repository.StoreRepository
 	warehouseRepo      *repository.WarehouseRepository
 	shipmentStatusRepo *repository.ShipmentStatusRepository
-	shipmentItemRepo  *repository.MpShipmentItemRepository
-	stockRepo         *repository.StockRepository
+	shipmentItemRepo   *repository.MpShipmentItemRepository
+	stockRepo          *repository.StockRepository
 }
 
 func NewMpShipmentService(
@@ -38,8 +38,8 @@ func NewMpShipmentService(
 		storeRepo:          storeRepo,
 		warehouseRepo:      warehouseRepo,
 		shipmentStatusRepo: shipmentStatusRepo,
-		shipmentItemRepo:  shipmentItemRepo,
-		stockRepo:         stockRepo,
+		shipmentItemRepo:   shipmentItemRepo,
+		stockRepo:          stockRepo,
 	}
 }
 

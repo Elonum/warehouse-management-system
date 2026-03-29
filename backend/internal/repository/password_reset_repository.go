@@ -17,12 +17,12 @@ var (
 )
 
 type PasswordResetToken struct {
-	TokenID    uuid.UUID
-	UserID     uuid.UUID
-	TokenHash  string
-	ExpiresAt  time.Time
-	UsedAt     *time.Time
-	CreatedAt  time.Time
+	TokenID   uuid.UUID
+	UserID    uuid.UUID
+	TokenHash string
+	ExpiresAt time.Time
+	UsedAt    *time.Time
+	CreatedAt time.Time
 }
 
 type PasswordResetRepository struct {
@@ -143,4 +143,3 @@ func (r *PasswordResetRepository) InvalidateUserTokens(ctx context.Context, user
 	_, err := r.pool.Exec(ctx, query, userID)
 	return err
 }
-

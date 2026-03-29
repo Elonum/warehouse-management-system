@@ -18,15 +18,15 @@ var (
 )
 
 type Inventory struct {
-	InventoryID     uuid.UUID
-	AdjustmentDate  *time.Time
-	StatusID        uuid.UUID
-	Notes           *string
-	CreatedBy       uuid.UUID
-	CreatedAt       time.Time
-	UpdatedBy       *uuid.UUID
-	UpdatedAt       time.Time
-	TotalReceiptQty int // Pre-aggregated from inventory_items
+	InventoryID      uuid.UUID
+	AdjustmentDate   *time.Time
+	StatusID         uuid.UUID
+	Notes            *string
+	CreatedBy        uuid.UUID
+	CreatedAt        time.Time
+	UpdatedBy        *uuid.UUID
+	UpdatedAt        time.Time
+	TotalReceiptQty  int // Pre-aggregated from inventory_items
 	TotalWriteOffQty int // Pre-aggregated from inventory_items
 }
 

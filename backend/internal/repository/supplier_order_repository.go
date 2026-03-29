@@ -21,8 +21,8 @@ var (
 )
 
 type SupplierOrder struct {
-	MainNumber         int
-	SubNumber          *int
+	MainNumber          int
+	SubNumber           *int
 	OrderID             uuid.UUID
 	OrderNumber         string
 	Buyer               *string

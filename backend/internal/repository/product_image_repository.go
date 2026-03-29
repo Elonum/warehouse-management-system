@@ -15,11 +15,11 @@ var (
 )
 
 type ProductImage struct {
-	ImageID     uuid.UUID
-	ProductID   uuid.UUID
-	FilePath    string
+	ImageID      uuid.UUID
+	ProductID    uuid.UUID
+	FilePath     string
 	DisplayOrder int
-	CreatedAt   time.Time
+	CreatedAt    time.Time
 }
 
 type ProductImageRepository struct {
@@ -146,7 +146,6 @@ func (r *ProductImageRepository) UpdateDisplayOrder(ctx context.Context, imageID
 	return nil
 }
 
-
 func (r *ProductImageRepository) Delete(ctx context.Context, imageID uuid.UUID) error {
 	query := `
 		DELETE FROM product_images
@@ -180,4 +179,3 @@ func (r *ProductImageRepository) DeleteByProductID(ctx context.Context, productI
 	_, err := r.pool.Exec(ctx, query, productID)
 	return err
 }
-

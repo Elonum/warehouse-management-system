@@ -12,7 +12,6 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-
 type SupplierOrderItemService struct {
 	repo            *repository.SupplierOrderItemRepository
 	orderRepo       *repository.SupplierOrderRepository
@@ -66,19 +65,19 @@ type itemComputedFields struct {
 //
 // Logistics distribution (weight-proportional, consistent at order level):
 //
-//  share_i           = item_weight_kg / total_order_weight_kg
-//  total_logistics_i = share_i * order_logistics_total
-//  unit_logistics_i  = total_logistics_i / max(received_qty, ordered_qty)
+//	share_i           = item_weight_kg / total_order_weight_kg
+//	total_logistics_i = share_i * order_logistics_total
+//	unit_logistics_i  = total_logistics_i / max(received_qty, ordered_qty)
 //
 // This guarantees that the sum of total_logistics_i across all items is approximately
 // equal to order.logistics_total (up to rounding), and unit logistics is per piece.
 //
 // Self-cost formula:
 //
-//  purchase_total_i      = item_total_price (or purchase_price * ordered_qty)
-//  unit_purchase_cost    = purchase_total_i / received_qty
-//  unit_self_cost        = unit_purchase_cost + unit_logistics_i
-//  total_self_cost       = unit_self_cost * received_qty
+//	purchase_total_i      = item_total_price (or purchase_price * ordered_qty)
+//	unit_purchase_cost    = purchase_total_i / received_qty
+//	unit_self_cost        = unit_purchase_cost + unit_logistics_i
+//	total_self_cost       = unit_self_cost * received_qty
 //
 // Self-cost is only computed when there are actually received goods (received_qty > 0);
 // otherwise it remains nil and is not shown in reports.
@@ -226,19 +225,19 @@ func (s *SupplierOrderItemService) recalcAndUpdateOrderAggregates(ctx context.Co
 // Centralised to avoid repetition and ensure all fields are always mapped.
 func itemToResponse(item *repository.SupplierOrderItem) *dto.SupplierOrderItemResponse {
 	return &dto.SupplierOrderItemResponse{
-		OrderItemID:     item.OrderItemID.String(),
-		OrderID:         item.OrderID.String(),
-		ProductID:       item.ProductID.String(),
-		WarehouseID:     item.WarehouseID.String(),
-		OrderedQty:      item.OrderedQty,
-		ReceivedQty:     item.ReceivedQty,
-		PurchasePrice:   item.PurchasePrice,
-		TotalPrice:      item.TotalPrice,
-		TotalWeight:     item.TotalWeight,
-		TotalLogistics:  item.TotalLogistics,
-		UnitLogistics:   item.UnitLogistics,
-		UnitSelfCost:    item.UnitSelfCost,
-		TotalSelfCost:   item.TotalSelfCost,
+		OrderItemID:    item.OrderItemID.String(),
+		OrderID:        item.OrderID.String(),
+		ProductID:      item.ProductID.String(),
+		WarehouseID:    item.WarehouseID.String(),
+		OrderedQty:     item.OrderedQty,
+		ReceivedQty:    item.ReceivedQty,
+		PurchasePrice:  item.PurchasePrice,
+		TotalPrice:     item.TotalPrice,
+		TotalWeight:    item.TotalWeight,
+		TotalLogistics: item.TotalLogistics,
+		UnitLogistics:  item.UnitLogistics,
+		UnitSelfCost:   item.UnitSelfCost,
+		TotalSelfCost:  item.TotalSelfCost,
 	}
 }
 
@@ -480,6 +479,7 @@ func (s *SupplierOrderItemService) Delete(ctx context.Context, itemID, userID uu
 // For each transfer:
 //   - if Quantity is nil, the entire available (not yet received) quantity is moved;
 //   - otherwise, Quantity must be > 0 and not exceed the available quantity.
+//
 // After all updates, aggregates and computed fields for both orders are recalculated.
 func (s *SupplierOrderItemService) TransferItemsToSubOrder(
 	ctx context.Context,

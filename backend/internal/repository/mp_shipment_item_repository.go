@@ -16,12 +16,12 @@ var (
 )
 
 type MpShipmentItem struct {
-	ShipmentItemID   uuid.UUID
-	ShipmentID       uuid.UUID
-	ProductID        uuid.UUID
-	SentQty          int
-	AcceptedQty      int
-	LogisticsForItem *float64
+	ShipmentItemID        uuid.UUID
+	ShipmentID            uuid.UUID
+	ProductID             uuid.UUID
+	SentQty               int
+	AcceptedQty           int
+	LogisticsForItem      *float64
 	TotalLogisticsForItem *float64
 }
 

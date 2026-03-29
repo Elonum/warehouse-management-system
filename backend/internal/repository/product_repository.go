@@ -17,13 +17,13 @@ var (
 )
 
 type Product struct {
-	ProductID      uuid.UUID
-	Article        string
-	Barcode        string
-	UnitWeight     int
-	ReorderPoint   int
-	UnitCost       *float64
-	PurchasePrice  *float64
+	ProductID       uuid.UUID
+	Article         string
+	Barcode         string
+	UnitWeight      int
+	ReorderPoint    int
+	UnitCost        *float64
+	PurchasePrice   *float64
 	ProcessingPrice *float64
 }
 

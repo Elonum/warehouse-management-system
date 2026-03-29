@@ -15,8 +15,8 @@ import (
 )
 
 type SupplierOrderHandler struct {
-	service            *service.SupplierOrderService
-	itemService        *service.SupplierOrderItemService
+	service     *service.SupplierOrderService
+	itemService *service.SupplierOrderItemService
 }
 
 func NewSupplierOrderHandler(service *service.SupplierOrderService, itemService *service.SupplierOrderItemService) *SupplierOrderHandler {

@@ -42,15 +42,15 @@ func (s *InventoryService) GetByID(ctx context.Context, inventoryID uuid.UUID) (
 
 	// Use pre-aggregated totals from repository query (no additional query needed)
 	return &dto.InventoryResponse{
-		InventoryID:     inventory.InventoryID.String(),
-		AdjustmentDate:  inventory.AdjustmentDate,
-		StatusID:        inventory.StatusID.String(),
-		Notes:           inventory.Notes,
-		CreatedBy:       inventory.CreatedBy.String(),
-		CreatedAt:       inventory.CreatedAt,
-		UpdatedBy:       updatedByStr,
-		UpdatedAt:       inventory.UpdatedAt,
-		TotalReceiptQty: inventory.TotalReceiptQty,
+		InventoryID:      inventory.InventoryID.String(),
+		AdjustmentDate:   inventory.AdjustmentDate,
+		StatusID:         inventory.StatusID.String(),
+		Notes:            inventory.Notes,
+		CreatedBy:        inventory.CreatedBy.String(),
+		CreatedAt:        inventory.CreatedAt,
+		UpdatedBy:        updatedByStr,
+		UpdatedAt:        inventory.UpdatedAt,
+		TotalReceiptQty:  inventory.TotalReceiptQty,
 		TotalWriteOffQty: inventory.TotalWriteOffQty,
 	}, nil
 }
@@ -73,15 +73,15 @@ func (s *InventoryService) List(ctx context.Context, limit, offset int, statusID
 
 		// Use pre-aggregated totals from repository query (no N+1 queries)
 		result = append(result, dto.InventoryResponse{
-			InventoryID:     inventory.InventoryID.String(),
-			AdjustmentDate:  inventory.AdjustmentDate,
-			StatusID:        inventory.StatusID.String(),
-			Notes:           inventory.Notes,
-			CreatedBy:       inventory.CreatedBy.String(),
-			CreatedAt:       inventory.CreatedAt,
-			UpdatedBy:       updatedByStr,
-			UpdatedAt:       inventory.UpdatedAt,
-			TotalReceiptQty: inventory.TotalReceiptQty,
+			InventoryID:      inventory.InventoryID.String(),
+			AdjustmentDate:   inventory.AdjustmentDate,
+			StatusID:         inventory.StatusID.String(),
+			Notes:            inventory.Notes,
+			CreatedBy:        inventory.CreatedBy.String(),
+			CreatedAt:        inventory.CreatedAt,
+			UpdatedBy:        updatedByStr,
+			UpdatedAt:        inventory.UpdatedAt,
+			TotalReceiptQty:  inventory.TotalReceiptQty,
 			TotalWriteOffQty: inventory.TotalWriteOffQty,
 		})
 	}
@@ -119,15 +119,15 @@ func (s *InventoryService) Create(ctx context.Context, userID uuid.UUID, req dto
 
 	log.Info().Str("inventoryId", inventory.InventoryID.String()).Str("statusId", req.StatusID).Str("userId", userID.String()).Msg("Inventory created successfully")
 	return &dto.InventoryResponse{
-		InventoryID:     inventory.InventoryID.String(),
-		AdjustmentDate:  inventory.AdjustmentDate,
-		StatusID:        inventory.StatusID.String(),
-		Notes:           inventory.Notes,
-		CreatedBy:       inventory.CreatedBy.String(),
-		CreatedAt:       inventory.CreatedAt,
-		UpdatedBy:       updatedByStr,
-		UpdatedAt:       inventory.UpdatedAt,
-		TotalReceiptQty: inventory.TotalReceiptQty,
+		InventoryID:      inventory.InventoryID.String(),
+		AdjustmentDate:   inventory.AdjustmentDate,
+		StatusID:         inventory.StatusID.String(),
+		Notes:            inventory.Notes,
+		CreatedBy:        inventory.CreatedBy.String(),
+		CreatedAt:        inventory.CreatedAt,
+		UpdatedBy:        updatedByStr,
+		UpdatedAt:        inventory.UpdatedAt,
+		TotalReceiptQty:  inventory.TotalReceiptQty,
 		TotalWriteOffQty: inventory.TotalWriteOffQty,
 	}, nil
 }
@@ -181,15 +181,15 @@ func (s *InventoryService) Update(ctx context.Context, inventoryID, userID uuid.
 
 	log.Info().Str("inventoryId", inventoryID.String()).Str("userId", userID.String()).Msg("Inventory updated successfully")
 	return &dto.InventoryResponse{
-		InventoryID:     inventory.InventoryID.String(),
-		AdjustmentDate:  inventory.AdjustmentDate,
-		StatusID:        inventory.StatusID.String(),
-		Notes:           inventory.Notes,
-		CreatedBy:       inventory.CreatedBy.String(),
-		CreatedAt:       inventory.CreatedAt,
-		UpdatedBy:       updatedByStr,
-		UpdatedAt:       inventory.UpdatedAt,
-		TotalReceiptQty: inventory.TotalReceiptQty,
+		InventoryID:      inventory.InventoryID.String(),
+		AdjustmentDate:   inventory.AdjustmentDate,
+		StatusID:         inventory.StatusID.String(),
+		Notes:            inventory.Notes,
+		CreatedBy:        inventory.CreatedBy.String(),
+		CreatedAt:        inventory.CreatedAt,
+		UpdatedBy:        updatedByStr,
+		UpdatedAt:        inventory.UpdatedAt,
+		TotalReceiptQty:  inventory.TotalReceiptQty,
 		TotalWriteOffQty: inventory.TotalWriteOffQty,
 	}, nil
 }

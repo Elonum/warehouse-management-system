@@ -8,8 +8,8 @@ import (
 )
 
 var (
-	ErrInvalidEmail    = errors.New("invalid email format")
-	ErrWeakPassword    = errors.New("password does not meet security requirements")
+	ErrInvalidEmail     = errors.New("invalid email format")
+	ErrWeakPassword     = errors.New("password does not meet security requirements")
 	ErrPasswordTooShort = errors.New("password must be at least 8 characters long")
 	ErrPasswordTooLong  = errors.New("password must be no more than 128 characters long")
 )
@@ -22,8 +22,8 @@ var emailRegex = regexp.MustCompile(`^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-
 
 // Email length constants for database protection
 const (
-	EmailMaxLength     = 254 // RFC 5321 maximum email length
-	EmailLocalMaxLength = 64  // RFC 5321 maximum local part length
+	EmailMaxLength       = 254 // RFC 5321 maximum email length
+	EmailLocalMaxLength  = 64  // RFC 5321 maximum local part length
 	EmailDomainMaxLength = 253 // RFC 5321 maximum domain length
 )
 
@@ -283,11 +283,11 @@ func GetPasswordStrength(password string) int {
 }
 
 var (
-	ErrInvalidName      = errors.New("name contains invalid characters (only letters allowed, no spaces, digits, or special characters)")
-	ErrNameTooShort     = errors.New("name must be at least 2 characters long")
-	ErrNameTooLong      = errors.New("name must be no more than 50 characters long")
-	ErrNameRequired     = errors.New("name is required")
-	ErrSurnameRequired  = errors.New("surname is required")
+	ErrInvalidName     = errors.New("name contains invalid characters (only letters allowed, no spaces, digits, or special characters)")
+	ErrNameTooShort    = errors.New("name must be at least 2 characters long")
+	ErrNameTooLong     = errors.New("name must be no more than 50 characters long")
+	ErrNameRequired    = errors.New("name is required")
+	ErrSurnameRequired = errors.New("surname is required")
 )
 
 // ValidateName validates a person's name (first name, surname, patronymic)
@@ -356,5 +356,3 @@ func ValidatePersonName(name string, required bool, isSurname bool) error {
 	}
 	return ValidateName(name, false) // Don't check required again, already checked above
 }
-
-

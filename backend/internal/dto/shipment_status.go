@@ -7,11 +7,11 @@ type ShipmentStatusResponse struct {
 }
 
 type ShipmentStatusCreateRequest struct {
-	Name string `json:"name"`
-	IsFinal bool `json:"isFinal"`
+	Name    string `json:"name"`
+	IsFinal bool   `json:"isFinal"`
 }
 
 type ShipmentStatusUpdateRequest struct {
-	Name string `json:"name"`
-	IsFinal bool `json:"isFinal"`
+	Name    string `json:"name"`
+	IsFinal bool   `json:"isFinal"`
 }

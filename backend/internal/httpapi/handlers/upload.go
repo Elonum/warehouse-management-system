@@ -35,11 +35,11 @@ var (
 		".webp": true,
 		".svg":  true,
 		// Archives
-		".zip":  true,
-		".rar":  true,
-		".7z":   true,
-		".tar":  true,
-		".gz":   true,
+		".zip": true,
+		".rar": true,
+		".7z":  true,
+		".tar": true,
+		".gz":  true,
 		// Other
 		".csv": true,
 		".xml": true,
@@ -153,17 +153,17 @@ func (h *UploadHandler) ServeFile(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		decodedPath = filePath // Fallback to original if decode fails
 	}
-	
+
 	// Normalize path separators to forward slashes for cross-platform compatibility
 	decodedPath = strings.ReplaceAll(decodedPath, "\\", "/")
-	
+
 	// Normalize path - remove leading ./ if present
 	normalizedPath := strings.TrimPrefix(decodedPath, "./")
-	
+
 	// Determine which upload directory to use based on path
 	var targetDir string
 	var filename string
-	
+
 	if strings.HasPrefix(normalizedPath, "uploads/products/") {
 		targetDir = "./uploads/products"
 		// Extract filename from path - handle both / and \ separators
@@ -187,10 +187,10 @@ func (h *UploadHandler) ServeFile(w http.ResponseWriter, r *http.Request) {
 		targetDir = "./uploads/products"
 		filename = filepath.Base(normalizedPath)
 	}
-	
+
 	// Ensure file is within upload directory
 	fullPath := filepath.Join(targetDir, filename)
-	
+
 	// Additional security check
 	absTargetDir, _ := filepath.Abs(targetDir)
 	absFullPath, _ := filepath.Abs(fullPath)
@@ -242,4 +242,3 @@ func getContentType(ext string) string {
 	}
 	return "application/octet-stream"
 }
-

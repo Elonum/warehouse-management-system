@@ -28,8 +28,8 @@ type RateLimiter struct {
 // windowDuration: time window (e.g., 1 minute, 5 minutes)
 func NewRateLimiter(maxRequests int, windowDuration time.Duration) *RateLimiter {
 	rl := &RateLimiter{
-		requests:      make(map[string][]time.Time),
-		maxRequests:   maxRequests,
+		requests:       make(map[string][]time.Time),
+		maxRequests:    maxRequests,
 		windowDuration: windowDuration,
 		cleanupTicker:  time.NewTicker(5 * time.Minute), // Clean up old entries every 5 minutes
 	}
@@ -70,7 +70,7 @@ func (rl *RateLimiter) Allow(ip string) bool {
 	defer rl.mu.Unlock()
 
 	now := time.Now()
-	
+
 	// Get existing timestamps for this IP
 	timestamps, exists := rl.requests[ip]
 	if !exists {
@@ -155,12 +155,12 @@ func (rl *RateLimiter) GetRetryAfterSeconds(ip string) int {
 	// Calculate when the oldest request will expire (when it will be outside the window)
 	expiresAt := oldestTimestamp.Add(rl.windowDuration)
 	remainingSeconds := int(time.Until(expiresAt).Seconds())
-	
+
 	// Ensure non-negative
 	if remainingSeconds < 0 {
 		return 0
 	}
-	
+
 	return remainingSeconds
 }
 
@@ -254,7 +254,7 @@ func RateLimitMiddleware(limiter *RateLimiter) func(http.Handler) http.Handler {
 			if !limiter.Allow(ip) {
 				w.Header().Set("X-RateLimit-Limit", strconv.Itoa(limiter.maxRequests))
 				w.Header().Set("X-RateLimit-Remaining", "0")
-				
+
 				// Calculate actual remaining time until unlock
 				retryAfter := limiter.GetRetryAfterSeconds(ip)
 				if retryAfter > 0 {
@@ -263,17 +263,17 @@ func RateLimitMiddleware(limiter *RateLimiter) func(http.Handler) http.Handler {
 					// Fallback to full window duration if calculation fails
 					w.Header().Set("Retry-After", strconv.Itoa(int(limiter.windowDuration.Seconds())))
 				}
-				
+
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusTooManyRequests)
-				
+
 				response := map[string]interface{}{
 					"error": map[string]interface{}{
 						"code":    "RATE_LIMIT_EXCEEDED",
 						"message": "Too many requests. Please try again later.",
 					},
 				}
-				
+
 				json.NewEncoder(w).Encode(response)
 				return
 			}
@@ -287,4 +287,3 @@ func RateLimitMiddleware(limiter *RateLimiter) func(http.Handler) http.Handler {
 		})
 	}
 }
-

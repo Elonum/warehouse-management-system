@@ -20,6 +20,10 @@ type Config struct {
 	JWTSecret   string // Секретный ключ для JWT токенов
 	BaseURL     string // Base URL for serving files (e.g., "http://localhost:8080")
 	FrontendURL string // Frontend URL for password reset links (e.g., "http://localhost:5173")
+
+	// Wildberries FBW Supplies API (category «Поставки» in seller token settings)
+	WbSuppliesToken   string
+	WbSuppliesBaseURL string
 }
 
 func Load() Config {
@@ -44,6 +48,9 @@ func Load() Config {
 		JWTSecret:   getEnv("JWT_SECRET", "your-secret-key-change-in-production"),
 		BaseURL:     getEnv("BASE_URL", "http://localhost:"+port),
 		FrontendURL: getEnv("FRONTEND_URL", "http://localhost:5173"), // Default to Vite dev server
+
+		WbSuppliesToken:   getEnv("WB_SUPPLIES_TOKEN", ""),
+		WbSuppliesBaseURL: getEnv("WB_SUPPLIES_BASE_URL", "https://supplies-api.wildberries.ru"),
 	}
 
 	return cfg

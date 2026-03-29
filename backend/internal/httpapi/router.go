@@ -47,7 +47,7 @@ func NewRouter(pg *db.Postgres, cfg config.Config) *chi.Mux {
 	stockSnapshotRepo := repository.NewStockSnapshotRepository(pg.Pool)
 
 	stockService := service.NewStockService(stockRepo)
-	
+
 	// Password reset and email services
 	passwordResetRepo := repository.NewPasswordResetRepository(pg.Pool)
 	emailService := service.NewEmailService(cfg.FrontendURL, cfg.Env)
@@ -68,6 +68,7 @@ func NewRouter(pg *db.Postgres, cfg config.Config) *chi.Mux {
 		stockRepo,
 	)
 	mpShipmentItemService := service.NewMpShipmentItemService(mpShipmentItemRepo, mpShipmentRepo, productRepo, shipmentStatusRepo)
+	wildberriesImportService := service.NewWildberriesImportService(cfg, mpShipmentRepo, mpShipmentItemRepo, productRepo, mpShipmentItemService)
 	orderStatusService := service.NewOrderStatusService(orderStatusRepo)
 	shipmentStatusService := service.NewShipmentStatusService(shipmentStatusRepo)
 	inventoryStatusService := service.NewInventoryStatusService(inventoryStatusRepo)
@@ -91,6 +92,7 @@ func NewRouter(pg *db.Postgres, cfg config.Config) *chi.Mux {
 	supplierOrderItemHandler := handlers.NewSupplierOrderItemHandler(supplierOrderItemService)
 	mpShipmentHandler := handlers.NewMpShipmentHandler(mpShipmentService)
 	mpShipmentItemHandler := handlers.NewMpShipmentItemHandler(mpShipmentItemService)
+	wildberriesImportHandler := handlers.NewWildberriesImportHandler(wildberriesImportService)
 	orderStatusHandler := handlers.NewOrderStatusHandler(orderStatusService)
 	shipmentStatusHandler := handlers.NewShipmentStatusHandler(shipmentStatusService)
 	supplierOrderDocumentHandler := handlers.NewSupplierOrderDocumentHandler(supplierOrderDocumentService)
@@ -128,7 +130,7 @@ func NewRouter(pg *db.Postgres, cfg config.Config) *chi.Mux {
 
 			r.Get("/auth/me", authHandler.GetMe)
 			r.Get("/stock/current", stockHandler.GetCurrentStock)
-			
+
 			// File upload endpoints (require auth)
 			r.Post("/upload", uploadHandler.Upload)
 
@@ -209,6 +211,11 @@ func NewRouter(pg *db.Postgres, cfg config.Config) *chi.Mux {
 
 				r.Route("/{shipmentId}/items", func(r chi.Router) {
 					r.Get("/", mpShipmentItemHandler.GetByShipmentID)
+				})
+
+				r.Route("/{shipmentId}/import", func(r chi.Router) {
+					r.Post("/wildberries/preview", wildberriesImportHandler.Preview)
+					r.Post("/wildberries/apply", wildberriesImportHandler.Apply)
 				})
 			})
 

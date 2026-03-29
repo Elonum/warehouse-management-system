@@ -9,9 +9,9 @@ type ProductCostResponse struct {
 	PeriodEnd           time.Time `json:"periodEnd"`
 	UnitCostToWarehouse float64   `json:"unitCostToWarehouse"`
 	Notes               *string   `json:"notes,omitempty"`
-	CreatedBy           *string  `json:"createdBy,omitempty"`
+	CreatedBy           *string   `json:"createdBy,omitempty"`
 	CreatedAt           time.Time `json:"createdAt"`
-	UpdatedBy           *string  `json:"updatedBy,omitempty"`
+	UpdatedBy           *string   `json:"updatedBy,omitempty"`
 	UpdatedAt           time.Time `json:"updatedAt"`
 }
 

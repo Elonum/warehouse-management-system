@@ -18,11 +18,11 @@ import (
 )
 
 var (
-	ErrInvalidCredentials      = errors.New("invalid email or password")
-	ErrInvalidRole             = errors.New("invalid role")
+	ErrInvalidCredentials        = errors.New("invalid email or password")
+	ErrInvalidRole               = errors.New("invalid role")
 	ErrPasswordResetTokenInvalid = errors.New("password reset token is invalid or expired")
-	ErrPasswordResetTokenExpired  = errors.New("password reset token expired")
-	ErrPasswordResetTokenUsed     = errors.New("password reset token has already been used")
+	ErrPasswordResetTokenExpired = errors.New("password reset token expired")
+	ErrPasswordResetTokenUsed    = errors.New("password reset token has already been used")
 )
 
 type AuthService struct {
@@ -67,10 +67,10 @@ func (s *AuthService) Login(ctx context.Context, email, password string) (string
 	// Always perform password check to prevent timing attacks
 	// Use a dummy hash if user doesn't exist
 	dummyHash := "$2a$10$dummy.hash.to.prevent.timing.attacks"
-	
+
 	user, err := s.userRepo.GetByEmail(ctx, email)
 	userExists := err == nil && user != nil
-	
+
 	// Get the hash to check (real or dummy)
 	hashToCheck := dummyHash
 	if userExists {

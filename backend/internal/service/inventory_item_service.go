@@ -11,12 +11,12 @@ import (
 )
 
 type InventoryItemService struct {
-	repo               *repository.InventoryItemRepository
-	inventoryRepo      *repository.InventoryRepository
+	repo                *repository.InventoryItemRepository
+	inventoryRepo       *repository.InventoryRepository
 	inventoryStatusRepo *repository.InventoryStatusRepository
-	productRepo        *repository.ProductRepository
-	warehouseRepo      *repository.WarehouseRepository
-	stockRepo          *repository.StockRepository
+	productRepo         *repository.ProductRepository
+	warehouseRepo       *repository.WarehouseRepository
+	stockRepo           *repository.StockRepository
 }
 
 func NewInventoryItemService(
@@ -28,12 +28,12 @@ func NewInventoryItemService(
 	stockRepo *repository.StockRepository,
 ) *InventoryItemService {
 	return &InventoryItemService{
-		repo:               repo,
-		inventoryRepo:      inventoryRepo,
+		repo:                repo,
+		inventoryRepo:       inventoryRepo,
 		inventoryStatusRepo: inventoryStatusRepo,
-		productRepo:        productRepo,
-		warehouseRepo:      warehouseRepo,
-		stockRepo:          stockRepo,
+		productRepo:         productRepo,
+		warehouseRepo:       warehouseRepo,
+		stockRepo:           stockRepo,
 	}
 }
 

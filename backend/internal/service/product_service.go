@@ -121,7 +121,7 @@ func (s *ProductService) List(ctx context.Context, limit, offset int) ([]dto.Pro
 	result := make([]dto.ProductResponse, 0, len(products))
 	for _, product := range products {
 		images, _ := s.imageRepo.GetByProductID(ctx, product.ProductID)
-		
+
 		productResponse := dto.ProductResponse{
 			ProductID:       product.ProductID.String(),
 			Article:         product.Article,
@@ -253,7 +253,7 @@ func (s *ProductService) syncProductImages(ctx context.Context, productID uuid.U
 
 	for i, imagePath := range imagePaths {
 		normalizedPath := strings.ReplaceAll(imagePath, "\\", "/")
-		
+
 		if existingImg, exists := remainingPaths[normalizedPath]; exists {
 			if existingImg.DisplayOrder != i {
 				if err := s.imageRepo.UpdateDisplayOrder(ctx, existingImg.ImageID, i); err != nil {

@@ -8,6 +8,8 @@ import {
   Eye,
   Edit2,
   Trash2,
+  Upload,
+  ChevronDown,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -240,9 +242,26 @@ function ShipmentsTable({
         title={t('shipments.title')}
         description={t('shipments.description')}
       >
-        <Button
-          onClick={onCreateShipment}
-        >
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button type="button" variant="outline">
+              <Upload className="h-4 w-4 mr-2" />
+              {t('shipments.import.menuLabel')}
+              <ChevronDown className="ml-1 h-4 w-4 opacity-60" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem asChild>
+              <Link to={createPageUrl('ShipmentImportWildberries')}>
+                {t('shipments.import.wildberries')}
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link to={createPageUrl('ShipmentImportOzon')}>{t('shipments.import.ozon')}</Link>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+        <Button onClick={onCreateShipment}>
           <Plus className="w-4 h-4 mr-2" />
           {t('shipments.addShipment')}
         </Button>

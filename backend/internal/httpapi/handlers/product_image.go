@@ -157,7 +157,6 @@ func (h *ProductImageHandler) UpdateDisplayOrder(w http.ResponseWriter, r *http.
 	w.WriteHeader(http.StatusNoContent)
 }
 
-
 func buildImageURL(r *http.Request, filePath string) string {
 	if filePath == "" {
 		return ""

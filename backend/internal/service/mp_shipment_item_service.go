@@ -11,17 +11,17 @@ import (
 )
 
 type MpShipmentItemService struct {
-	repo          *repository.MpShipmentItemRepository
-	shipmentRepo  *repository.MpShipmentRepository
-	productRepo   *repository.ProductRepository
+	repo               *repository.MpShipmentItemRepository
+	shipmentRepo       *repository.MpShipmentRepository
+	productRepo        *repository.ProductRepository
 	shipmentStatusRepo *repository.ShipmentStatusRepository
 }
 
 func NewMpShipmentItemService(repo *repository.MpShipmentItemRepository, shipmentRepo *repository.MpShipmentRepository, productRepo *repository.ProductRepository, shipmentStatusRepo *repository.ShipmentStatusRepository) *MpShipmentItemService {
 	return &MpShipmentItemService{
-		repo:          repo,
-		shipmentRepo:  shipmentRepo,
-		productRepo:   productRepo,
+		repo:               repo,
+		shipmentRepo:       shipmentRepo,
+		productRepo:        productRepo,
 		shipmentStatusRepo: shipmentStatusRepo,
 	}
 }
@@ -56,12 +56,12 @@ func (s *MpShipmentItemService) GetByID(ctx context.Context, itemID uuid.UUID) (
 	}
 
 	return &dto.MpShipmentItemResponse{
-		ShipmentItemID:   item.ShipmentItemID.String(),
-		ShipmentID:       item.ShipmentID.String(),
-		ProductID:        item.ProductID.String(),
-		SentQty:          item.SentQty,
-		AcceptedQty:      item.AcceptedQty,
-		LogisticsForItem: item.LogisticsForItem,
+		ShipmentItemID:        item.ShipmentItemID.String(),
+		ShipmentID:            item.ShipmentID.String(),
+		ProductID:             item.ProductID.String(),
+		SentQty:               item.SentQty,
+		AcceptedQty:           item.AcceptedQty,
+		LogisticsForItem:      item.LogisticsForItem,
 		TotalLogisticsForItem: item.TotalLogisticsForItem,
 	}, nil
 }
@@ -76,12 +76,12 @@ func (s *MpShipmentItemService) GetByShipmentID(ctx context.Context, shipmentID 
 	result := make([]dto.MpShipmentItemResponse, 0, len(items))
 	for _, item := range items {
 		result = append(result, dto.MpShipmentItemResponse{
-			ShipmentItemID:   item.ShipmentItemID.String(),
-			ShipmentID:       item.ShipmentID.String(),
-			ProductID:        item.ProductID.String(),
-			SentQty:          item.SentQty,
-			AcceptedQty:      item.AcceptedQty,
-			LogisticsForItem: item.LogisticsForItem,
+			ShipmentItemID:        item.ShipmentItemID.String(),
+			ShipmentID:            item.ShipmentID.String(),
+			ProductID:             item.ProductID.String(),
+			SentQty:               item.SentQty,
+			AcceptedQty:           item.AcceptedQty,
+			LogisticsForItem:      item.LogisticsForItem,
 			TotalLogisticsForItem: item.TotalLogisticsForItem,
 		})
 	}
@@ -154,12 +154,12 @@ func (s *MpShipmentItemService) Create(ctx context.Context, req dto.MpShipmentIt
 
 	log.Info().Str("shipmentItemId", item.ShipmentItemID.String()).Str("shipmentId", req.ShipmentID).Str("productId", req.ProductID).Msg("Mp shipment item created successfully")
 	return &dto.MpShipmentItemResponse{
-		ShipmentItemID:   item.ShipmentItemID.String(),
-		ShipmentID:       item.ShipmentID.String(),
-		ProductID:        item.ProductID.String(),
-		SentQty:          item.SentQty,
-		AcceptedQty:      item.AcceptedQty,
-		LogisticsForItem: item.LogisticsForItem,
+		ShipmentItemID:        item.ShipmentItemID.String(),
+		ShipmentID:            item.ShipmentID.String(),
+		ProductID:             item.ProductID.String(),
+		SentQty:               item.SentQty,
+		AcceptedQty:           item.AcceptedQty,
+		LogisticsForItem:      item.LogisticsForItem,
 		TotalLogisticsForItem: item.TotalLogisticsForItem,
 	}, nil
 }
@@ -229,13 +229,67 @@ func (s *MpShipmentItemService) Update(ctx context.Context, itemID uuid.UUID, re
 
 	log.Info().Str("itemId", itemID.String()).Msg("Mp shipment item updated successfully")
 	return &dto.MpShipmentItemResponse{
-		ShipmentItemID:   item.ShipmentItemID.String(),
-		ShipmentID:       item.ShipmentID.String(),
-		ProductID:        item.ProductID.String(),
-		SentQty:          item.SentQty,
-		AcceptedQty:      item.AcceptedQty,
-		LogisticsForItem: item.LogisticsForItem,
+		ShipmentItemID:        item.ShipmentItemID.String(),
+		ShipmentID:            item.ShipmentID.String(),
+		ProductID:             item.ProductID.String(),
+		SentQty:               item.SentQty,
+		AcceptedQty:           item.AcceptedQty,
+		LogisticsForItem:      item.LogisticsForItem,
 		TotalLogisticsForItem: item.TotalLogisticsForItem,
+	}, nil
+}
+
+// SetAcceptedQty updates only accepted quantity (sent qty and logistics unchanged). Recalculates shipment aggregates.
+func (s *MpShipmentItemService) SetAcceptedQty(ctx context.Context, itemID uuid.UUID, acceptedQty int) (*dto.MpShipmentItemResponse, error) {
+	if acceptedQty < 0 {
+		return nil, repository.ErrInvalidQuantity
+	}
+	item, err := s.repo.GetByID(ctx, itemID)
+	if err != nil {
+		return nil, err
+	}
+	if acceptedQty > item.SentQty {
+		return nil, repository.ErrInvalidQuantity
+	}
+
+	shipment, err := s.shipmentRepo.GetByID(ctx, item.ShipmentID)
+	if err != nil {
+		return nil, err
+	}
+	if shipment.StatusID != nil {
+		status, statusErr := s.shipmentStatusRepo.GetByID(ctx, *shipment.StatusID)
+		if statusErr != nil {
+			return nil, statusErr
+		}
+		if status.IsFinal {
+			return nil, ErrMpShipmentCompleted
+		}
+	}
+
+	updated, err := s.repo.Update(ctx, itemID,
+		item.ShipmentID,
+		item.ProductID,
+		item.SentQty,
+		acceptedQty,
+		item.LogisticsForItem,
+		item.TotalLogisticsForItem,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	if aggErr := s.recalcAndUpdateShipmentAggregates(ctx, item.ShipmentID); aggErr != nil {
+		return nil, aggErr
+	}
+
+	return &dto.MpShipmentItemResponse{
+		ShipmentItemID:        updated.ShipmentItemID.String(),
+		ShipmentID:            updated.ShipmentID.String(),
+		ProductID:             updated.ProductID.String(),
+		SentQty:               updated.SentQty,
+		AcceptedQty:           updated.AcceptedQty,
+		LogisticsForItem:      updated.LogisticsForItem,
+		TotalLogisticsForItem: updated.TotalLogisticsForItem,
 	}, nil
 }
 

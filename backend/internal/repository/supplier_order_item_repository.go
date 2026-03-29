@@ -18,19 +18,19 @@ var (
 )
 
 type SupplierOrderItem struct {
-	OrderItemID     uuid.UUID
-	OrderID         uuid.UUID
-	ProductID       uuid.UUID
-	WarehouseID     uuid.UUID
-	OrderedQty      int
-	ReceivedQty     int
-	PurchasePrice   *float64
-	TotalPrice      *float64
-	TotalWeight     int
-	TotalLogistics  *float64
-	UnitLogistics   *float64
-	UnitSelfCost    *float64
-	TotalSelfCost   *float64
+	OrderItemID    uuid.UUID
+	OrderID        uuid.UUID
+	ProductID      uuid.UUID
+	WarehouseID    uuid.UUID
+	OrderedQty     int
+	ReceivedQty    int
+	PurchasePrice  *float64
+	TotalPrice     *float64
+	TotalWeight    int
+	TotalLogistics *float64
+	UnitLogistics  *float64
+	UnitSelfCost   *float64
+	TotalSelfCost  *float64
 }
 
 type SupplierOrderItemRepository struct {

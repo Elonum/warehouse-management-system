@@ -75,14 +75,14 @@ type SupplierSubOrderItemTransfer struct {
 // For the first implementation, most order-level fields default to the parent
 // order values if not explicitly provided.
 type SupplierSubOrderCreateRequest struct {
-	Buyer               *string                      `json:"buyer,omitempty"`
-	StatusID            *string                      `json:"statusId,omitempty"`
-	PurchaseDate        *time.Time                   `json:"purchaseDate,omitempty"`
-	PlannedReceiptDate  *time.Time                   `json:"plannedReceiptDate,omitempty"`
-	ActualReceiptDate   *time.Time                   `json:"actualReceiptDate,omitempty"`
-	LogisticsChinaMsk   *float64                     `json:"logisticsChinaMsk,omitempty"`
-	LogisticsMskKzn     *float64                     `json:"logisticsMskKzn,omitempty"`
-	LogisticsAdditional *float64                     `json:"logisticsAdditional,omitempty"`
-	LogisticsTotal      *float64                     `json:"logisticsTotal,omitempty"`
+	Buyer               *string                        `json:"buyer,omitempty"`
+	StatusID            *string                        `json:"statusId,omitempty"`
+	PurchaseDate        *time.Time                     `json:"purchaseDate,omitempty"`
+	PlannedReceiptDate  *time.Time                     `json:"plannedReceiptDate,omitempty"`
+	ActualReceiptDate   *time.Time                     `json:"actualReceiptDate,omitempty"`
+	LogisticsChinaMsk   *float64                       `json:"logisticsChinaMsk,omitempty"`
+	LogisticsMskKzn     *float64                       `json:"logisticsMskKzn,omitempty"`
+	LogisticsAdditional *float64                       `json:"logisticsAdditional,omitempty"`
+	LogisticsTotal      *float64                       `json:"logisticsTotal,omitempty"`
 	ItemsToMove         []SupplierSubOrderItemTransfer `json:"itemsToMove"`
 }

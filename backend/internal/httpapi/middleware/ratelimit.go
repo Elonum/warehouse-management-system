@@ -2,10 +2,14 @@ package middleware
 
 import (
 	"encoding/json"
+	"net"
 	"net/http"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
+
+	"warehouse-backend/internal/dto"
 )
 
 // RateLimiter implements a simple in-memory rate limiter
@@ -21,6 +25,12 @@ type RateLimiter struct {
 	maxRequests int
 	// windowDuration is the time window for rate limiting
 	windowDuration time.Duration
+}
+
+var trustProxyHeaders bool
+
+func ConfigureRateLimitProxyTrust(trust bool) {
+	trustProxyHeaders = trust
 }
 
 // NewRateLimiter creates a new rate limiter
@@ -176,28 +186,27 @@ func (rl *RateLimiter) Stop() {
 func getClientIP(r *http.Request) string {
 	// Check X-Forwarded-For header (set by proxies/load balancers)
 	xff := r.Header.Get("X-Forwarded-For")
-	if xff != "" {
+	if trustProxyHeaders && xff != "" {
 		// X-Forwarded-For can contain multiple IPs, take the first one
 		// Format: "client, proxy1, proxy2"
 		ips := splitIPs(xff)
 		if len(ips) > 0 {
-			return ips[0]
+			return strings.TrimSpace(ips[0])
 		}
 	}
 
 	// Check X-Real-IP header (set by some proxies)
 	xri := r.Header.Get("X-Real-IP")
-	if xri != "" {
-		return xri
+	if trustProxyHeaders && xri != "" {
+		return strings.TrimSpace(xri)
 	}
 
 	// Fall back to RemoteAddr
-	ip := r.RemoteAddr
-	// RemoteAddr format: "IP:port", extract just the IP
-	if idx := lastIndex(ip, ":"); idx != -1 {
-		ip = ip[:idx]
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err == nil {
+		return host
 	}
-	return ip
+	return r.RemoteAddr
 }
 
 // Helper functions for IP parsing
@@ -235,15 +244,6 @@ func trimSpace(s string) string {
 	return s[start:end]
 }
 
-func lastIndex(s string, substr string) int {
-	for i := len(s) - len(substr); i >= 0; i-- {
-		if s[i:i+len(substr)] == substr {
-			return i
-		}
-	}
-	return -1
-}
-
 // RateLimitMiddleware creates a middleware that rate limits requests
 // Different limits can be applied to different endpoints
 func RateLimitMiddleware(limiter *RateLimiter) func(http.Handler) http.Handler {
@@ -267,14 +267,14 @@ func RateLimitMiddleware(limiter *RateLimiter) func(http.Handler) http.Handler {
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusTooManyRequests)
 
-				response := map[string]interface{}{
-					"error": map[string]interface{}{
-						"code":    "RATE_LIMIT_EXCEEDED",
-						"message": "Too many requests. Please try again later.",
+				response := dto.APIResponse[any]{
+					Error: &dto.Error{
+						Code:    "RATE_LIMIT_EXCEEDED",
+						Message: "Too many requests. Please try again later.",
 					},
 				}
 
-				json.NewEncoder(w).Encode(response)
+				_ = json.NewEncoder(w).Encode(response)
 				return
 			}
 

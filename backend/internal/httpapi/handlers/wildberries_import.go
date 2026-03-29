@@ -34,7 +34,7 @@ func (h *WildberriesImportHandler) Preview(w http.ResponseWriter, r *http.Reques
 	}
 
 	var req dto.WildberriesImportPreviewRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := decodeJSONBody(w, r, &req); err != nil {
 		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "invalid request body")
 		return
 	}
@@ -58,7 +58,7 @@ func (h *WildberriesImportHandler) Preview(w http.ResponseWriter, r *http.Reques
 			writeError(w, http.StatusNotFound, "SHIPMENT_NOT_FOUND", "mp shipment not found")
 			return
 		}
-		writeError(w, http.StatusBadRequest, "WB_PREVIEW_FAILED", err.Error())
+		writeError(w, http.StatusBadGateway, "WB_PREVIEW_FAILED", "failed to fetch supply data from Wildberries")
 		return
 	}
 
@@ -90,7 +90,7 @@ func (h *WildberriesImportHandler) Apply(w http.ResponseWriter, r *http.Request)
 	}
 
 	var req dto.WildberriesImportApplyRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := decodeJSONBody(w, r, &req); err != nil {
 		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "invalid request body")
 		return
 	}
@@ -122,7 +122,7 @@ func (h *WildberriesImportHandler) Apply(w http.ResponseWriter, r *http.Request)
 			writeError(w, http.StatusBadRequest, "INVALID_QUANTITY", "accepted quantity cannot exceed sent quantity")
 			return
 		}
-		writeError(w, http.StatusBadGateway, "WB_APPLY_FAILED", err.Error())
+		writeError(w, http.StatusBadGateway, "WB_APPLY_FAILED", "failed to apply import from Wildberries")
 		return
 	}
 

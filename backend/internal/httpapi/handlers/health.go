@@ -2,10 +2,12 @@ package handlers
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"time"
 
 	"warehouse-backend/internal/db"
+	"warehouse-backend/internal/dto"
 )
 
 func Health(w http.ResponseWriter, r *http.Request) {
@@ -27,10 +29,13 @@ func (h *HealthHandler) DBHealth(w http.ResponseWriter, r *http.Request) {
 
 	err := h.DB.Health(ctx)
 	if err != nil {
-		http.Error(w, "database unavailable", http.StatusServiceUnavailable)
+		writeError(w, http.StatusServiceUnavailable, "DB_UNAVAILABLE", "database unavailable")
 		return
 	}
 
+	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(`{"db":"ok"}`))
+	_ = json.NewEncoder(w).Encode(dto.APIResponse[map[string]string]{
+		Data: map[string]string{"db": "ok"},
+	})
 }

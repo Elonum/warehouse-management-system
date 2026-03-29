@@ -3,7 +3,6 @@ package handlers
 import (
 	"encoding/json"
 	"errors"
-	"io"
 	"net/http"
 	"time"
 
@@ -27,8 +26,7 @@ func (h *WildberriesSupplyListHandler) List(w http.ResponseWriter, r *http.Reque
 	startedAt := time.Now()
 	requestID := middleware.GetRequestID(r.Context())
 	var req dto.WildberriesSupplyListRequest
-	dec := json.NewDecoder(r.Body)
-	if err := decodeWbSupplyListRequest(dec, &req); err != nil {
+	if err := decodeJSONBodyAllowEmpty(w, r, &req); err != nil {
 		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "invalid request body")
 		return
 	}
@@ -52,7 +50,7 @@ func (h *WildberriesSupplyListHandler) List(w http.ResponseWriter, r *http.Reque
 			writeError(w, http.StatusBadRequest, "INVALID_SUPPLY_LIST_PARAMS", "limit must be 1–1000 or 0 for default; offset must be non-negative")
 			return
 		}
-		writeError(w, http.StatusBadGateway, "WB_SUPPLIES_LIST_FAILED", err.Error())
+		writeError(w, http.StatusBadGateway, "WB_SUPPLIES_LIST_FAILED", "failed to load supplies from Wildberries")
 		return
 	}
 
@@ -69,15 +67,4 @@ func (h *WildberriesSupplyListHandler) List(w http.ResponseWriter, r *http.Reque
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	_ = json.NewEncoder(w).Encode(dto.APIResponse[*dto.WildberriesSupplyListResponse]{Data: out})
-}
-
-func decodeWbSupplyListRequest(dec *json.Decoder, req *dto.WildberriesSupplyListRequest) error {
-	if err := dec.Decode(req); err != nil {
-		if errors.Is(err, io.EOF) {
-			*req = dto.WildberriesSupplyListRequest{}
-			return nil
-		}
-		return err
-	}
-	return nil
 }

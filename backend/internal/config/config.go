@@ -2,6 +2,7 @@ package config
 
 import (
 	"os"
+	"strings"
 
 	"github.com/joho/godotenv"
 	"github.com/rs/zerolog/log"
@@ -24,6 +25,12 @@ type Config struct {
 	// Wildberries FBW Supplies API (category «Поставки» in seller token settings)
 	WbSuppliesToken   string
 	WbSuppliesBaseURL string
+
+	// HTTP hardening / proxy settings
+	AllowedOrigins       []string
+	TrustProxyHeaders    bool
+	CSPAllowUnsafeInline bool
+	CSPAllowUnsafeEval   bool
 }
 
 func Load() Config {
@@ -51,6 +58,11 @@ func Load() Config {
 
 		WbSuppliesToken:   getEnv("WB_SUPPLIES_TOKEN", ""),
 		WbSuppliesBaseURL: getEnv("WB_SUPPLIES_BASE_URL", "https://supplies-api.wildberries.ru"),
+
+		AllowedOrigins:       getCSVEnv("ALLOWED_ORIGINS", "http://localhost:5173,http://localhost:5174,http://localhost:3000,http://127.0.0.1:5173,http://127.0.0.1:5174,http://127.0.0.1:3000"),
+		TrustProxyHeaders:    getEnv("TRUST_PROXY_HEADERS", "false") == "true",
+		CSPAllowUnsafeInline: getEnv("CSP_ALLOW_UNSAFE_INLINE", "true") == "true",
+		CSPAllowUnsafeEval:   getEnv("CSP_ALLOW_UNSAFE_EVAL", "false") == "true",
 	}
 
 	return cfg
@@ -61,4 +73,17 @@ func getEnv(key, defaultValue string) string {
 		return value
 	}
 	return defaultValue
+}
+
+func getCSVEnv(key, defaultValue string) []string {
+	raw := getEnv(key, defaultValue)
+	parts := strings.Split(raw, ",")
+	result := make([]string, 0, len(parts))
+	for _, part := range parts {
+		v := strings.TrimSpace(part)
+		if v != "" {
+			result = append(result, v)
+		}
+	}
+	return result
 }

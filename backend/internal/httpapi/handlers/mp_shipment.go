@@ -114,7 +114,7 @@ func (h *MpShipmentHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req dto.MpShipmentCreateRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := decodeJSONBody(w, r, &req); err != nil {
 		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "invalid request body")
 		return
 	}
@@ -175,7 +175,7 @@ func (h *MpShipmentHandler) Update(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req dto.MpShipmentUpdateRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := decodeJSONBody(w, r, &req); err != nil {
 		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "invalid request body")
 		return
 	}

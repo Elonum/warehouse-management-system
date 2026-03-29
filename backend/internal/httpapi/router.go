@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"net/http"
 	"time"
 
 	"warehouse-backend/internal/auth"
@@ -18,11 +19,12 @@ func NewRouter(pg *db.Postgres, cfg config.Config) *chi.Mux {
 	r := chi.NewRouter()
 
 	// Security headers should be applied first to all responses
-	r.Use(middleware.SecurityHeaders)
+	r.Use(middleware.SecurityHeaders(cfg))
 	r.Use(middleware.RequestID)
-	r.Use(middleware.CORS)
+	r.Use(middleware.CORS(cfg))
 	r.Use(middleware.Recovery)
 	r.Use(middleware.Logger)
+	middleware.ConfigureRateLimitProxyTrust(cfg.TrustProxyHeaders)
 
 	jwtManager := auth.NewJWTManager(cfg.JWTSecret)
 
@@ -107,12 +109,10 @@ func NewRouter(pg *db.Postgres, cfg config.Config) *chi.Mux {
 	uploadHandler := handlers.NewUploadHandler()
 
 	// Rate limiters for auth endpoints
-	// Login: 5 attempts per 15 minutes (prevents brute-force)
-	loginLimiter := middleware.NewRateLimiter(5, 15*time.Minute)
-	// Register: 3 attempts per hour (prevents spam account creation)
-	registerLimiter := middleware.NewRateLimiter(3, 1*time.Hour)
+	loginLimiter, registerLimiter, passwordResetLimiter := buildAuthRateLimiters()
 	// Note: General API rate limiting can be added later if needed
 	// apiLimiter := middleware.NewRateLimiter(100, 1*time.Minute)
+	adminOnly := buildAdminOnlyMiddleware(roleRepo)
 
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Get("/health", healthHandler.DBHealth)
@@ -121,7 +121,6 @@ func NewRouter(pg *db.Postgres, cfg config.Config) *chi.Mux {
 		r.With(middleware.RateLimitMiddleware(loginLimiter)).Post("/auth/login", authHandler.Login)
 		r.With(middleware.RateLimitMiddleware(registerLimiter)).Post("/auth/register", authHandler.Register)
 		// Password reset endpoints (with rate limiting to prevent abuse)
-		passwordResetLimiter := middleware.NewRateLimiter(5, 1*time.Hour) // 5 requests per hour
 		r.With(middleware.RateLimitMiddleware(passwordResetLimiter)).Post("/auth/password-reset/request", authHandler.RequestPasswordReset)
 		r.With(middleware.RateLimitMiddleware(passwordResetLimiter)).Post("/auth/password-reset/confirm", authHandler.ResetPassword)
 
@@ -163,7 +162,7 @@ func NewRouter(pg *db.Postgres, cfg config.Config) *chi.Mux {
 				r.Delete("/{id}", warehouseHandler.Delete)
 			})
 
-			r.Route("/warehouse-types", func(r chi.Router) {
+			r.With(adminOnly).Route("/warehouse-types", func(r chi.Router) {
 				r.Get("/", warehouseTypeHandler.List)
 				r.Post("/", warehouseTypeHandler.Create)
 				r.Get("/{id}", warehouseTypeHandler.GetByID)
@@ -233,7 +232,7 @@ func NewRouter(pg *db.Postgres, cfg config.Config) *chi.Mux {
 				r.Delete("/{id}", mpShipmentItemHandler.Delete)
 			})
 
-			r.Route("/order-statuses", func(r chi.Router) {
+			r.With(adminOnly).Route("/order-statuses", func(r chi.Router) {
 				r.Get("/", orderStatusHandler.List)
 				r.Post("/", orderStatusHandler.Create)
 				r.Get("/{id}", orderStatusHandler.GetByID)
@@ -241,7 +240,7 @@ func NewRouter(pg *db.Postgres, cfg config.Config) *chi.Mux {
 				r.Delete("/{id}", orderStatusHandler.Delete)
 			})
 
-			r.Route("/shipment-statuses", func(r chi.Router) {
+			r.With(adminOnly).Route("/shipment-statuses", func(r chi.Router) {
 				r.Get("/", shipmentStatusHandler.List)
 				r.Post("/", shipmentStatusHandler.Create)
 				r.Get("/{id}", shipmentStatusHandler.GetByID)
@@ -256,7 +255,7 @@ func NewRouter(pg *db.Postgres, cfg config.Config) *chi.Mux {
 				r.Delete("/{id}", supplierOrderDocumentHandler.Delete)
 			})
 
-			r.Route("/inventory-statuses", func(r chi.Router) {
+			r.With(adminOnly).Route("/inventory-statuses", func(r chi.Router) {
 				r.Get("/", inventoryStatusHandler.List)
 				r.Post("/", inventoryStatusHandler.Create)
 				r.Get("/{id}", inventoryStatusHandler.GetByID)
@@ -299,7 +298,7 @@ func NewRouter(pg *db.Postgres, cfg config.Config) *chi.Mux {
 				r.Delete("/{id}", stockSnapshotHandler.Delete)
 			})
 
-			r.Route("/users", func(r chi.Router) {
+			r.With(adminOnly).Route("/users", func(r chi.Router) {
 				r.Get("/", userHandler.List)
 				r.Post("/", userHandler.Create)
 				r.Get("/{id}", userHandler.GetByID)
@@ -307,7 +306,7 @@ func NewRouter(pg *db.Postgres, cfg config.Config) *chi.Mux {
 				r.Delete("/{id}", userHandler.Delete)
 			})
 
-			r.Route("/roles", func(r chi.Router) {
+			r.With(adminOnly).Route("/roles", func(r chi.Router) {
 				r.Get("/", roleHandler.List)
 				r.Post("/", roleHandler.Create)
 				r.Get("/{id}", roleHandler.GetByID)
@@ -318,4 +317,18 @@ func NewRouter(pg *db.Postgres, cfg config.Config) *chi.Mux {
 	})
 
 	return r
+}
+
+func buildAuthRateLimiters() (login, register, passwordReset *middleware.RateLimiter) {
+	// Login: 5 attempts per 15 minutes (prevents brute-force)
+	login = middleware.NewRateLimiter(5, 15*time.Minute)
+	// Register: 3 attempts per hour (prevents spam account creation)
+	register = middleware.NewRateLimiter(3, 1*time.Hour)
+	// Password reset: 5 requests per hour (prevents abuse)
+	passwordReset = middleware.NewRateLimiter(5, 1*time.Hour)
+	return
+}
+
+func buildAdminOnlyMiddleware(roleRepo *repository.RoleRepository) func(http.Handler) http.Handler {
+	return middleware.RequireRoleNames(roleRepo, "admin", "administrator", "superadmin", "owner", "администратор")
 }

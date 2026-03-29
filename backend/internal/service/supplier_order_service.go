@@ -24,6 +24,16 @@ type SupplierOrderService struct {
 	stockRepo       *repository.StockRepository
 }
 
+func validateSupplierOrderDates(purchaseDate, plannedReceiptDate, actualReceiptDate *time.Time) error {
+	if plannedReceiptDate != nil && purchaseDate != nil && plannedReceiptDate.Before(*purchaseDate) {
+		return repository.ErrInvalidDateRange
+	}
+	if actualReceiptDate != nil && plannedReceiptDate != nil && actualReceiptDate.Before(*plannedReceiptDate) {
+		return repository.ErrInvalidDateRange
+	}
+	return nil
+}
+
 func NewSupplierOrderService(
 	repo *repository.SupplierOrderRepository,
 	orderStatusRepo *repository.OrderStatusRepository,
@@ -189,18 +199,13 @@ func (s *SupplierOrderService) Create(ctx context.Context, userID uuid.UUID, req
 		}
 	}
 
-	if req.PlannedReceiptDate != nil && req.PurchaseDate != nil {
-		if req.PlannedReceiptDate.Before(*req.PurchaseDate) {
-			log.Warn().Time("purchaseDate", *req.PurchaseDate).Time("plannedReceiptDate", *req.PlannedReceiptDate).Msg("Planned receipt date must be after purchase date")
-			return nil, repository.ErrInvalidDateRange
-		}
-	}
-
-	if req.ActualReceiptDate != nil && req.PlannedReceiptDate != nil {
-		if req.ActualReceiptDate.Before(*req.PlannedReceiptDate) {
-			log.Warn().Time("plannedReceiptDate", *req.PlannedReceiptDate).Time("actualReceiptDate", *req.ActualReceiptDate).Msg("Actual receipt date must be after planned receipt date")
-			return nil, repository.ErrInvalidDateRange
-		}
+	if err := validateSupplierOrderDates(req.PurchaseDate, req.PlannedReceiptDate, req.ActualReceiptDate); err != nil {
+		log.Warn().
+			Interface("purchaseDate", req.PurchaseDate).
+			Interface("plannedReceiptDate", req.PlannedReceiptDate).
+			Interface("actualReceiptDate", req.ActualReceiptDate).
+			Msg("Invalid supplier order date range")
+		return nil, err
 	}
 
 	// --- numbering ---
@@ -381,24 +386,13 @@ func (s *SupplierOrderService) CreateSubOrder(ctx context.Context, userID, paren
 	logisticsTotal := req.LogisticsTotal
 
 	// --- validate dates ---
-	if plannedReceiptDate != nil && purchaseDate != nil {
-		if plannedReceiptDate.Before(*purchaseDate) {
-			log.Warn().
-				Time("purchaseDate", *purchaseDate).
-				Time("plannedReceiptDate", *plannedReceiptDate).
-				Msg("Planned receipt date must be after purchase date (sub-order)")
-			return nil, repository.ErrInvalidDateRange
-		}
-	}
-
-	if actualReceiptDate != nil && plannedReceiptDate != nil {
-		if actualReceiptDate.Before(*plannedReceiptDate) {
-			log.Warn().
-				Time("plannedReceiptDate", *plannedReceiptDate).
-				Time("actualReceiptDate", *actualReceiptDate).
-				Msg("Actual receipt date must be after planned receipt date (sub-order)")
-			return nil, repository.ErrInvalidDateRange
-		}
+	if err := validateSupplierOrderDates(purchaseDate, plannedReceiptDate, actualReceiptDate); err != nil {
+		log.Warn().
+			Interface("purchaseDate", purchaseDate).
+			Interface("plannedReceiptDate", plannedReceiptDate).
+			Interface("actualReceiptDate", actualReceiptDate).
+			Msg("Invalid supplier sub-order date range")
+		return nil, err
 	}
 
 	// --- numbering for sub-order ---
@@ -551,18 +545,13 @@ func (s *SupplierOrderService) Update(ctx context.Context, orderID, userID uuid.
 		}
 	}
 
-	if req.PlannedReceiptDate != nil && req.PurchaseDate != nil {
-		if req.PlannedReceiptDate.Before(*req.PurchaseDate) {
-			log.Warn().Time("purchaseDate", *req.PurchaseDate).Time("plannedReceiptDate", *req.PlannedReceiptDate).Msg("Planned receipt date must be after purchase date")
-			return nil, repository.ErrInvalidDateRange
-		}
-	}
-
-	if req.ActualReceiptDate != nil && req.PlannedReceiptDate != nil {
-		if req.ActualReceiptDate.Before(*req.PlannedReceiptDate) {
-			log.Warn().Time("plannedReceiptDate", *req.PlannedReceiptDate).Time("actualReceiptDate", *req.ActualReceiptDate).Msg("Actual receipt date must be after planned receipt date")
-			return nil, repository.ErrInvalidDateRange
-		}
+	if err := validateSupplierOrderDates(req.PurchaseDate, req.PlannedReceiptDate, req.ActualReceiptDate); err != nil {
+		log.Warn().
+			Interface("purchaseDate", req.PurchaseDate).
+			Interface("plannedReceiptDate", req.PlannedReceiptDate).
+			Interface("actualReceiptDate", req.ActualReceiptDate).
+			Msg("Invalid supplier order date range on update")
+		return nil, err
 	}
 
 	// Preserve existing numbering for now: order numbers are immutable via this endpoint.

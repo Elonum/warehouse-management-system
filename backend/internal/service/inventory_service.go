@@ -19,6 +19,10 @@ type InventoryService struct {
 
 var ErrInventoryCompleted = errors.New("inventory is completed and cannot be modified")
 
+func shouldBlockInventoryMutation(status *repository.InventoryStatus, err error) bool {
+	return err == nil && status != nil && status.IsFinal
+}
+
 func NewInventoryService(repo *repository.InventoryRepository, inventoryStatusRepo *repository.InventoryStatusRepository, inventoryItemRepo *repository.InventoryItemRepository) *InventoryService {
 	return &InventoryService{
 		repo:                repo,
@@ -147,7 +151,7 @@ func (s *InventoryService) Update(ctx context.Context, inventoryID, userID uuid.
 	status, err := s.inventoryStatusRepo.GetByID(ctx, current.StatusID)
 	if err != nil {
 		log.Error().Err(err).Str("statusId", current.StatusID.String()).Msg("Failed to load inventory status for update pre-check")
-	} else if status.IsFinal {
+	} else if shouldBlockInventoryMutation(status, nil) {
 		log.Warn().Str("inventoryId", inventoryID.String()).Msg("Attempt to update completed inventory")
 		return nil, ErrInventoryCompleted
 	}
@@ -209,7 +213,7 @@ func (s *InventoryService) Delete(ctx context.Context, inventoryID uuid.UUID) er
 	status, err := s.inventoryStatusRepo.GetByID(ctx, current.StatusID)
 	if err != nil {
 		log.Error().Err(err).Str("statusId", current.StatusID.String()).Msg("Failed to load inventory status for deletion pre-check")
-	} else if status.IsFinal {
+	} else if shouldBlockInventoryMutation(status, nil) {
 		log.Warn().Str("inventoryId", inventoryID.String()).Msg("Attempt to delete completed inventory")
 		return ErrInventoryCompleted
 	}

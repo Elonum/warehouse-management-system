@@ -13,7 +13,12 @@ func Recovery(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		defer func() {
 			if err := recover(); err != nil {
-				log.Error().Interface("panic", err).Str("path", r.URL.Path).Msg("panic recovered")
+				log.Error().
+					Interface("panic", err).
+					Str("request_id", GetRequestID(r.Context())).
+					Str("method", r.Method).
+					Str("path", r.URL.Path).
+					Msg("panic recovered")
 
 				// Возвращаем JSON ошибку в едином формате API
 				w.Header().Set("Content-Type", "application/json")

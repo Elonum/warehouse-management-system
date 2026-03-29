@@ -31,7 +31,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req dto.LoginRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := decodeJSONBody(w, r, &req); err != nil {
 		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "invalid request body")
 		return
 	}
@@ -82,7 +82,7 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req dto.RegisterRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := decodeJSONBody(w, r, &req); err != nil {
 		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "invalid request body")
 		return
 	}
@@ -194,7 +194,7 @@ func (h *AuthHandler) RequestPasswordReset(w http.ResponseWriter, r *http.Reques
 	}
 
 	var req dto.PasswordResetRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := decodeJSONBody(w, r, &req); err != nil {
 		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "invalid request body")
 		return
 	}
@@ -229,7 +229,7 @@ func (h *AuthHandler) ResetPassword(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req dto.PasswordResetConfirmRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := decodeJSONBody(w, r, &req); err != nil {
 		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "invalid request body")
 		return
 	}

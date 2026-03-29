@@ -9,9 +9,10 @@ import (
 type contextKey string
 
 const (
-	userIDKey contextKey = "userID"
-	emailKey  contextKey = "email"
-	roleIDKey contextKey = "roleID"
+	userIDKey   contextKey = "userID"
+	emailKey    contextKey = "email"
+	roleIDKey   contextKey = "roleID"
+	roleNameKey contextKey = "roleName"
 )
 
 func WithUserID(ctx context.Context, userID uuid.UUID) context.Context {
@@ -45,4 +46,15 @@ func GetRoleID(ctx context.Context) uuid.UUID {
 		return roleID
 	}
 	return uuid.Nil
+}
+
+func WithRoleName(ctx context.Context, roleName string) context.Context {
+	return context.WithValue(ctx, roleNameKey, roleName)
+}
+
+func GetRoleName(ctx context.Context) string {
+	if roleName, ok := ctx.Value(roleNameKey).(string); ok {
+		return roleName
+	}
+	return ""
 }

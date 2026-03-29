@@ -16,6 +16,10 @@ var (
 	ErrMpShipmentCompleted = errors.New("mp shipment is completed and cannot be modified")
 )
 
+func isFinalShipmentStatus(status *repository.ShipmentStatus) bool {
+	return status != nil && status.IsFinal
+}
+
 type MpShipmentService struct {
 	repo               *repository.MpShipmentRepository
 	storeRepo          *repository.StoreRepository
@@ -343,7 +347,7 @@ func (s *MpShipmentService) Update(ctx context.Context, shipmentID, userID uuid.
 			log.Error().Err(err).Str("statusId", *req.StatusID).Msg("Failed to validate shipment status")
 			return nil, err
 		}
-		targetStatusIsFinal = status.IsFinal
+		targetStatusIsFinal = isFinalShipmentStatus(status)
 	}
 
 	// Preserve aggregates: derived from shipment items.
@@ -468,7 +472,7 @@ func (s *MpShipmentService) Delete(ctx context.Context, shipmentID uuid.UUID) er
 			log.Error().Err(statusErr).Str("shipmentId", shipmentID.String()).Msg("Failed to load shipment status before delete")
 			return statusErr
 		}
-		if status.IsFinal {
+		if isFinalShipmentStatus(status) {
 			log.Warn().Str("shipmentId", shipmentID.String()).Msg("Attempt to delete completed mp shipment")
 			return ErrMpShipmentCompleted
 		}

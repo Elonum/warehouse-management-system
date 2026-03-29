@@ -106,7 +106,7 @@ func (h *SupplierOrderHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req dto.SupplierOrderCreateRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := decodeJSONBody(w, r, &req); err != nil {
 		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "invalid request body")
 		return
 	}
@@ -162,7 +162,7 @@ func (h *SupplierOrderHandler) Update(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req dto.SupplierOrderUpdateRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := decodeJSONBody(w, r, &req); err != nil {
 		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "invalid request body")
 		return
 	}
@@ -255,7 +255,7 @@ func (h *SupplierOrderHandler) CreateSubOrder(w http.ResponseWriter, r *http.Req
 	}
 
 	var req dto.SupplierSubOrderCreateRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := decodeJSONBody(w, r, &req); err != nil {
 		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "invalid request body")
 		return
 	}

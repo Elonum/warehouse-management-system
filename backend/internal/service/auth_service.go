@@ -51,6 +51,13 @@ func NewAuthService(
 	}
 }
 
+func minProcessingDelay(elapsed, min time.Duration) time.Duration {
+	if elapsed >= min {
+		return 0
+	}
+	return min - elapsed
+}
+
 // Login authenticates a user and returns a JWT token
 // Implements timing attack protection by always performing password check
 // even if user doesn't exist, to prevent user enumeration
@@ -85,8 +92,8 @@ func (s *AuthService) Login(ctx context.Context, email, password string) (string
 	// This adds a small delay to make timing attacks harder
 	elapsed := time.Since(startTime)
 	minProcessingTime := 200 * time.Millisecond
-	if elapsed < minProcessingTime {
-		time.Sleep(minProcessingTime - elapsed)
+	if sleepFor := minProcessingDelay(elapsed, minProcessingTime); sleepFor > 0 {
+		time.Sleep(sleepFor)
 	}
 
 	// Now check if credentials are valid

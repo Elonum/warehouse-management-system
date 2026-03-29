@@ -530,6 +530,18 @@ const api = {
     },
   },
 
+  integrations: {
+    wildberries: {
+      /** @param {{ limit?: number, offset?: number, statusIds?: number[], dates?: { from: string, till: string, type: string }[] }} body */
+      listSupplies: async (body = {}) => {
+        return await request('/integrations/wildberries/supplies/list', {
+          method: 'POST',
+          body,
+        });
+      },
+    },
+  },
+
   orderStatuses: {
     list: async (params = {}) => {
       const queryParams = new URLSearchParams();

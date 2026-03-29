@@ -40,10 +40,7 @@ func NewWildberriesImportService(
 }
 
 func (s *WildberriesImportService) wbClient() (*wildberries.Client, error) {
-	if strings.TrimSpace(s.cfg.WbSuppliesToken) == "" {
-		return nil, ErrWbSuppliesTokenNotConfigured
-	}
-	return wildberries.NewClient(s.cfg.WbSuppliesBaseURL, s.cfg.WbSuppliesToken), nil
+	return newWbSuppliesClient(s.cfg)
 }
 
 func normalizeMatchBy(v string) string {

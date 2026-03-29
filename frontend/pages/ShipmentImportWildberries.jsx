@@ -18,6 +18,7 @@ import {
 import { createPageUrl } from '@/utils';
 import { useI18n } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
+import { WildberriesSuppliesPicker } from '@/features/mpShipments/import/WildberriesSuppliesPicker';
 
 export default function ShipmentImportWildberries() {
   const { t } = useI18n();
@@ -143,6 +144,16 @@ export default function ShipmentImportWildberries() {
           {formError}
         </div>
       ) : null}
+
+      <WildberriesSuppliesPicker
+        disabled={busy}
+        onPick={({ importId, importAsPreorder }) => {
+          setSupplyIdRaw(String(importId));
+          setIsPreorderID(!!importAsPreorder);
+          setPreview(null);
+          setFormError('');
+        }}
+      />
 
       <Card className="dark:border-slate-800 dark:bg-slate-900">
         <CardContent className="space-y-4 pt-6">

@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/google/uuid"
 	"warehouse-backend/internal/dto"
@@ -15,6 +16,7 @@ type InventoryService struct {
 	repo                *repository.InventoryRepository
 	inventoryStatusRepo *repository.InventoryStatusRepository
 	inventoryItemRepo   *repository.InventoryItemRepository
+	stockRepo           *repository.StockRepository
 }
 
 var ErrInventoryCompleted = errors.New("inventory is completed and cannot be modified")
@@ -23,11 +25,12 @@ func shouldBlockInventoryMutation(status *repository.InventoryStatus, err error)
 	return err == nil && status != nil && status.IsFinal
 }
 
-func NewInventoryService(repo *repository.InventoryRepository, inventoryStatusRepo *repository.InventoryStatusRepository, inventoryItemRepo *repository.InventoryItemRepository) *InventoryService {
+func NewInventoryService(repo *repository.InventoryRepository, inventoryStatusRepo *repository.InventoryStatusRepository, inventoryItemRepo *repository.InventoryItemRepository, stockRepo *repository.StockRepository) *InventoryService {
 	return &InventoryService{
 		repo:                repo,
 		inventoryStatusRepo: inventoryStatusRepo,
 		inventoryItemRepo:   inventoryItemRepo,
+		stockRepo:           stockRepo,
 	}
 }
 
@@ -99,7 +102,7 @@ func (s *InventoryService) Create(ctx context.Context, userID uuid.UUID, req dto
 		log.Warn().Str("statusId", req.StatusID).Msg("Invalid status ID format")
 		return nil, repository.ErrInventoryStatusNotFound
 	}
-	_, err = s.inventoryStatusRepo.GetByID(ctx, statusID)
+	targetStatus, err := s.inventoryStatusRepo.GetByID(ctx, statusID)
 	if err != nil {
 		if err == repository.ErrInventoryStatusNotFound {
 			log.Warn().Str("statusId", req.StatusID).Msg("Inventory status not found")
@@ -113,6 +116,14 @@ func (s *InventoryService) Create(ctx context.Context, userID uuid.UUID, req dto
 	if err != nil {
 		log.Error().Err(err).Str("statusId", req.StatusID).Str("userId", userID.String()).Msg("Failed to create inventory")
 		return nil, err
+	}
+
+	// Apply stock delta when creating inventory directly in a final status.
+	if targetStatus.IsFinal {
+		if applyErr := s.applyInventoryToStock(ctx, inventory.InventoryID, userID); applyErr != nil {
+			log.Error().Err(applyErr).Str("inventoryId", inventory.InventoryID.String()).Str("userId", userID.String()).Msg("Failed to apply inventory delta to stock")
+			return nil, applyErr
+		}
 	}
 
 	var updatedByStr *string
@@ -155,13 +166,14 @@ func (s *InventoryService) Update(ctx context.Context, inventoryID, userID uuid.
 		log.Warn().Str("inventoryId", inventoryID.String()).Msg("Attempt to update completed inventory")
 		return nil, ErrInventoryCompleted
 	}
+	currentStatusIsFinal := status != nil && status.IsFinal
 
 	statusID, err := uuid.Parse(req.StatusID)
 	if err != nil {
 		log.Warn().Str("statusId", req.StatusID).Msg("Invalid status ID format")
 		return nil, repository.ErrInventoryStatusNotFound
 	}
-	_, err = s.inventoryStatusRepo.GetByID(ctx, statusID)
+	targetStatus, err := s.inventoryStatusRepo.GetByID(ctx, statusID)
 	if err != nil {
 		if err == repository.ErrInventoryStatusNotFound {
 			log.Warn().Str("statusId", req.StatusID).Msg("Inventory status not found")
@@ -171,10 +183,20 @@ func (s *InventoryService) Update(ctx context.Context, inventoryID, userID uuid.
 		return nil, err
 	}
 
+	becomesFinal := targetStatus.IsFinal && !currentStatusIsFinal
+
 	inventory, err := s.repo.Update(ctx, inventoryID, req.AdjustmentDate, statusID, req.Notes, &userID)
 	if err != nil {
 		log.Error().Err(err).Str("inventoryId", inventoryID.String()).Str("userId", userID.String()).Msg("Failed to update inventory")
 		return nil, err
+	}
+
+	// Apply stock delta once when inventory transitions into a final status.
+	if becomesFinal {
+		if applyErr := s.applyInventoryToStock(ctx, inventory.InventoryID, userID); applyErr != nil {
+			log.Error().Err(applyErr).Str("inventoryId", inventory.InventoryID.String()).Str("userId", userID.String()).Msg("Failed to apply inventory delta to stock")
+			return nil, applyErr
+		}
 	}
 
 	var updatedByStr *string
@@ -196,6 +218,71 @@ func (s *InventoryService) Update(ctx context.Context, inventoryID, userID uuid.
 		TotalReceiptQty:  inventory.TotalReceiptQty,
 		TotalWriteOffQty: inventory.TotalWriteOffQty,
 	}, nil
+}
+
+func (s *InventoryService) applyInventoryToStock(ctx context.Context, inventoryID uuid.UUID, userID uuid.UUID) error {
+	inventory, err := s.repo.GetByID(ctx, inventoryID)
+	if err != nil {
+		return err
+	}
+
+	items, err := s.inventoryItemRepo.GetByInventoryID(ctx, inventoryID)
+	if err != nil {
+		return err
+	}
+	if len(items) == 0 {
+		return nil
+	}
+
+	// vw_current_stock uses stock_snapshots as a base point (latest snapshot_date).
+	// To make the "current stock" change reliably, we apply inventory deltas with a snapshot_date
+	// not earlier than now (UTC).
+	now := time.Now().UTC()
+	snapshotDate := now
+	if inventory.AdjustmentDate != nil && inventory.AdjustmentDate.After(now) {
+		snapshotDate = inventory.AdjustmentDate.UTC()
+	}
+
+	applied := 0
+	for _, it := range items {
+		if it.ProductID == nil {
+			continue
+		}
+		delta := it.ReceiptQty - it.WriteOffQty
+		if delta == 0 {
+			continue
+		}
+
+		if err := s.stockRepo.ApplyInventoryDeltaFromInventoryItem(
+			ctx,
+			*it.ProductID,
+			it.WarehouseID,
+			snapshotDate,
+			delta,
+			&userID,
+		); err != nil {
+			log.Error().
+				Err(err).
+				Str("inventoryId", inventoryID.String()).
+				Str("productId", it.ProductID.String()).
+				Str("warehouseId", it.WarehouseID.String()).
+				Int("delta", delta).
+				Time("snapshotDate", snapshotDate).
+				Msg("Failed to apply inventory delta to stock")
+			return err
+		}
+		applied++
+	}
+
+	if applied > 0 {
+		log.Info().
+			Str("inventoryId", inventoryID.String()).
+			Int("itemsApplied", applied).
+			Time("snapshotDate", snapshotDate).
+			Msg("Successfully applied inventory delta to stock")
+	}
+
+	return nil
 }
 
 func (s *InventoryService) Delete(ctx context.Context, inventoryID uuid.UUID) error {

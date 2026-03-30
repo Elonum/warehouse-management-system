@@ -179,14 +179,6 @@ func (s *InventoryItemService) Create(ctx context.Context, req dto.InventoryItem
 		return nil, err
 	}
 
-	inventory, err := s.inventoryRepo.GetByID(ctx, inventoryID)
-	if err == nil {
-		createdBy := &inventory.CreatedBy
-		if err := s.stockRepo.UpdateStockByInventoryItem(ctx, productID, warehouseID, inventory.AdjustmentDate, createdBy); err != nil {
-			log.Error().Err(err).Str("inventoryItemId", item.InventoryItemID.String()).Msg("Failed to update stock snapshot")
-		}
-	}
-
 	var productIDStr *string
 	if item.ProductID != nil {
 		str := item.ProductID.String()
@@ -278,17 +270,6 @@ func (s *InventoryItemService) Update(ctx context.Context, itemID uuid.UUID, req
 		return nil, err
 	}
 
-	inventory, err := s.inventoryRepo.GetByID(ctx, inventoryID)
-	if err == nil {
-		updatedBy := inventory.UpdatedBy
-		if updatedBy == nil {
-			updatedBy = &inventory.CreatedBy
-		}
-		if err := s.stockRepo.UpdateStockByInventoryItem(ctx, productID, warehouseID, inventory.AdjustmentDate, updatedBy); err != nil {
-			log.Error().Err(err).Str("itemId", itemID.String()).Msg("Failed to update stock snapshot")
-		}
-	}
-
 	var productIDStr *string
 	if item.ProductID != nil {
 		str := item.ProductID.String()
@@ -308,7 +289,7 @@ func (s *InventoryItemService) Update(ctx context.Context, itemID uuid.UUID, req
 }
 
 func (s *InventoryItemService) Delete(ctx context.Context, itemID uuid.UUID) error {
-	// Get item before deletion to get inventory_id for stock snapshot update
+	// Get item before deletion to get inventory_id for final-state check.
 	item, err := s.repo.GetByID(ctx, itemID)
 	if err != nil {
 		log.Error().Err(err).Str("itemId", itemID.String()).Msg("Failed to get inventory item for deletion")
@@ -325,13 +306,6 @@ func (s *InventoryItemService) Delete(ctx context.Context, itemID uuid.UUID) err
 	if err != nil {
 		log.Error().Err(err).Str("itemId", itemID.String()).Msg("Failed to delete inventory item")
 		return err
-	}
-
-	inventory, err := s.inventoryRepo.GetByID(ctx, item.InventoryID)
-	if err == nil {
-		if err := s.stockRepo.RevertStockByInventoryItem(ctx, item.ProductID, item.WarehouseID, inventory.AdjustmentDate); err != nil {
-			log.Error().Err(err).Str("itemId", itemID.String()).Msg("Failed to update stock snapshot")
-		}
 	}
 
 	log.Info().Str("itemId", itemID.String()).Msg("Inventory item deleted successfully")

@@ -202,15 +202,16 @@ func (r *StockRepository) ApplyReceiptFromSupplierOrder(
 			$2,
 			$3,
 			COALESCE(
-				(SELECT quantity FROM stock_snapshots 
-				 WHERE product_id = $1 AND warehouse_id = $2 
+				(SELECT quantity FROM stock_snapshots
+				 WHERE product_id = $1 AND warehouse_id = $2
+				   AND snapshot_date < $3
 				 ORDER BY snapshot_date DESC LIMIT 1),
 				0
 			) + $4,
 			$5
 		)
 		ON CONFLICT (product_id, warehouse_id, snapshot_date)
-		DO UPDATE SET quantity = stock_snapshots.quantity + EXCLUDED.quantity
+		DO UPDATE SET quantity = stock_snapshots.quantity + $4
 	`
 
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
@@ -243,6 +244,7 @@ func (r *StockRepository) ApplyShipmentOutFromMpShipment(
 			COALESCE(
 				(SELECT quantity FROM stock_snapshots
 				 WHERE product_id = $1 AND warehouse_id = $2
+				   AND snapshot_date < $3
 				 ORDER BY snapshot_date DESC LIMIT 1),
 				0
 			) - $4,
@@ -256,5 +258,53 @@ func (r *StockRepository) ApplyShipmentOutFromMpShipment(
 	defer cancel()
 
 	_, err := r.pool.Exec(ctx, query, productID, warehouseID, acceptanceDate, acceptedQty, createdBy)
+	return err
+}
+
+// ApplyInventoryDeltaFromInventoryItem applies a positive/negative stock delta for a finalized inventory item.
+// It writes the delta into stock_snapshots at snapshotDate.
+//
+// The snapshot quantity is computed as:
+//   latest_quantity_before_snapshot_date + delta
+//
+// and in case of conflict (same snapshot_date) it accumulates:
+//   stock_snapshots.quantity + delta
+//
+// This keeps stock deltas consistent and prevents double-adding when multiple deltas share a snapshot_date.
+func (r *StockRepository) ApplyInventoryDeltaFromInventoryItem(
+	ctx context.Context,
+	productID uuid.UUID,
+	warehouseID uuid.UUID,
+	snapshotDate time.Time,
+	deltaQty int,
+	createdBy *uuid.UUID,
+) error {
+	if deltaQty == 0 {
+		return nil
+	}
+
+	query := `
+		INSERT INTO stock_snapshots (product_id, warehouse_id, snapshot_date, quantity, created_by)
+		VALUES (
+			$1,
+			$2,
+			$3,
+			COALESCE(
+				(SELECT quantity FROM stock_snapshots
+				 WHERE product_id = $1 AND warehouse_id = $2
+				   AND snapshot_date < $3
+				 ORDER BY snapshot_date DESC LIMIT 1),
+				0
+			) + $4,
+			$5
+		)
+		ON CONFLICT (product_id, warehouse_id, snapshot_date)
+		DO UPDATE SET quantity = stock_snapshots.quantity + $4
+	`
+
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	_, err := r.pool.Exec(ctx, query, productID, warehouseID, snapshotDate, deltaQty, createdBy)
 	return err
 }

@@ -753,6 +753,15 @@ func (s *SupplierOrderService) applyReceivedToStock(ctx context.Context, order *
 		}
 	}
 
+	// stock_current считается от "последнего" stock_snapshots.snapshot_date.
+	// Чтобы избежать ситуации, когда пользовательская дата события оказывается раньше
+	// последней базы (из-за timezone/выбранной даты) и "current stock" визуально не меняется,
+	// применяем snapshot на эффективную дату не раньше текущего момента.
+	snapshotDate := time.Now().UTC()
+	if receiptDate != nil && receiptDate.After(snapshotDate) {
+		snapshotDate = receiptDate.UTC()
+	}
+
 	itemsApplied := 0
 	for _, item := range items {
 		if item.ReceivedQty <= 0 {
@@ -763,7 +772,7 @@ func (s *SupplierOrderService) applyReceivedToStock(ctx context.Context, order *
 			ctx,
 			item.ProductID,
 			item.WarehouseID,
-			*receiptDate,
+			snapshotDate,
 			item.ReceivedQty,
 			&userID,
 		); err != nil {
@@ -774,6 +783,7 @@ func (s *SupplierOrderService) applyReceivedToStock(ctx context.Context, order *
 				Str("warehouseId", item.WarehouseID.String()).
 				Int("receivedQty", item.ReceivedQty).
 				Time("receiptDate", *receiptDate).
+				Time("snapshotDate", snapshotDate).
 				Msg("Failed to apply receipt from supplier order item to stock")
 			return err
 		}

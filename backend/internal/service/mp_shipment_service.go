@@ -491,10 +491,6 @@ func (s *MpShipmentService) Delete(ctx context.Context, shipmentID uuid.UUID) er
 // applyAcceptedToStock applies accepted quantities from a completed mp shipment to stock snapshots.
 // It runs only once when the shipment transitions from non-final to final status.
 func (s *MpShipmentService) applyAcceptedToStock(ctx context.Context, shipment *repository.MpShipment, userID uuid.UUID) error {
-	if shipment.AcceptanceDate == nil {
-		// Should never happen because we fill it when a shipment becomes final.
-		return nil
-	}
 	if shipment.WarehouseID == nil {
 		log.Warn().Str("shipmentId", shipment.ShipmentID.String()).Msg("Cannot apply shipment to stock: warehouse is not set")
 		return repository.ErrWarehouseNotFound
@@ -511,6 +507,14 @@ func (s *MpShipmentService) applyAcceptedToStock(ctx context.Context, shipment *
 	}
 
 	appliedItems := 0
+	// vw_current_stock берёт только последнее stock_snapshots.snapshot_date как базу
+	// и учитывает движения только если acceptance_date/actual_receipt_date > snapshot_date.
+	// Поэтому snapshot_date события на момент "применения" нужно писать не раньше текущего now (UTC),
+	// иначе "current stock" визуально не изменится.
+	snapshotDate := time.Now().UTC()
+	if shipment.AcceptanceDate != nil && shipment.AcceptanceDate.After(snapshotDate) {
+		snapshotDate = shipment.AcceptanceDate.UTC()
+	}
 	for _, it := range items {
 		if it.AcceptedQty <= 0 {
 			continue
@@ -520,7 +524,7 @@ func (s *MpShipmentService) applyAcceptedToStock(ctx context.Context, shipment *
 			ctx,
 			it.ProductID,
 			*shipment.WarehouseID,
-			*shipment.AcceptanceDate,
+			snapshotDate,
 			it.AcceptedQty,
 			&userID,
 		); err != nil {
@@ -530,6 +534,7 @@ func (s *MpShipmentService) applyAcceptedToStock(ctx context.Context, shipment *
 				Str("productId", it.ProductID.String()).
 				Str("warehouseId", shipment.WarehouseID.String()).
 				Int("acceptedQty", it.AcceptedQty).
+				Time("snapshotDate", snapshotDate).
 				Msg("Failed to apply mp shipment accepted quantities to stock")
 			return err
 		}

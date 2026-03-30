@@ -37,7 +37,6 @@ type MpShipmentService struct {
 	repo               *repository.MpShipmentRepository
 	storeRepo          *repository.StoreRepository
 	warehouseRepo      *repository.WarehouseRepository
-	warehouseTypeRepo  *repository.WarehouseTypeRepository
 	shipmentStatusRepo *repository.ShipmentStatusRepository
 	shipmentItemRepo   *repository.MpShipmentItemRepository
 	stockRepo          *repository.StockRepository
@@ -47,7 +46,6 @@ func NewMpShipmentService(
 	repo *repository.MpShipmentRepository,
 	storeRepo *repository.StoreRepository,
 	warehouseRepo *repository.WarehouseRepository,
-	warehouseTypeRepo *repository.WarehouseTypeRepository,
 	shipmentStatusRepo *repository.ShipmentStatusRepository,
 	shipmentItemRepo *repository.MpShipmentItemRepository,
 	stockRepo *repository.StockRepository,
@@ -56,7 +54,6 @@ func NewMpShipmentService(
 		repo:               repo,
 		storeRepo:          storeRepo,
 		warehouseRepo:      warehouseRepo,
-		warehouseTypeRepo:  warehouseTypeRepo,
 		shipmentStatusRepo: shipmentStatusRepo,
 		shipmentItemRepo:   shipmentItemRepo,
 		stockRepo:          stockRepo,
@@ -606,23 +603,6 @@ type sourceAllocation struct {
 }
 
 func (s *MpShipmentService) getMarketplaceWarehouseIDs(ctx context.Context, destWarehouseID uuid.UUID) (map[uuid.UUID]struct{}, error) {
-	warehouseTypes, err := s.warehouseTypeRepo.List(ctx, 1000, 0)
-	if err != nil {
-		log.Error().Err(err).Msg("Failed to list warehouse types while detecting marketplace warehouses")
-		return nil, err
-	}
-
-	marketplaceTypeIDs := make(map[uuid.UUID]struct{})
-	for _, wt := range warehouseTypes {
-		if wt.IsMarketplace {
-			marketplaceTypeIDs[wt.WarehouseTypeID] = struct{}{}
-		}
-	}
-	if len(marketplaceTypeIDs) == 0 {
-		log.Warn().
-			Msg("No marketplace warehouse types configured. Set warehouse_types.is_marketplace=true for marketplace destination types.")
-	}
-
 	warehouses, err := s.warehouseRepo.List(ctx, 5000, 0)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to list warehouses while detecting marketplace warehouses")
@@ -631,16 +611,14 @@ func (s *MpShipmentService) getMarketplaceWarehouseIDs(ctx context.Context, dest
 
 	result := make(map[uuid.UUID]struct{})
 	for _, w := range warehouses {
-		if w.WarehouseTypeID == nil {
-			continue
-		}
-		if _, ok := marketplaceTypeIDs[*w.WarehouseTypeID]; ok {
+		if w.IsMarketplace {
 			result[w.WarehouseID] = struct{}{}
 		}
 	}
 
 	// Fallback: всегда гарантируем, что destination не будет считаться source.
 	if len(result) == 0 {
+		log.Warn().Msg("No marketplace warehouses configured. Set warehouses.is_marketplace=true for marketplace destination warehouses.")
 		result[destWarehouseID] = struct{}{}
 	} else if _, ok := result[destWarehouseID]; !ok {
 		result[destWarehouseID] = struct{}{}

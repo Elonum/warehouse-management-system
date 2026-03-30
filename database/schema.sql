@@ -50,12 +50,6 @@ CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_used_at ON password_reset_t
 -- Справочники
 -- =====================================================
 
-CREATE TABLE IF NOT EXISTS warehouse_types (
-    warehouse_type_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    name VARCHAR(100) UNIQUE NOT NULL,
-    is_marketplace BOOLEAN NOT NULL DEFAULT false
-);
-
 CREATE TABLE IF NOT EXISTS stores (
     store_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     name VARCHAR(100) UNIQUE NOT NULL
@@ -64,7 +58,7 @@ CREATE TABLE IF NOT EXISTS stores (
 CREATE TABLE IF NOT EXISTS warehouses (
     warehouse_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     name VARCHAR(100) UNIQUE NOT NULL,
-    warehouse_type_id UUID REFERENCES warehouse_types(warehouse_type_id),
+    is_marketplace BOOLEAN NOT NULL DEFAULT false,
     location VARCHAR(100)
 );
 

@@ -101,11 +101,6 @@ func (h *WarehouseHandler) Create(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusConflict, "WAREHOUSE_EXISTS", "warehouse with this name already exists")
 			return
 		}
-		if err == repository.ErrWarehouseTypeNotFound {
-			log.Warn().Interface("warehouseTypeId", req.WarehouseTypeID).Msg("Warehouse type not found")
-			writeError(w, http.StatusBadRequest, "WAREHOUSE_TYPE_NOT_FOUND", "specified warehouse type does not exist")
-			return
-		}
 		log.Error().Err(err).Str("name", req.Name).Msg("Failed to create warehouse")
 		writeError(w, http.StatusInternalServerError, "WAREHOUSE_CREATE_FAILED", "failed to create warehouse")
 		return
@@ -149,11 +144,6 @@ func (h *WarehouseHandler) Update(w http.ResponseWriter, r *http.Request) {
 		if err == repository.ErrWarehouseExists {
 			log.Warn().Str("warehouseId", warehouseID.String()).Str("name", req.Name).Msg("Warehouse with name already exists")
 			writeError(w, http.StatusConflict, "WAREHOUSE_EXISTS", "warehouse with this name already exists")
-			return
-		}
-		if err == repository.ErrWarehouseTypeNotFound {
-			log.Warn().Str("warehouseId", warehouseID.String()).Interface("warehouseTypeId", req.WarehouseTypeID).Msg("Warehouse type not found")
-			writeError(w, http.StatusBadRequest, "WAREHOUSE_TYPE_NOT_FOUND", "specified warehouse type does not exist")
 			return
 		}
 		log.Error().Err(err).Str("warehouseId", warehouseID.String()).Msg("Failed to update warehouse")

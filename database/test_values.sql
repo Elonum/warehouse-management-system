@@ -20,22 +20,17 @@ ON CONFLICT (user_id) DO UPDATE SET password_hash = EXCLUDED.password_hash;
 
 -- ===== Справочники =====
 
-INSERT INTO warehouse_types (warehouse_type_id, name) VALUES
-('10000000-0000-0000-0000-000000000001', 'Основной склад'),
-('10000000-0000-0000-0000-000000000002', 'Склад возвратов'),
-('10000000-0000-0000-0000-000000000003', 'Временный склад')
-ON CONFLICT (warehouse_type_id) DO NOTHING;
-
 INSERT INTO stores (store_id, name) VALUES
 ('20000000-0000-0000-0000-000000000001', 'Wildberries'),
 ('20000000-0000-0000-0000-000000000002', 'Ozon'),
 ('20000000-0000-0000-0000-000000000003', 'Яндекс.Маркет')
 ON CONFLICT (store_id) DO NOTHING;
 
-INSERT INTO warehouses (warehouse_id, name, warehouse_type_id, location) VALUES
-('30000000-0000-0000-0000-000000000001', 'Склад Москва', '10000000-0000-0000-0000-000000000001', 'Москва, ул. Складская, 1'),
-('30000000-0000-0000-0000-000000000002', 'Склад Казань', '10000000-0000-0000-0000-000000000001', 'Казань, ул. Складская, 2'),
-('30000000-0000-0000-0000-000000000003', 'Склад возвратов', '10000000-0000-0000-0000-000000000002', 'Москва, ул. Возвратная, 1')
+INSERT INTO warehouses (warehouse_id, name, is_marketplace, location) VALUES
+('30000000-0000-0000-0000-000000000001', 'Склад Москва', false, 'Москва, ул. Складская, 1'),
+('30000000-0000-0000-0000-000000000002', 'Склад Казань', false, 'Казань, ул. Складская, 2'),
+('30000000-0000-0000-0000-000000000003', 'Склад возвратов', false, 'Москва, ул. Возвратная, 1'),
+('30000000-0000-0000-0000-000000000004', 'WB Коледино', true, 'Московская обл., Коледино')
 ON CONFLICT (warehouse_id) DO NOTHING;
 
 INSERT INTO products (product_id, article, barcode, unit_weight, unit_cost, purchase_price, processing_price) VALUES

@@ -19,7 +19,7 @@ var (
 type Warehouse struct {
 	WarehouseID     uuid.UUID
 	Name            string
-	WarehouseTypeID *uuid.UUID
+	IsMarketplace   bool
 	Location        *string
 }
 
@@ -33,7 +33,7 @@ func NewWarehouseRepository(pool *pgxpool.Pool) *WarehouseRepository {
 
 func (r *WarehouseRepository) GetByID(ctx context.Context, warehouseID uuid.UUID) (*Warehouse, error) {
 	query := `
-		SELECT warehouse_id, name, warehouse_type_id, location
+		SELECT warehouse_id, name, is_marketplace, location
 		FROM warehouses
 		WHERE warehouse_id = $1
 	`
@@ -45,7 +45,7 @@ func (r *WarehouseRepository) GetByID(ctx context.Context, warehouseID uuid.UUID
 	err := r.pool.QueryRow(ctx, query, warehouseID).Scan(
 		&warehouse.WarehouseID,
 		&warehouse.Name,
-		&warehouse.WarehouseTypeID,
+		&warehouse.IsMarketplace,
 		&warehouse.Location,
 	)
 
@@ -61,7 +61,7 @@ func (r *WarehouseRepository) GetByID(ctx context.Context, warehouseID uuid.UUID
 
 func (r *WarehouseRepository) List(ctx context.Context, limit, offset int) ([]Warehouse, error) {
 	query := `
-		SELECT warehouse_id, name, warehouse_type_id, location
+		SELECT warehouse_id, name, is_marketplace, location
 		FROM warehouses
 		ORDER BY warehouse_id
 		LIMIT $1 OFFSET $2
@@ -82,7 +82,7 @@ func (r *WarehouseRepository) List(ctx context.Context, limit, offset int) ([]Wa
 		if err := rows.Scan(
 			&warehouse.WarehouseID,
 			&warehouse.Name,
-			&warehouse.WarehouseTypeID,
+			&warehouse.IsMarketplace,
 			&warehouse.Location,
 		); err != nil {
 			return nil, err
@@ -97,21 +97,21 @@ func (r *WarehouseRepository) List(ctx context.Context, limit, offset int) ([]Wa
 	return warehouses, nil
 }
 
-func (r *WarehouseRepository) Create(ctx context.Context, name string, warehouseTypeID *uuid.UUID, location *string) (*Warehouse, error) {
+func (r *WarehouseRepository) Create(ctx context.Context, name string, isMarketplace bool, location *string) (*Warehouse, error) {
 	query := `
-		INSERT INTO warehouses (name, warehouse_type_id, location)
+		INSERT INTO warehouses (name, is_marketplace, location)
 		VALUES ($1, $2, $3)
-		RETURNING warehouse_id, name, warehouse_type_id, location
+		RETURNING warehouse_id, name, is_marketplace, location
 	`
 
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
 	var warehouse Warehouse
-	err := r.pool.QueryRow(ctx, query, name, warehouseTypeID, location).Scan(
+	err := r.pool.QueryRow(ctx, query, name, isMarketplace, location).Scan(
 		&warehouse.WarehouseID,
 		&warehouse.Name,
-		&warehouse.WarehouseTypeID,
+		&warehouse.IsMarketplace,
 		&warehouse.Location,
 	)
 
@@ -128,22 +128,22 @@ func (r *WarehouseRepository) Create(ctx context.Context, name string, warehouse
 	return &warehouse, nil
 }
 
-func (r *WarehouseRepository) Update(ctx context.Context, warehouseID uuid.UUID, name string, warehouseTypeID *uuid.UUID, location *string) (*Warehouse, error) {
+func (r *WarehouseRepository) Update(ctx context.Context, warehouseID uuid.UUID, name string, isMarketplace bool, location *string) (*Warehouse, error) {
 	query := `
 		UPDATE warehouses
-		SET name = $1, warehouse_type_id = $2, location = $3
+		SET name = $1, is_marketplace = $2, location = $3
 		WHERE warehouse_id = $4
-		RETURNING warehouse_id, name, warehouse_type_id, location
+		RETURNING warehouse_id, name, is_marketplace, location
 	`
 
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
 	var warehouse Warehouse
-	err := r.pool.QueryRow(ctx, query, name, warehouseTypeID, location, warehouseID).Scan(
+	err := r.pool.QueryRow(ctx, query, name, isMarketplace, location, warehouseID).Scan(
 		&warehouse.WarehouseID,
 		&warehouse.Name,
-		&warehouse.WarehouseTypeID,
+		&warehouse.IsMarketplace,
 		&warehouse.Location,
 	)
 

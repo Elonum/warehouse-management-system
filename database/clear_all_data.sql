@@ -38,7 +38,7 @@ DELETE FROM supplier_orders;
 -- Продукты (независимая таблица, но на неё ссылаются другие)
 DELETE FROM products;
 
--- Склады (зависит от warehouse_types)
+-- Склады
 DELETE FROM warehouses;
 
 -- Пользователи (зависит от user_roles)
@@ -57,9 +57,6 @@ DELETE FROM order_statuses;
 
 -- Магазины (маркетплейсы)
 DELETE FROM stores;
-
--- Типы складов
-DELETE FROM warehouse_types;
 
 -- Роли пользователей (должна быть последней, так как на неё ссылаются users)
 DELETE FROM user_roles;

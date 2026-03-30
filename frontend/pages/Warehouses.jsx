@@ -30,13 +30,6 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import PageHeader from '@/components/ui/PageHeader';
 import DataTable from '@/components/ui/DataTable';
@@ -46,7 +39,7 @@ import { createPageUrl } from '@/utils';
 
 const emptyWarehouse = {
   name: '',
-  warehouseTypeId: null,
+  isMarketplace: false,
   location: null,
 };
 
@@ -76,14 +69,6 @@ export default function Warehouses() {
     },
   });
 
-  const { data: warehouseTypesData } = useQuery({
-    queryKey: ['warehouseTypes'],
-    queryFn: async () => {
-      const response = await api.warehouseTypes.list({ limit: 100, offset: 0 });
-      return Array.isArray(response) ? response : [];
-    },
-  });
-
   const { data: storesData, isLoading: loadingStores, refetch: refetchStores } = useQuery({
     queryKey: ['stores'],
     queryFn: async () => {
@@ -94,7 +79,6 @@ export default function Warehouses() {
 
   const warehouses = Array.isArray(warehousesData) ? warehousesData : [];
   const stores = Array.isArray(storesData) ? storesData : [];
-  const warehouseTypes = Array.isArray(warehouseTypesData) ? warehouseTypesData : [];
 
   // Warehouse mutations
   const createWarehouseMutation = useMutation({
@@ -240,7 +224,7 @@ export default function Warehouses() {
     setCurrentItem(warehouse);
     setWarehouseForm({
       name: warehouse.name || '',
-      warehouseTypeId: warehouse.warehouseTypeId || null,
+      isMarketplace: !!warehouse.isMarketplace,
       location: warehouse.location || null,
     });
     warehouseModal.open(warehouse);
@@ -272,7 +256,7 @@ export default function Warehouses() {
 
     const data = {
       name,
-      warehouseTypeId: warehouseForm.warehouseTypeId || null,
+      isMarketplace: !!warehouseForm.isMarketplace,
       location: warehouseForm.location?.trim() || null,
     };
 
@@ -303,18 +287,6 @@ export default function Warehouses() {
     }
   };
 
-  const getWarehouseTypeName = (warehouseTypeId) => {
-    if (!warehouseTypeId) return '—';
-    const type = warehouseTypes.find(t => t.warehouseTypeId === warehouseTypeId);
-    return type ? type.name : '—';
-  };
-
-  const getSelectedWarehouseTypeName = () => {
-    if (!warehouseForm.warehouseTypeId) return '';
-    const type = warehouseTypes.find(t => t.warehouseTypeId === warehouseForm.warehouseTypeId);
-    return type ? type.name : '';
-  };
-
   const warehouseColumns = [
     {
       accessorKey: 'name',
@@ -331,11 +303,11 @@ export default function Warehouses() {
       ),
     },
     {
-      accessorKey: 'warehouseTypeId',
-      header: t('warehouses.table.type'),
+      accessorKey: 'isMarketplace',
+      header: t('warehouses.table.marketplace'),
       cell: ({ row }) => (
         <span className="text-slate-600 dark:text-slate-400">
-          {getWarehouseTypeName(row.original.warehouseTypeId)}
+          {row.original.isMarketplace ? t('warehouses.table.marketplaceYes') : t('warehouses.table.marketplaceNo')}
         </span>
       ),
     },
@@ -530,30 +502,15 @@ export default function Warehouses() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="wh-type">{t('warehouses.form.type')}</Label>
-              <Select
-                value={warehouseForm.warehouseTypeId ? warehouseForm.warehouseTypeId.toString() : ''}
-                onValueChange={(value) => {
-                  setWarehouseForm({ 
-                    ...warehouseForm, 
-                    warehouseTypeId: value && value !== '' ? value : null 
-                  });
-                }}
-              >
-                <SelectTrigger id="wh-type">
-                  <SelectValue placeholder={t('warehouses.form.type')}>
-                    {getSelectedWarehouseTypeName()}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                    <SelectItem value="">{t('common.notSpecified')}</SelectItem>
-                  {warehouseTypes.map((type) => (
-                    <SelectItem key={type.warehouseTypeId} value={type.warehouseTypeId.toString()}>
-                      {type.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label className="flex cursor-pointer items-center gap-2">
+                <input
+                  type="checkbox"
+                  className="h-4 w-4 rounded border-slate-300"
+                  checked={!!warehouseForm.isMarketplace}
+                  onChange={(e) => setWarehouseForm({ ...warehouseForm, isMarketplace: e.target.checked })}
+                />
+                {t('warehouses.form.isMarketplace')}
+              </Label>
             </div>
             <div className="space-y-2">
               <Label htmlFor="wh-location">{t('warehouses.form.location')}</Label>

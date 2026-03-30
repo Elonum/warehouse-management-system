@@ -127,13 +127,8 @@ export default function ReferenceData() {
     },
   });
 
-  const { data: warehouseTypes = [], isLoading: warehouseTypesLoading } = useQuery({
-    queryKey: ['warehouseTypes'],
-    queryFn: async () => {
-      const response = await api.warehouseTypes.list({ limit: 1000, offset: 0 });
-      return Array.isArray(response) ? response : [];
-    },
-  });
+  const warehouseTypes = [];
+  const warehouseTypesLoading = false;
 
   const createRoleMutation = useMutation({
     mutationFn: (data) => api.roles.create(data),
@@ -1087,17 +1082,6 @@ export default function ReferenceData() {
       items: inventoryStatuses,
       onManage: () => setSelectedSection('inventoryStatuses'),
     },
-    {
-      key: 'warehouseTypes',
-      title: t('referenceData.warehouseTypes.title'),
-      description: t('referenceData.warehouseTypes.description'),
-      icon: Warehouse,
-      count: warehouseTypes.length,
-      isLoading: warehouseTypesLoading,
-      color: 'emerald',
-      items: warehouseTypes,
-      onManage: () => setSelectedSection('warehouseTypes'),
-    },
   ];
 
   const colorClasses = {
@@ -1711,142 +1695,6 @@ export default function ReferenceData() {
                 disabled={deleteInventoryStatusMutation.isPending}
               >
                 {deleteInventoryStatusMutation.isPending ? t('common.deleting') : t('common.delete')}
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-      </div>
-    );
-  }
-
-  if (selectedSection === 'warehouseTypes') {
-    return (
-      <div className="space-y-6">
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex items-center gap-4 flex-1">
-            <Button
-              variant="ghost"
-              onClick={() => setSelectedSection(null)}
-            >
-              <ChevronRight className="w-4 h-4 mr-2 rotate-180" />
-              {t('common.back')}
-            </Button>
-            <div>
-              <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
-                {t('referenceData.warehouseTypes.title')}
-              </h1>
-              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                {t('referenceData.warehouseTypes.description')}
-              </p>
-            </div>
-          </div>
-          <Button onClick={() => handleOpenWarehouseTypeDialog()}>
-            <Plus className="w-4 h-4 mr-2" />
-            {t('referenceData.warehouseTypes.addType')}
-          </Button>
-        </div>
-
-        <DataTable
-          columns={warehouseTypeColumns}
-          data={warehouseTypes}
-          isLoading={warehouseTypesLoading}
-          searchPlaceholder={t('referenceData.warehouseTypes.searchPlaceholder')}
-          emptyMessage={t('referenceData.warehouseTypes.emptyMessage')}
-        />
-
-        <Dialog open={warehouseTypeDialogOpen} onOpenChange={handleCloseWarehouseTypeDialog}>
-          <DialogContent className="max-w-lg">
-            <DialogHeader>
-              <DialogTitle>
-                {currentWarehouseType ? t('referenceData.warehouseTypes.editType') : t('referenceData.warehouseTypes.addType')}
-              </DialogTitle>
-            </DialogHeader>
-            <form onSubmit={handleWarehouseTypeSubmit} className="space-y-4">
-              {warehouseTypeError && (
-                <div className="p-3 text-sm text-red-600 bg-red-50 dark:bg-red-900/20 dark:text-red-400 rounded-lg">
-                  {warehouseTypeError}
-                </div>
-              )}
-              <div className="space-y-2">
-                <Label htmlFor="warehouseTypeName">
-                  {t('referenceData.warehouseTypes.form.name')} *
-                </Label>
-                <Input
-                  id="warehouseTypeName"
-                  value={warehouseTypeName}
-                  onChange={(e) => setWarehouseTypeName(e.target.value)}
-                  placeholder={t('referenceData.warehouseTypes.form.namePlaceholder')}
-                  required
-                  minLength={2}
-                  maxLength={100}
-                />
-                <p className="text-xs text-slate-500 dark:text-slate-400">
-                  {t('referenceData.warehouseTypes.form.nameHint')}
-                </p>
-              </div>
-              <div className="space-y-2">
-                <Label className="flex cursor-pointer items-center gap-2">
-                  <input
-                    type="checkbox"
-                    className="h-4 w-4 rounded border-slate-300"
-                    checked={warehouseTypeIsMarketplace}
-                    onChange={(e) => setWarehouseTypeIsMarketplace(e.target.checked)}
-                  />
-                  {t('referenceData.warehouseTypes.form.isMarketplace')}
-                </Label>
-              </div>
-              <DialogFooter>
-                <Button type="button" variant="outline" onClick={handleCloseWarehouseTypeDialog}>
-                  {t('common.cancel')}
-                </Button>
-                <Button 
-                  type="submit" 
-                  disabled={createWarehouseTypeMutation.isPending || updateWarehouseTypeMutation.isPending}
-                >
-                  {currentWarehouseType ? t('common.save') : t('common.create')}
-                </Button>
-              </DialogFooter>
-            </form>
-          </DialogContent>
-        </Dialog>
-
-        <AlertDialog open={deleteWarehouseTypeDialogOpen} onOpenChange={(open) => {
-          setDeleteWarehouseTypeDialogOpen(open);
-          if (!open) {
-            setCurrentWarehouseType(null);
-            setWarehouseTypeDeleteError('');
-          }
-        }}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>{t('referenceData.warehouseTypes.deleteConfirm.title')}</AlertDialogTitle>
-              <AlertDialogDescription>
-                {t('referenceData.warehouseTypes.deleteConfirm.description', { name: currentWarehouseType?.name || '' })}
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            {warehouseTypeDeleteError && (
-              <div className="p-3 text-sm text-red-600 bg-red-50 dark:bg-red-900/20 dark:text-red-400 rounded-lg">
-                {warehouseTypeDeleteError}
-              </div>
-            )}
-            <AlertDialogFooter>
-              <AlertDialogCancel onClick={() => {
-                setDeleteWarehouseTypeDialogOpen(false);
-                setCurrentWarehouseType(null);
-                setWarehouseTypeDeleteError('');
-              }}>
-                {t('common.cancel')}
-              </AlertDialogCancel>
-              <AlertDialogAction
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  confirmDeleteWarehouseType();
-                }}
-                className="bg-red-600 hover:bg-red-700 text-white"
-                disabled={deleteWarehouseTypeMutation.isPending}
-              >
-                {deleteWarehouseTypeMutation.isPending ? t('common.deleting') : t('common.delete')}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>

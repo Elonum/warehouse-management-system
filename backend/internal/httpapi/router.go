@@ -34,7 +34,6 @@ func NewRouter(pg *db.Postgres, cfg config.Config) *chi.Mux {
 	productRepo := repository.NewProductRepository(pg.Pool)
 	productImageRepo := repository.NewProductImageRepository(pg.Pool)
 	warehouseRepo := repository.NewWarehouseRepository(pg.Pool)
-	warehouseTypeRepo := repository.NewWarehouseTypeRepository(pg.Pool)
 	storeRepo := repository.NewStoreRepository(pg.Pool)
 	supplierOrderRepo := repository.NewSupplierOrderRepository(pg.Pool)
 	supplierOrderItemRepo := repository.NewSupplierOrderItemRepository(pg.Pool)
@@ -56,8 +55,7 @@ func NewRouter(pg *db.Postgres, cfg config.Config) *chi.Mux {
 	emailService := service.NewEmailService(cfg.FrontendURL, cfg.Env)
 	authService := service.NewAuthService(userRepo, roleRepo, passwordResetRepo, emailService, jwtManager)
 	productService := service.NewProductService(productRepo, productImageRepo, cfg.BaseURL)
-	warehouseService := service.NewWarehouseService(warehouseRepo, warehouseTypeRepo)
-	warehouseTypeService := service.NewWarehouseTypeService(warehouseTypeRepo)
+	warehouseService := service.NewWarehouseService(warehouseRepo)
 	storeService := service.NewStoreService(storeRepo)
 	supplierOrderService := service.NewSupplierOrderService(supplierOrderRepo, orderStatusRepo, supplierOrderItemRepo, stockRepo)
 	supplierOrderItemService := service.NewSupplierOrderItemService(supplierOrderItemRepo, supplierOrderRepo, orderStatusRepo, productRepo, warehouseRepo)
@@ -66,7 +64,6 @@ func NewRouter(pg *db.Postgres, cfg config.Config) *chi.Mux {
 		mpShipmentRepo,
 		storeRepo,
 		warehouseRepo,
-		warehouseTypeRepo,
 		shipmentStatusRepo,
 		mpShipmentItemRepo,
 		stockRepo,
@@ -91,7 +88,6 @@ func NewRouter(pg *db.Postgres, cfg config.Config) *chi.Mux {
 	roleHandler := handlers.NewRoleHandler(roleService)
 	productHandler := handlers.NewProductHandler(productService)
 	warehouseHandler := handlers.NewWarehouseHandler(warehouseService)
-	warehouseTypeHandler := handlers.NewWarehouseTypeHandler(warehouseTypeService)
 	storeHandler := handlers.NewStoreHandler(storeService)
 	supplierOrderHandler := handlers.NewSupplierOrderHandler(supplierOrderService, supplierOrderItemService)
 	supplierOrderItemHandler := handlers.NewSupplierOrderItemHandler(supplierOrderItemService)
@@ -161,14 +157,6 @@ func NewRouter(pg *db.Postgres, cfg config.Config) *chi.Mux {
 				r.Get("/{id}", warehouseHandler.GetByID)
 				r.Put("/{id}", warehouseHandler.Update)
 				r.Delete("/{id}", warehouseHandler.Delete)
-			})
-
-			r.With(adminOnly).Route("/warehouse-types", func(r chi.Router) {
-				r.Get("/", warehouseTypeHandler.List)
-				r.Post("/", warehouseTypeHandler.Create)
-				r.Get("/{id}", warehouseTypeHandler.GetByID)
-				r.Put("/{id}", warehouseTypeHandler.Update)
-				r.Delete("/{id}", warehouseTypeHandler.Delete)
 			})
 
 			r.Route("/stores", func(r chi.Router) {

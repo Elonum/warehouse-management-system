@@ -272,41 +272,6 @@ const api = {
     },
   },
 
-  warehouseTypes: {
-    list: async (params = {}) => {
-      const queryParams = new URLSearchParams();
-      if (params.limit) queryParams.append('limit', params.limit);
-      if (params.offset) queryParams.append('offset', params.offset);
-      const query = queryParams.toString();
-      return await request(`/warehouse-types${query ? `?${query}` : ''}`);
-    },
-
-    get: async (id) => {
-      return await request(`/warehouse-types/${id}`);
-    },
-
-    create: async (data) => {
-      return await request('/warehouse-types', {
-        method: 'POST',
-        body: data,
-      });
-    },
-
-    update: async (id, data) => {
-      return await request(`/warehouse-types/${id}`, {
-        method: 'PUT',
-        body: data,
-      });
-    },
-
-    delete: async (id) => {
-      await request(`/warehouse-types/${id}`, {
-        method: 'DELETE',
-      });
-      return { success: true };
-    },
-  },
-
   stores: {
     list: async (params = {}) => {
       const queryParams = new URLSearchParams();

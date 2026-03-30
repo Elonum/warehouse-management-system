@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 
 	"github.com/google/uuid"
@@ -190,6 +191,18 @@ func (h *MpShipmentHandler) Update(w http.ResponseWriter, r *http.Request) {
 		if err == service.ErrMpShipmentCompleted {
 			log.Warn().Str("shipmentId", shipmentID.String()).Msg("Attempt to update completed mp shipment")
 			writeError(w, http.StatusBadRequest, "SHIPMENT_COMPLETED", "Завершённую отгрузку нельзя изменять")
+			return
+		}
+		var insuffErr *service.InsufficientMainStockError
+		if errors.As(err, &insuffErr) {
+			log.Warn().
+				Err(err).
+				Str("shipmentId", shipmentID.String()).
+				Str("productId", insuffErr.ProductID.String()).
+				Int("required", insuffErr.Required).
+				Int("available", insuffErr.Available).
+				Msg("Insufficient main stock for mp shipment transfer")
+			writeError(w, http.StatusConflict, "INSUFFICIENT_MAIN_STOCK", "Недостаточно товара на основных складах для завершения отгрузки на маркетплейс")
 			return
 		}
 		if err == repository.ErrMpShipmentNotFound {

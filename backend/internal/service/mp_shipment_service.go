@@ -3,6 +3,8 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
+	"sort"
 	"time"
 
 	"github.com/google/uuid"
@@ -14,16 +16,28 @@ import (
 
 var (
 	ErrMpShipmentCompleted = errors.New("mp shipment is completed and cannot be modified")
+	ErrInsufficientMainStock = errors.New("insufficient stock on main warehouses to transfer to marketplace")
 )
 
 func isFinalShipmentStatus(status *repository.ShipmentStatus) bool {
 	return status != nil && status.IsFinal
 }
 
+type InsufficientMainStockError struct {
+	ProductID uuid.UUID
+	Required  int
+	Available int
+}
+
+func (e *InsufficientMainStockError) Error() string {
+	return fmt.Sprintf("insufficient main stock for product %s: required=%d available=%d", e.ProductID.String(), e.Required, e.Available)
+}
+
 type MpShipmentService struct {
 	repo               *repository.MpShipmentRepository
 	storeRepo          *repository.StoreRepository
 	warehouseRepo      *repository.WarehouseRepository
+	warehouseTypeRepo  *repository.WarehouseTypeRepository
 	shipmentStatusRepo *repository.ShipmentStatusRepository
 	shipmentItemRepo   *repository.MpShipmentItemRepository
 	stockRepo          *repository.StockRepository
@@ -33,6 +47,7 @@ func NewMpShipmentService(
 	repo *repository.MpShipmentRepository,
 	storeRepo *repository.StoreRepository,
 	warehouseRepo *repository.WarehouseRepository,
+	warehouseTypeRepo *repository.WarehouseTypeRepository,
 	shipmentStatusRepo *repository.ShipmentStatusRepository,
 	shipmentItemRepo *repository.MpShipmentItemRepository,
 	stockRepo *repository.StockRepository,
@@ -41,6 +56,7 @@ func NewMpShipmentService(
 		repo:               repo,
 		storeRepo:          storeRepo,
 		warehouseRepo:      warehouseRepo,
+		warehouseTypeRepo:  warehouseTypeRepo,
 		shipmentStatusRepo: shipmentStatusRepo,
 		shipmentItemRepo:   shipmentItemRepo,
 		stockRepo:          stockRepo,
@@ -506,51 +522,218 @@ func (s *MpShipmentService) applyAcceptedToStock(ctx context.Context, shipment *
 		return nil
 	}
 
-	appliedItems := 0
-	// vw_current_stock берёт только последнее stock_snapshots.snapshot_date как базу
-	// и учитывает движения только если acceptance_date/actual_receipt_date > snapshot_date.
-	// Поэтому snapshot_date события на момент "применения" нужно писать не раньше текущего now (UTC),
-	// иначе "current stock" визуально не изменится.
+	// mp_shipments.warehouse_id считается складом МП назначения.
+	destWarehouseID := *shipment.WarehouseID
+
+	// snapshotDate пишем не раньше "сейчас", чтобы vw_current_stock не добавлял движения повторно.
 	snapshotDate := time.Now().UTC()
 	if shipment.AcceptanceDate != nil && shipment.AcceptanceDate.After(snapshotDate) {
 		snapshotDate = shipment.AcceptanceDate.UTC()
 	}
+
+	// Пропускаем товары с нулевым принятым кол-вом и агрегируем по продуктам.
+	totalAcceptedByProduct := make(map[uuid.UUID]int)
 	for _, it := range items {
 		if it.AcceptedQty <= 0 {
 			continue
 		}
+		totalAcceptedByProduct[it.ProductID] += it.AcceptedQty
+	}
+	if len(totalAcceptedByProduct) == 0 {
+		log.Info().Str("shipmentId", shipment.ShipmentID.String()).Msg("No accepted quantities to apply to stock for completed mp shipment")
+		return nil
+	}
 
-		if err := s.stockRepo.ApplyShipmentOutFromMpShipment(
-			ctx,
-			it.ProductID,
-			*shipment.WarehouseID,
-			snapshotDate,
-			it.AcceptedQty,
-			&userID,
-		); err != nil {
+	marketplaceWarehouseIDs, err := s.getMarketplaceWarehouseIDs(ctx, destWarehouseID)
+	if err != nil {
+		return err
+	}
+
+	// Для каждого продукта забираем qty с main-складов (вне marketplace) и добавляем на склад МП.
+	appliedProducts := 0
+	for productID, requiredQty := range totalAcceptedByProduct {
+		allocations, available, err := s.allocateFromMainWarehouses(ctx, productID, requiredQty, marketplaceWarehouseIDs, destWarehouseID)
+		if err != nil {
+			return &InsufficientMainStockError{
+				ProductID: productID,
+				Required:  requiredQty,
+				Available: available,
+			}
+		}
+
+		// 1) Вычитаем с main-складов
+		for _, a := range allocations {
+			if err := s.stockRepo.ApplyStockDelta(ctx, productID, a.warehouseID, snapshotDate, -a.qty, &userID); err != nil {
+				log.Error().
+					Err(err).
+					Str("shipmentId", shipment.ShipmentID.String()).
+					Str("productId", productID.String()).
+					Str("sourceWarehouseId", a.warehouseID.String()).
+					Int("qty", a.qty).
+					Time("snapshotDate", snapshotDate).
+					Msg("Failed to apply mp transfer out from main warehouse")
+				return err
+			}
+		}
+
+		// 2) Прибавляем на склад МП назначения
+		if err := s.stockRepo.ApplyStockDelta(ctx, productID, destWarehouseID, snapshotDate, requiredQty, &userID); err != nil {
 			log.Error().
 				Err(err).
 				Str("shipmentId", shipment.ShipmentID.String()).
-				Str("productId", it.ProductID.String()).
-				Str("warehouseId", shipment.WarehouseID.String()).
-				Int("acceptedQty", it.AcceptedQty).
+				Str("productId", productID.String()).
+				Str("destWarehouseId", destWarehouseID.String()).
+				Int("qty", requiredQty).
 				Time("snapshotDate", snapshotDate).
-				Msg("Failed to apply mp shipment accepted quantities to stock")
+				Msg("Failed to apply mp transfer in to destination warehouse")
 			return err
 		}
-		appliedItems++
+
+		appliedProducts++
 	}
 
-	if appliedItems > 0 {
-		log.Info().
-			Str("shipmentId", shipment.ShipmentID.String()).
-			Int("appliedItems", appliedItems).
-			Msg("Successfully applied accepted quantities to stock for completed mp shipment")
-	} else {
-		log.Info().
-			Str("shipmentId", shipment.ShipmentID.String()).
-			Msg("No accepted quantities to apply to stock for completed mp shipment")
-	}
+	log.Info().
+		Str("shipmentId", shipment.ShipmentID.String()).
+		Int("appliedProducts", appliedProducts).
+		Msg("Successfully transferred mp shipment accepted quantities from main warehouses to marketplace destination")
 
 	return nil
+}
+
+type sourceAllocation struct {
+	warehouseID uuid.UUID
+	qty         int
+}
+
+func (s *MpShipmentService) getMarketplaceWarehouseIDs(ctx context.Context, destWarehouseID uuid.UUID) (map[uuid.UUID]struct{}, error) {
+	warehouseTypes, err := s.warehouseTypeRepo.List(ctx, 1000, 0)
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to list warehouse types while detecting marketplace warehouses")
+		return nil, err
+	}
+
+	marketplaceTypeIDs := make(map[uuid.UUID]struct{})
+	for _, wt := range warehouseTypes {
+		if wt.IsMarketplace {
+			marketplaceTypeIDs[wt.WarehouseTypeID] = struct{}{}
+		}
+	}
+	if len(marketplaceTypeIDs) == 0 {
+		log.Warn().
+			Msg("No marketplace warehouse types configured. Set warehouse_types.is_marketplace=true for marketplace destination types.")
+	}
+
+	warehouses, err := s.warehouseRepo.List(ctx, 5000, 0)
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to list warehouses while detecting marketplace warehouses")
+		return nil, err
+	}
+
+	result := make(map[uuid.UUID]struct{})
+	for _, w := range warehouses {
+		if w.WarehouseTypeID == nil {
+			continue
+		}
+		if _, ok := marketplaceTypeIDs[*w.WarehouseTypeID]; ok {
+			result[w.WarehouseID] = struct{}{}
+		}
+	}
+
+	// Fallback: всегда гарантируем, что destination не будет считаться source.
+	if len(result) == 0 {
+		result[destWarehouseID] = struct{}{}
+	} else if _, ok := result[destWarehouseID]; !ok {
+		result[destWarehouseID] = struct{}{}
+	}
+
+	return result, nil
+}
+
+func (s *MpShipmentService) allocateFromMainWarehouses(
+	ctx context.Context,
+	productID uuid.UUID,
+	requiredQty int,
+	marketplaceWarehouseIDs map[uuid.UUID]struct{},
+	destWarehouseID uuid.UUID,
+) ([]sourceAllocation, int, error) {
+	if requiredQty <= 0 {
+		return nil, 0, nil
+	}
+
+	stocks, err := s.stockRepo.GetCurrentStock(
+		ctx,
+		nil,
+		&productID,
+		nil,
+		repository.StockLevelFilterPositive,
+		5000,
+		0,
+	)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	sources := make([]sourceAllocation, 0, len(stocks))
+	totalAvailable := 0
+	for _, st := range stocks {
+		// источники: все не-marketplace склады и не destination
+		if st.WarehouseID == destWarehouseID {
+			continue
+		}
+		if _, ok := marketplaceWarehouseIDs[st.WarehouseID]; ok {
+			continue
+		}
+		if st.CurrentQuantity <= 0 {
+			continue
+		}
+		sources = append(sources, sourceAllocation{warehouseID: st.WarehouseID, qty: st.CurrentQuantity})
+		totalAvailable += st.CurrentQuantity
+	}
+
+	if totalAvailable < requiredQty {
+		return nil, totalAvailable, fmt.Errorf("insufficient stock")
+	}
+
+	// Детерминированный порядок списания.
+	sort.Slice(sources, func(i, j int) bool {
+		if sources[i].qty != sources[j].qty {
+			return sources[i].qty > sources[j].qty
+		}
+		// UUID сравниваем строковым образом для стабильности
+		return sources[i].warehouseID.String() < sources[j].warehouseID.String()
+	})
+
+	allocations, _, err := allocateFromSortedSources(requiredQty, sources)
+	return allocations, totalAvailable, err
+}
+
+// allocateFromSortedSources consumes requiredQty from sources in order.
+// sources must be pre-sorted deterministically.
+func allocateFromSortedSources(requiredQty int, sources []sourceAllocation) ([]sourceAllocation, int, error) {
+	remaining := requiredQty
+	allocations := make([]sourceAllocation, 0, len(sources))
+	totalAvailable := 0
+	for _, src := range sources {
+		totalAvailable += src.qty
+	}
+	for _, src := range sources {
+		if remaining == 0 {
+			break
+		}
+		if src.qty <= 0 {
+			continue
+		}
+		take := src.qty
+		if take > remaining {
+			take = remaining
+		}
+		if take > 0 {
+			allocations = append(allocations, sourceAllocation{warehouseID: src.warehouseID, qty: take})
+			remaining -= take
+		}
+	}
+	if remaining != 0 {
+		return nil, totalAvailable, fmt.Errorf("insufficient stock")
+	}
+	return allocations, totalAvailable, nil
 }

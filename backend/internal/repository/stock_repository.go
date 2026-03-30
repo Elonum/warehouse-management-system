@@ -308,3 +308,16 @@ func (r *StockRepository) ApplyInventoryDeltaFromInventoryItem(
 	_, err := r.pool.Exec(ctx, query, productID, warehouseID, snapshotDate, deltaQty, createdBy)
 	return err
 }
+
+// ApplyStockDelta is a generic stock delta writer for finalized actions.
+// It updates stock_snapshots for (product_id, warehouse_id, snapshot_date) by adding deltaQty.
+func (r *StockRepository) ApplyStockDelta(
+	ctx context.Context,
+	productID uuid.UUID,
+	warehouseID uuid.UUID,
+	snapshotDate time.Time,
+	deltaQty int,
+	createdBy *uuid.UUID,
+) error {
+	return r.ApplyInventoryDeltaFromInventoryItem(ctx, productID, warehouseID, snapshotDate, deltaQty, createdBy)
+}

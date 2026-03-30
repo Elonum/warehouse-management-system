@@ -66,6 +66,7 @@ func NewRouter(pg *db.Postgres, cfg config.Config) *chi.Mux {
 		mpShipmentRepo,
 		storeRepo,
 		warehouseRepo,
+		warehouseTypeRepo,
 		shipmentStatusRepo,
 		mpShipmentItemRepo,
 		stockRepo,

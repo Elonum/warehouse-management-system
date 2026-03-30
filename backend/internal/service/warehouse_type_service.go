@@ -28,6 +28,7 @@ func (s *WarehouseTypeService) GetByID(ctx context.Context, warehouseTypeID uuid
 	return &dto.WarehouseTypeResponse{
 		WarehouseTypeID: warehouseType.WarehouseTypeID.String(),
 		Name:            warehouseType.Name,
+		IsMarketplace:   warehouseType.IsMarketplace,
 	}, nil
 }
 
@@ -43,6 +44,7 @@ func (s *WarehouseTypeService) List(ctx context.Context, limit, offset int) ([]d
 		result = append(result, dto.WarehouseTypeResponse{
 			WarehouseTypeID: warehouseType.WarehouseTypeID.String(),
 			Name:            warehouseType.Name,
+			IsMarketplace:   warehouseType.IsMarketplace,
 		})
 	}
 
@@ -50,7 +52,7 @@ func (s *WarehouseTypeService) List(ctx context.Context, limit, offset int) ([]d
 }
 
 func (s *WarehouseTypeService) Create(ctx context.Context, req dto.WarehouseTypeCreateRequest) (*dto.WarehouseTypeResponse, error) {
-	warehouseType, err := s.repo.Create(ctx, req.Name)
+	warehouseType, err := s.repo.Create(ctx, req.Name, req.IsMarketplace)
 	if err != nil {
 		log.Error().Err(err).Str("name", req.Name).Msg("Failed to create warehouse type")
 		return nil, err
@@ -60,11 +62,12 @@ func (s *WarehouseTypeService) Create(ctx context.Context, req dto.WarehouseType
 	return &dto.WarehouseTypeResponse{
 		WarehouseTypeID: warehouseType.WarehouseTypeID.String(),
 		Name:            warehouseType.Name,
+		IsMarketplace:   warehouseType.IsMarketplace,
 	}, nil
 }
 
 func (s *WarehouseTypeService) Update(ctx context.Context, warehouseTypeID uuid.UUID, req dto.WarehouseTypeUpdateRequest) (*dto.WarehouseTypeResponse, error) {
-	warehouseType, err := s.repo.Update(ctx, warehouseTypeID, req.Name)
+	warehouseType, err := s.repo.Update(ctx, warehouseTypeID, req.Name, req.IsMarketplace)
 	if err != nil {
 		log.Error().Err(err).Str("warehouseTypeId", warehouseTypeID.String()).Msg("Failed to update warehouse type")
 		return nil, err
@@ -74,6 +77,7 @@ func (s *WarehouseTypeService) Update(ctx context.Context, warehouseTypeID uuid.
 	return &dto.WarehouseTypeResponse{
 		WarehouseTypeID: warehouseType.WarehouseTypeID.String(),
 		Name:            warehouseType.Name,
+		IsMarketplace:   warehouseType.IsMarketplace,
 	}, nil
 }
 

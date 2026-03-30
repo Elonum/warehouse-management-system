@@ -213,6 +213,7 @@ const translations = {
           name: 'Название типа',
           namePlaceholder: 'Введите название типа',
           nameHint: 'Минимум 2 символа, максимум 100 символов',
+          isMarketplace: 'Склад МП (для маркетплейсов)',
         },
         deleteConfirm: {
           title: 'Удалить тип',
@@ -1180,6 +1181,7 @@ const translations = {
           name: 'Type Name',
           namePlaceholder: 'Enter type name',
           nameHint: 'Minimum 2 characters, maximum 100 characters',
+          isMarketplace: 'Marketplace warehouse (for marketplace stores)',
         },
         deleteConfirm: {
           title: 'Delete Type',

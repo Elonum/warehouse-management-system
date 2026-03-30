@@ -91,6 +91,7 @@ export default function ReferenceData() {
   const [deleteWarehouseTypeDialogOpen, setDeleteWarehouseTypeDialogOpen] = useState(false);
   const [currentWarehouseType, setCurrentWarehouseType] = useState(null);
   const [warehouseTypeName, setWarehouseTypeName] = useState('');
+  const [warehouseTypeIsMarketplace, setWarehouseTypeIsMarketplace] = useState(false);
   const [warehouseTypeError, setWarehouseTypeError] = useState('');
   const [warehouseTypeDeleteError, setWarehouseTypeDeleteError] = useState('');
 
@@ -813,6 +814,7 @@ export default function ReferenceData() {
 
   const resetWarehouseTypeForm = () => {
     setWarehouseTypeName('');
+    setWarehouseTypeIsMarketplace(false);
     setCurrentWarehouseType(null);
     setWarehouseTypeError('');
   };
@@ -821,6 +823,7 @@ export default function ReferenceData() {
     if (warehouseType) {
       setCurrentWarehouseType(warehouseType);
       setWarehouseTypeName(warehouseType.name || '');
+      setWarehouseTypeIsMarketplace(!!warehouseType.isMarketplace);
     } else {
       resetWarehouseTypeForm();
     }
@@ -848,7 +851,7 @@ export default function ReferenceData() {
       return;
     }
 
-    const data = { name };
+    const data = { name, isMarketplace: warehouseTypeIsMarketplace };
 
     if (currentWarehouseType) {
       updateWarehouseTypeMutation.mutate({ id: currentWarehouseType.warehouseTypeId, data });
@@ -890,9 +893,16 @@ export default function ReferenceData() {
           <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-emerald-100 dark:bg-emerald-500/20">
             <Warehouse className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
           </div>
-          <span className="font-medium text-slate-900 dark:text-slate-100">
-            {row.original.name}
-          </span>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="font-medium text-slate-900 dark:text-slate-100">
+              {row.original.name}
+            </span>
+            {row.original.isMarketplace ? (
+              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-50 text-purple-700 dark:bg-purple-500/10 dark:text-purple-300">
+                MP
+              </span>
+            ) : null}
+          </div>
         </div>
       ),
     },
@@ -1773,6 +1783,17 @@ export default function ReferenceData() {
                 <p className="text-xs text-slate-500 dark:text-slate-400">
                   {t('referenceData.warehouseTypes.form.nameHint')}
                 </p>
+              </div>
+              <div className="space-y-2">
+                <Label className="flex cursor-pointer items-center gap-2">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 rounded border-slate-300"
+                    checked={warehouseTypeIsMarketplace}
+                    onChange={(e) => setWarehouseTypeIsMarketplace(e.target.checked)}
+                  />
+                  {t('referenceData.warehouseTypes.form.isMarketplace')}
+                </Label>
               </div>
               <DialogFooter>
                 <Button type="button" variant="outline" onClick={handleCloseWarehouseTypeDialog}>

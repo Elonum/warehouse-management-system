@@ -146,7 +146,7 @@ export default function Warehouses() {
       } else {
         setError('Ошибка удаления склада');
       }
-      setDeleteDialogOpen(false);
+      deleteModal.close();
     },
   });
 
@@ -216,7 +216,7 @@ export default function Warehouses() {
       } else {
         setError('Ошибка удаления магазина');
       }
-      setDeleteDialogOpen(false);
+      deleteModal.close();
     },
   });
 
@@ -305,11 +305,20 @@ export default function Warehouses() {
     {
       accessorKey: 'isMarketplace',
       header: t('warehouses.table.marketplace'),
-      cell: ({ row }) => (
-        <span className="text-slate-600 dark:text-slate-400">
-          {row.original.isMarketplace ? t('warehouses.table.marketplaceYes') : t('warehouses.table.marketplaceNo')}
-        </span>
-      ),
+      cell: ({ row }) => {
+        const isMarketplace = !!row.original.isMarketplace;
+        return (
+          <span
+            className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${
+              isMarketplace
+                ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300'
+                : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'
+            }`}
+          >
+            {isMarketplace ? t('warehouses.table.marketplaceYes') : t('warehouses.table.marketplaceNo')}
+          </span>
+        );
+      },
     },
     {
       accessorKey: 'location',
@@ -461,8 +470,8 @@ export default function Warehouses() {
           <DataTable
             columns={storeColumns}
             data={stores}
-            searchPlaceholder="Поиск магазинов..."
-            emptyMessage="Магазины не найдены"
+            searchPlaceholder={t('warehouses.storeSearchPlaceholder')}
+            emptyMessage={t('warehouses.storeEmptyMessage')}
             isLoading={loadingStores}
           />
         </TabsContent>
@@ -502,22 +511,28 @@ export default function Warehouses() {
               />
             </div>
             <div className="space-y-2">
-              <Label className="flex cursor-pointer items-center gap-2">
-                <input
-                  type="checkbox"
-                  className="h-4 w-4 rounded border-slate-300"
-                  checked={!!warehouseForm.isMarketplace}
-                  onChange={(e) => setWarehouseForm({ ...warehouseForm, isMarketplace: e.target.checked })}
-                />
-                {t('warehouses.form.isMarketplace')}
-              </Label>
-            </div>
-            <div className="space-y-2">
               <Label htmlFor="wh-location">{t('warehouses.form.location')}</Label>
               <Input
                 id="wh-location"
                 value={warehouseForm.location || ''}
                 onChange={(e) => setWarehouseForm({ ...warehouseForm, location: e.target.value || null })}
+              />
+            </div>
+            <div className="flex items-center justify-between border rounded-md px-3 py-2">
+              <div className="space-y-0.5">
+                <Label htmlFor="warehouse-is-marketplace" className="text-xs font-medium text-slate-700 dark:text-slate-200">
+                  {t('warehouses.form.isMarketplace')}
+                </Label>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  {t('warehouses.form.isMarketplaceHint')}
+                </p>
+              </div>
+              <input
+                id="warehouse-is-marketplace"
+                type="checkbox"
+                className="h-4 w-4 accent-emerald-600"
+                checked={!!warehouseForm.isMarketplace}
+                onChange={(e) => setWarehouseForm({ ...warehouseForm, isMarketplace: e.target.checked })}
               />
             </div>
             <DialogFooter>
@@ -569,7 +584,7 @@ export default function Warehouses() {
               </div>
             )}
             <div className="space-y-2">
-              <Label htmlFor="store-name">Название магазина *</Label>
+              <Label htmlFor="store-name">{t('warehouses.form.storeName')} *</Label>
               <Input
                 id="store-name"
                 value={storeForm.name}

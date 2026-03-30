@@ -204,7 +204,7 @@ func (s *MpShipmentService) Create(ctx context.Context, userID uuid.UUID, req dt
 		}
 		warehouseID = &id
 
-		_, err = s.warehouseRepo.GetByID(ctx, id)
+		warehouse, err := s.warehouseRepo.GetByID(ctx, id)
 		if err != nil {
 			if err == repository.ErrWarehouseNotFound {
 				log.Warn().Str("warehouseId", *req.WarehouseID).Msg("Warehouse not found")
@@ -212,6 +212,10 @@ func (s *MpShipmentService) Create(ctx context.Context, userID uuid.UUID, req dt
 			}
 			log.Error().Err(err).Str("warehouseId", *req.WarehouseID).Msg("Failed to validate warehouse")
 			return nil, err
+		}
+		if !warehouse.IsMarketplace {
+			log.Warn().Str("warehouseId", *req.WarehouseID).Msg("Destination warehouse must be marketplace")
+			return nil, ErrMpDestinationWarehouseInvalid
 		}
 	}
 
@@ -331,7 +335,7 @@ func (s *MpShipmentService) Update(ctx context.Context, shipmentID, userID uuid.
 		}
 		warehouseID = &id
 
-		_, err = s.warehouseRepo.GetByID(ctx, id)
+		warehouse, err := s.warehouseRepo.GetByID(ctx, id)
 		if err != nil {
 			if err == repository.ErrWarehouseNotFound {
 				log.Warn().Str("warehouseId", *req.WarehouseID).Msg("Warehouse not found")
@@ -339,6 +343,10 @@ func (s *MpShipmentService) Update(ctx context.Context, shipmentID, userID uuid.
 			}
 			log.Error().Err(err).Str("warehouseId", *req.WarehouseID).Msg("Failed to validate warehouse")
 			return nil, err
+		}
+		if !warehouse.IsMarketplace {
+			log.Warn().Str("warehouseId", *req.WarehouseID).Msg("Destination warehouse must be marketplace")
+			return nil, ErrMpDestinationWarehouseInvalid
 		}
 	}
 

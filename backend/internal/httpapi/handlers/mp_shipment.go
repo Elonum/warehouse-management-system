@@ -124,6 +124,10 @@ func (h *MpShipmentHandler) Create(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "shipmentNumber is required")
 		return
 	}
+	if req.WarehouseID == nil || *req.WarehouseID == "" {
+		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "warehouseId is required")
+		return
+	}
 
 	shipment, err := h.service.Create(r.Context(), userID, req)
 	if err != nil {
@@ -140,6 +144,11 @@ func (h *MpShipmentHandler) Create(w http.ResponseWriter, r *http.Request) {
 		if err == repository.ErrWarehouseNotFound {
 			log.Warn().Interface("warehouseId", req.WarehouseID).Msg("Warehouse not found")
 			writeError(w, http.StatusBadRequest, "WAREHOUSE_NOT_FOUND", "specified warehouse does not exist")
+			return
+		}
+		if err == service.ErrMpDestinationWarehouseInvalid {
+			log.Warn().Interface("warehouseId", req.WarehouseID).Msg("Destination warehouse is not marketplace")
+			writeError(w, http.StatusBadRequest, "MP_DEST_WAREHOUSE_INVALID", "Склад назначения должен быть складом маркетплейса")
 			return
 		}
 		if err == repository.ErrShipmentStatusNotFound {
@@ -183,6 +192,10 @@ func (h *MpShipmentHandler) Update(w http.ResponseWriter, r *http.Request) {
 
 	if req.ShipmentNumber == "" {
 		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "shipmentNumber is required")
+		return
+	}
+	if req.WarehouseID == nil || *req.WarehouseID == "" {
+		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "warehouseId is required")
 		return
 	}
 

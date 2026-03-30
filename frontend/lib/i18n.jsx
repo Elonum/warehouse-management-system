@@ -339,6 +339,8 @@ const translations = {
       editStore: 'Редактировать магазин',
       searchPlaceholder: 'Поиск складов...',
       emptyMessage: 'Склады не найдены',
+      storeSearchPlaceholder: 'Поиск магазинов...',
+      storeEmptyMessage: 'Магазины не найдены',
       table: {
         name: 'Название склада',
         marketplace: 'Склад маркетплейса',
@@ -350,7 +352,9 @@ const translations = {
       form: {
         name: 'Название',
         isMarketplace: 'Склад маркетплейса',
+        isMarketplaceHint: 'Отметьте, если склад относится к маркетплейсу (WB/Ozon и т.д.)',
         location: 'Адрес',
+        storeName: 'Название магазина',
         nameRequired: 'Название склада обязательно',
         storeNameRequired: 'Название магазина обязательно',
       },
@@ -481,7 +485,9 @@ const translations = {
       table: {
         shipmentNumber: 'Номер отгрузки',
         store: 'Магазин',
+        marketplaceWarehouse: 'Склад МП',
         warehouse: 'Склад',
+        warehouseAuto: 'Основные склады (авто)',
         status: 'Статус',
         shipmentDate: 'Дата отгрузки',
         acceptanceDate: 'Дата приёмки',
@@ -493,6 +499,7 @@ const translations = {
         shipmentNumber: 'Номер отгрузки',
         store: 'Магазин',
         warehouse: 'Склад',
+        marketplaceWarehouse: 'Склад МП',
         status: 'Статус',
         shipmentDate: 'Дата отгрузки',
         acceptanceDate: 'Дата приёмки',
@@ -527,6 +534,8 @@ const translations = {
         amountTooLarge: 'Слишком большое значение суммы, уменьшите значение',
         cannotEditCompleted: 'Завершённую отгрузку нельзя изменять',
         cannotDeleteCompleted: 'Завершённую отгрузку нельзя удалить, так как она уже применена к остаткам склада',
+        marketplaceWarehouseRequired: 'Склад МП обязателен',
+        marketplaceWarehouseInvalid: 'Выберите склад с признаком маркетплейса',
       },
       import: {
         menuLabel: 'Импорт из МП',
@@ -1309,6 +1318,8 @@ const translations = {
       editStore: 'Edit Store',
       searchPlaceholder: 'Search warehouses...',
       emptyMessage: 'No warehouses found',
+      storeSearchPlaceholder: 'Search stores...',
+      storeEmptyMessage: 'No stores found',
       table: {
         name: 'Warehouse Name',
         marketplace: 'Marketplace Warehouse',
@@ -1320,7 +1331,9 @@ const translations = {
       form: {
         name: 'Name',
         isMarketplace: 'Marketplace warehouse',
+        isMarketplaceHint: 'Enable this when the warehouse belongs to a marketplace (WB/Ozon/etc.)',
         location: 'Address',
+        storeName: 'Store name',
         nameRequired: 'Warehouse name is required',
         storeNameRequired: 'Store name is required',
       },
@@ -1451,7 +1464,9 @@ const translations = {
       table: {
         shipmentNumber: 'Shipment Number',
         store: 'Store',
+        marketplaceWarehouse: 'Marketplace warehouse',
         warehouse: 'Warehouse',
+        warehouseAuto: 'Main warehouses (auto)',
         status: 'Status',
         shipmentDate: 'Shipment Date',
         acceptanceDate: 'Acceptance Date',
@@ -1463,6 +1478,7 @@ const translations = {
         shipmentNumber: 'Shipment Number',
         store: 'Store',
         warehouse: 'Warehouse',
+        marketplaceWarehouse: 'Marketplace warehouse',
         status: 'Status',
         shipmentDate: 'Shipment Date',
         acceptanceDate: 'Acceptance Date',
@@ -1497,6 +1513,8 @@ const translations = {
         amountTooLarge: 'Amount is too large, please enter a smaller value',
         cannotEditCompleted: 'Completed shipment cannot be edited',
         cannotDeleteCompleted: 'Cannot delete a completed shipment because it has already been applied to stock levels',
+        marketplaceWarehouseRequired: 'Marketplace warehouse is required',
+        marketplaceWarehouseInvalid: 'Please select a warehouse marked as marketplace',
       },
       import: {
         menuLabel: 'Marketplace import',

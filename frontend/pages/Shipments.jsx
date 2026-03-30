@@ -97,6 +97,10 @@ export default function Shipments() {
   const shipments = Array.isArray(shipmentsData) ? shipmentsData : [];
   const stores = Array.isArray(storesData) ? storesData : [];
   const warehouses = Array.isArray(warehousesData) ? warehousesData : [];
+  const marketplaceWarehouses = useMemo(
+    () => warehouses.filter((warehouse) => warehouse?.isMarketplace),
+    [warehouses],
+  );
   const shipmentStatuses = Array.isArray(shipmentStatusesData) ? shipmentStatusesData : [];
 
   const isFinalShipment = useMemo(() => {
@@ -121,7 +125,10 @@ export default function Shipments() {
     return shipments.map((shipment) => ({
       ...shipment,
       storeName: shipment.storeId ? storeMap.get(shipment.storeId) || t('common.notSpecified') : null,
-      warehouseName: shipment.warehouseId ? warehouseMap.get(shipment.warehouseId) || t('common.notSpecified') : null,
+      warehouseName: shipment.warehouseId
+        ? warehouseMap.get(shipment.warehouseId) || t('common.notSpecified')
+        : null,
+      mpWarehouseName: t('shipments.table.warehouseAuto'),
       statusName: shipment.statusId ? statusMap.get(shipment.statusId) || t('common.notSpecified') : null,
       statusIsFinal: shipment.statusId
         ? statusIsFinalMap.get(String(shipment.statusId)) || false
@@ -150,6 +157,10 @@ export default function Shipments() {
         }
         if (err.message?.includes('statusId is required')) {
           setError(t('shipments.errors.statusRequired'));
+          return;
+        }
+        if (err.message?.includes('warehouseId is required')) {
+          setError(t('shipments.errors.marketplaceWarehouseRequired'));
           return;
         }
         if (err.message?.includes('acceptanceDate must be on or after shipmentDate')) {
@@ -182,6 +193,10 @@ export default function Shipments() {
         }
         if (err.message?.includes('statusId is required')) {
           setError(t('shipments.errors.statusRequired'));
+          return;
+        }
+        if (err.message?.includes('warehouseId is required')) {
+          setError(t('shipments.errors.marketplaceWarehouseRequired'));
           return;
         }
         if (err.message?.includes('acceptanceDate must be on or after shipmentDate')) {
@@ -271,6 +286,10 @@ export default function Shipments() {
       setError(t('shipments.errors.statusRequired'));
       return;
     }
+    if (!formData.warehouseId) {
+      setError(t('shipments.errors.marketplaceWarehouseRequired'));
+      return;
+    }
 
     let shipmentDateIso = null;
     let acceptanceDateIso = null;
@@ -354,7 +373,7 @@ export default function Shipments() {
 
   const getSelectedWarehouseName = () => {
     if (!formData.warehouseId) return '';
-    const warehouse = warehouses.find(
+    const warehouse = marketplaceWarehouses.find(
       (w) => String(w.warehouseId) === String(formData.warehouseId),
     );
     return warehouse?.name || '';
@@ -457,18 +476,18 @@ export default function Shipments() {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="warehouseId">{t('shipments.form.warehouse')}</Label>
+                <Label htmlFor="warehouseId">{t('shipments.form.marketplaceWarehouse')} *</Label>
                 <Select
                   value={formData.warehouseId?.toString() || ''}
                   onValueChange={(value) => setFormData({ ...formData, warehouseId: value || null })}
                 >
                   <SelectTrigger disabled={shouldLockEdit}>
-                    <SelectValue placeholder={t('shipments.form.warehouse')}>
+                    <SelectValue placeholder={t('shipments.form.marketplaceWarehouse')}>
                       {getSelectedWarehouseName()}
                     </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
-                    {warehouses.map(warehouse => (
+                    {marketplaceWarehouses.map(warehouse => (
                       <SelectItem key={warehouse.warehouseId} value={warehouse.warehouseId.toString()}>
                         {warehouse.name}
                       </SelectItem>

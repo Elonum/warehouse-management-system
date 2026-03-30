@@ -105,6 +105,18 @@ function ShipmentsTable({
         ),
       },
       {
+        accessorKey: 'mpWarehouseName',
+        header: t('shipments.table.marketplaceWarehouse'),
+        cell: ({ row }) => (
+          <div className="flex items-center gap-2">
+            <WarehouseIcon className="w-4 h-4 text-emerald-500" />
+            <span className="text-slate-700 dark:text-slate-300">
+              {row.original.mpWarehouseName || t('common.notSpecified')}
+            </span>
+          </div>
+        ),
+      },
+      {
         accessorKey: 'statusName',
         header: t('shipments.table.status'),
         cell: ({ row }) => (

@@ -1710,7 +1710,7 @@ export default function ReferenceData() {
         description={t('referenceData.description')}
       />
 
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+      <div className="grid w-full max-w-5xl grid-cols-1 gap-6 md:grid-cols-2">
         {referenceSections.map((section) => {
           const Icon = section.icon;
           const colors = colorClasses[section.color];

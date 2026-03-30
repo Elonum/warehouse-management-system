@@ -193,6 +193,11 @@ func (h *MpShipmentHandler) Update(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusBadRequest, "SHIPMENT_COMPLETED", "Завершённую отгрузку нельзя изменять")
 			return
 		}
+		if err == service.ErrMpDestinationWarehouseInvalid {
+			log.Warn().Str("shipmentId", shipmentID.String()).Msg("Destination warehouse is not marketplace")
+			writeError(w, http.StatusBadRequest, "MP_DEST_WAREHOUSE_INVALID", "Склад назначения должен быть складом маркетплейса")
+			return
+		}
 		var insuffErr *service.InsufficientMainStockError
 		if errors.As(err, &insuffErr) {
 			log.Warn().

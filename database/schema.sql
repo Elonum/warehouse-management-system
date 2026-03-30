@@ -300,6 +300,7 @@ CREATE INDEX IF NOT EXISTS idx_supplier_order_docs_order ON supplier_order_docum
 CREATE INDEX IF NOT EXISTS idx_mp_shipments_store ON mp_shipments(store_id);
 CREATE INDEX IF NOT EXISTS idx_mp_shipments_warehouse ON mp_shipments(warehouse_id);
 CREATE INDEX IF NOT EXISTS idx_mp_shipments_status ON mp_shipments(status_id);
+CREATE INDEX IF NOT EXISTS idx_warehouses_is_marketplace ON warehouses(is_marketplace);
 
 CREATE INDEX IF NOT EXISTS idx_mp_shipment_items_shipment ON mp_shipment_items(shipment_id);
 CREATE INDEX IF NOT EXISTS idx_mp_shipment_items_product ON mp_shipment_items(product_id);

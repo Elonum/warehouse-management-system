@@ -16,7 +16,8 @@ import (
 
 var (
 	ErrMpShipmentCompleted = errors.New("mp shipment is completed and cannot be modified")
-	ErrInsufficientMainStock = errors.New("insufficient stock on main warehouses to transfer to marketplace")
+	ErrInsufficientMainStock            = errors.New("insufficient stock on main warehouses to transfer to marketplace")
+	ErrMpDestinationWarehouseInvalid    = errors.New("mp destination warehouse must be marked as marketplace")
 )
 
 func isFinalShipmentStatus(status *repository.ShipmentStatus) bool {
@@ -521,6 +522,18 @@ func (s *MpShipmentService) applyAcceptedToStock(ctx context.Context, shipment *
 
 	// mp_shipments.warehouse_id считается складом МП назначения.
 	destWarehouseID := *shipment.WarehouseID
+	destWarehouse, err := s.warehouseRepo.GetByID(ctx, destWarehouseID)
+	if err != nil {
+		log.Error().Err(err).Str("shipmentId", shipment.ShipmentID.String()).Str("destWarehouseId", destWarehouseID.String()).Msg("Failed to load destination warehouse for mp shipment")
+		return err
+	}
+	if !destWarehouse.IsMarketplace {
+		log.Warn().
+			Str("shipmentId", shipment.ShipmentID.String()).
+			Str("destWarehouseId", destWarehouseID.String()).
+			Msg("Destination warehouse is not marked as marketplace")
+		return ErrMpDestinationWarehouseInvalid
+	}
 
 	// snapshotDate пишем не раньше "сейчас", чтобы vw_current_stock не добавлял движения повторно.
 	snapshotDate := time.Now().UTC()
@@ -609,22 +622,29 @@ func (s *MpShipmentService) getMarketplaceWarehouseIDs(ctx context.Context, dest
 		return nil, err
 	}
 
-	result := make(map[uuid.UUID]struct{})
-	for _, w := range warehouses {
-		if w.IsMarketplace {
-			result[w.WarehouseID] = struct{}{}
-		}
-	}
-
+	result, hadMarketplace := collectMarketplaceWarehouseIDs(warehouses, destWarehouseID)
 	// Fallback: всегда гарантируем, что destination не будет считаться source.
-	if len(result) == 0 {
+	if !hadMarketplace {
 		log.Warn().Msg("No marketplace warehouses configured. Set warehouses.is_marketplace=true for marketplace destination warehouses.")
-		result[destWarehouseID] = struct{}{}
-	} else if _, ok := result[destWarehouseID]; !ok {
-		result[destWarehouseID] = struct{}{}
 	}
 
 	return result, nil
+}
+
+func collectMarketplaceWarehouseIDs(warehouses []repository.Warehouse, destWarehouseID uuid.UUID) (map[uuid.UUID]struct{}, bool) {
+	result := make(map[uuid.UUID]struct{})
+	hadMarketplace := false
+	for _, w := range warehouses {
+		if w.IsMarketplace {
+			result[w.WarehouseID] = struct{}{}
+			hadMarketplace = true
+		}
+	}
+	// Destination must never be considered as source allocation candidate.
+	if _, ok := result[destWarehouseID]; !ok {
+		result[destWarehouseID] = struct{}{}
+	}
+	return result, hadMarketplace
 }
 
 func (s *MpShipmentService) allocateFromMainWarehouses(

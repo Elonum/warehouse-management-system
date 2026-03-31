@@ -166,7 +166,11 @@ export default function Shipments() {
           setError(t('shipments.errors.statusRequired'));
           return;
         }
-        if (err.message?.includes('warehouseId is required')) {
+        if (err.message?.includes('mainWarehouseId is required')) {
+          setError(t('shipments.errors.mainWarehouseRequired'));
+          return;
+        }
+        if (err.message?.includes('mpWarehouseId is required')) {
           setError(t('shipments.errors.marketplaceWarehouseRequired'));
           return;
         }
@@ -202,7 +206,11 @@ export default function Shipments() {
           setError(t('shipments.errors.statusRequired'));
           return;
         }
-        if (err.message?.includes('warehouseId is required')) {
+        if (err.message?.includes('mainWarehouseId is required')) {
+          setError(t('shipments.errors.mainWarehouseRequired'));
+          return;
+        }
+        if (err.message?.includes('mpWarehouseId is required')) {
           setError(t('shipments.errors.marketplaceWarehouseRequired'));
           return;
         }

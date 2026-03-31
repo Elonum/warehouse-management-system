@@ -110,6 +110,10 @@ export default function InventoryAdjustmentDetails() {
 
   const products = Array.isArray(productsData) ? productsData : [];
   const warehouses = Array.isArray(warehousesData) ? warehousesData : [];
+  const mainWarehouses = useMemo(
+    () => warehouses.filter((w) => !w?.isMarketplace),
+    [warehouses],
+  );
   const inventoryStatuses = Array.isArray(inventoryStatusesData) ? inventoryStatusesData : [];
   const adjustmentItems = Array.isArray(adjustmentItemsData) ? adjustmentItemsData : [];
 
@@ -184,7 +188,7 @@ export default function InventoryAdjustmentDetails() {
 
   const getSelectedWarehouseLabel = () => {
     if (!itemForm.warehouseId) return '';
-    const warehouse = warehouses.find(w => w.warehouseId === itemForm.warehouseId);
+    const warehouse = mainWarehouses.find((w) => w.warehouseId === itemForm.warehouseId);
     return warehouse?.name || '';
   };
 
@@ -727,7 +731,7 @@ export default function InventoryAdjustmentDetails() {
                   </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
-                  {warehouses.map(warehouse => (
+                  {mainWarehouses.map((warehouse) => (
                     <SelectItem key={warehouse.warehouseId} value={warehouse.warehouseId.toString()}>
                       {warehouse.name || t('common.notSpecified')}
                     </SelectItem>

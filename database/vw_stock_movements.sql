@@ -15,13 +15,13 @@ WHERE so.actual_receipt_date IS NOT NULL
 
 UNION ALL
 
--- 2. Отгрузка на маркетплейсы
+-- 2. Отгрузка на маркетплейсы: списание с основного склада
 SELECT
     msi.product_id,
-    ms.warehouse_id,              -- склад берём из шапки отгрузки
+    ms.main_warehouse_id AS warehouse_id,
     ms.acceptance_date AS movement_date,
     -msi.accepted_qty AS quantity,
-    'MP_SHIPMENT' AS movement_type,
+    'MP_SHIPMENT_OUT' AS movement_type,
     ms.shipment_id AS document_id
 FROM mp_shipment_items msi
 JOIN mp_shipments ms
@@ -30,10 +30,30 @@ JOIN shipment_statuses ss
     ON ss.shipment_status_id = ms.status_id
 WHERE ms.acceptance_date IS NOT NULL
   AND ss.is_final = true
+  AND ms.main_warehouse_id IS NOT NULL
 
 UNION ALL
 
--- 3. Инвентаризация
+-- 3. Отгрузка на маркетплейсы: приход на склад маркетплейса
+SELECT
+    msi.product_id,
+    ms.mp_warehouse_id AS warehouse_id,
+    ms.acceptance_date AS movement_date,
+    msi.accepted_qty AS quantity,
+    'MP_SHIPMENT_IN' AS movement_type,
+    ms.shipment_id AS document_id
+FROM mp_shipment_items msi
+JOIN mp_shipments ms
+    ON ms.shipment_id = msi.shipment_id
+JOIN shipment_statuses ss
+    ON ss.shipment_status_id = ms.status_id
+WHERE ms.acceptance_date IS NOT NULL
+  AND ss.is_final = true
+  AND ms.mp_warehouse_id IS NOT NULL
+
+UNION ALL
+
+-- 4. Инвентаризация
 SELECT
     ii.product_id,
     ii.warehouse_id,

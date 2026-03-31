@@ -210,6 +210,10 @@ export default function SupplierOrderDetails() {
   const orderDocuments = Array.isArray(orderDocumentsData) ? orderDocumentsData : [];
   const products = Array.isArray(productsData) ? productsData : [];
   const warehouses = Array.isArray(warehousesData) ? warehousesData : [];
+  const mainWarehouses = useMemo(
+    () => warehouses.filter((w) => !w?.isMarketplace),
+    [warehouses],
+  );
   const orderStatuses = Array.isArray(orderStatusesData) ? orderStatusesData : [];
 
   const productsMap = useMemo(() => {
@@ -1626,7 +1630,7 @@ export default function SupplierOrderDetails() {
                     </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
-                    {warehouses.map(warehouse => (
+                    {mainWarehouses.map(warehouse => (
                       <SelectItem key={warehouse.warehouseId} value={warehouse.warehouseId.toString()}>
                         {warehouse.name || t('common.notSpecified')}
                       </SelectItem>

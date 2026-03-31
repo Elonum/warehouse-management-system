@@ -238,7 +238,8 @@ export default function ShipmentDetails() {
       const data = {
         shipmentNumber: shipment.shipmentNumber,
         storeId: shipment.storeId || null,
-        warehouseId: shipment.warehouseId || null,
+        mainWarehouseId: shipment.mainWarehouseId || null,
+        mpWarehouseId: shipment.mpWarehouseId || null,
         statusId: finalShipmentStatus.shipmentStatusId,
         shipmentDate: shipment.shipmentDate ?? null,
         acceptanceDate: shipment.acceptanceDate ?? null,
@@ -546,17 +547,32 @@ export default function ShipmentDetails() {
         </Card>
         <Card className="dark:bg-slate-900 dark:border-slate-800">
           <CardContent className="pt-6">
-            <div className="flex items-center gap-2 mb-2">
-              <Warehouse className="w-4 h-4 text-slate-400" />
-              <p className="text-sm text-slate-500">
-                {t('shipmentDetails.summary.warehouse')}
+            <div className="mb-2 grid grid-cols-2 gap-4">
+              <div className="flex items-center gap-2">
+                <Warehouse className="w-4 h-4 text-slate-400" />
+                <p className="text-sm text-slate-500">
+                  {t('shipmentDetails.summary.warehouse')}
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Warehouse className="w-4 h-4 text-emerald-500" />
+                <p className="text-sm text-slate-500">
+                  {t('shipmentDetails.summary.marketplaceWarehouse')}
+                </p>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <p className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+                {maps.warehouseMap.get(shipment?.mainWarehouseId)?.name ||
+                  shipment?.mainWarehouseId ||
+                  '—'}
+              </p>
+              <p className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+                {maps.warehouseMap.get(shipment?.mpWarehouseId)?.name ||
+                  shipment?.mpWarehouseId ||
+                  '—'}
               </p>
             </div>
-            <p className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-              {maps.warehouseMap.get(shipment?.warehouseId)?.name ||
-                shipment?.warehouseId ||
-                '—'}
-            </p>
           </CardContent>
         </Card>
         <Card className="dark:bg-slate-900 dark:border-slate-800">

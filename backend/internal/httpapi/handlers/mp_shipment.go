@@ -227,6 +227,11 @@ func (h *MpShipmentHandler) Update(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusBadRequest, "MP_DEST_WAREHOUSE_INVALID", "Склад назначения должен быть складом маркетплейса")
 			return
 		}
+		if err == service.ErrMpSourceWarehouseInvalid {
+			log.Warn().Str("shipmentId", shipmentID.String()).Msg("Source warehouse must be main (non-marketplace)")
+			writeError(w, http.StatusBadRequest, "MAIN_WAREHOUSE_INVALID", "Склад списания должен быть основным (не складом маркетплейса)")
+			return
+		}
 		var insuffErr *service.InsufficientMainStockError
 		if errors.As(err, &insuffErr) {
 			log.Warn().

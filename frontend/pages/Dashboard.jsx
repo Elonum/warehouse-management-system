@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { format } from 'date-fns';
@@ -131,22 +131,77 @@ export default function Dashboard() {
   const stockLowLink = `${createPageUrl('Stock')}?levelFilter=below_reorder`;
 
   // Calculate stats
-  const totalStockQty = stock.reduce((sum, s) => sum + (s.currentQuantity || 0), 0);
   const totalProducts = products.length;
 
-  const activeOrders = supplierOrders.filter(o => o.statusId != null).length;
-  const activeShipments = shipments.filter(s => s.statusId != null).length;
+  const mainWarehouses = useMemo(
+    () => warehouses.filter((w) => !w?.isMarketplace),
+    [warehouses],
+  );
+
+  const marketplaceWarehouses = useMemo(
+    () => warehouses.filter((w) => w?.isMarketplace),
+    [warehouses],
+  );
 
   // Stock by warehouse data
-  const stockByWarehouse = warehouses.map(wh => ({
-    name: wh.name,
-    quantity: stock.filter(s => s.warehouseId === wh.warehouseId).reduce((sum, s) => sum + (s.currentQuantity || 0), 0),
-  })).filter(item => item.quantity > 0);
+  const stockByMainWarehouse = mainWarehouses
+    .map((wh) => ({
+      name: wh.name,
+      quantity: stock
+        .filter((s) => s.warehouseId === wh.warehouseId)
+        .reduce((sum, s) => sum + (s.currentQuantity || 0), 0),
+    }))
+    .filter((item) => item.quantity > 0);
 
-  const orderStatusNameById = new Map(orderStatuses.map(s => [s.orderStatusId, s.name]));
+  const stockByMarketplaceWarehouse = marketplaceWarehouses
+    .map((wh) => ({
+      name: wh.name,
+      quantity: stock
+        .filter((s) => s.warehouseId === wh.warehouseId)
+        .reduce((sum, s) => sum + (s.currentQuantity || 0), 0),
+    }))
+    .filter((item) => item.quantity > 0);
+
+  const mainWarehouseIds = new Set(mainWarehouses.map((w) => w.warehouseId));
+  const marketplaceWarehouseIds = new Set(
+    marketplaceWarehouses.map((w) => w.warehouseId),
+  );
+
+  const mainStockQty = stock
+    .filter((s) => mainWarehouseIds.has(s.warehouseId))
+    .reduce((sum, s) => sum + (s.currentQuantity || 0), 0);
+
+  const marketplaceStockQty = stock
+    .filter((s) => marketplaceWarehouseIds.has(s.warehouseId))
+    .reduce((sum, s) => sum + (s.currentQuantity || 0), 0);
+
+  const totalStockQty = mainStockQty + marketplaceStockQty;
+
+  const orderStatusNameById = new Map(
+    orderStatuses.map((s) => [s.orderStatusId, s.name]),
+  );
+  const orderStatusFinalById = new Map(
+    orderStatuses.map((s) => [s.orderStatusId, !!s.isFinal]),
+  );
+  const shipmentStatusFinalById = new Map(
+    shipmentStatuses.map((s) => [s.shipmentStatusId, !!s.isFinal]),
+  );
+
+  const activeOrders = supplierOrders.filter(
+    (o) => !orderStatusFinalById.get(o.statusId),
+  ).length;
+  const activeShipments = shipments.filter(
+    (s) => !shipmentStatusFinalById.get(s.statusId),
+  ).length;
+
   const ordersByStatus = orderStatuses.map(s => ({
     status: s.name,
     count: supplierOrders.filter(o => o.statusId === s.orderStatusId).length,
+  }));
+
+  const shipmentsByStatus = shipmentStatuses.map((s) => ({
+    status: s.name,
+    count: shipments.filter((sh) => sh.statusId === s.shipmentStatusId).length,
   }));
 
   return (
@@ -157,10 +212,10 @@ export default function Dashboard() {
       />
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
         {isLoading ? (
           <>
-            {[1,2,3,4].map(i => (
+            {[1, 2, 3, 4, 5, 6].map(i => (
               <Skeleton key={i} className="h-36 rounded-xl" />
             ))}
           </>
@@ -170,7 +225,18 @@ export default function Dashboard() {
               title={t('dashboard.stats.totalStock')}
               value={`${totalStockQty.toLocaleString('ru-RU')} шт.`}
               icon={Boxes}
+            />
+            <StatCard
+              title={t('dashboard.stats.mainStock')}
+              value={`${mainStockQty.toLocaleString('ru-RU')} шт.`}
+              icon={Warehouse}
               variant="indigo"
+            />
+            <StatCard
+              title={t('dashboard.stats.marketplaceStock')}
+              value={`${marketplaceStockQty.toLocaleString('ru-RU')} шт.`}
+              icon={Warehouse}
+              variant="emerald"
             />
             <StatCard
               title={t('dashboard.stats.totalProducts')}
@@ -192,105 +258,252 @@ export default function Dashboard() {
       </div>
 
       {/* Charts Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Stock by Warehouse */}
-        <Card className="dark:bg-slate-900 dark:border-slate-800">
-          <CardHeader className="pb-2">
-            <CardTitle className="flex items-center gap-2 text-lg font-semibold">
-              <Warehouse className="w-5 h-5 text-indigo-500" />
-              {t('dashboard.charts.stockByWarehouse')}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {loadingStock || loadingWarehouses ? (
-              <Skeleton className="w-full h-64" />
-            ) : stockByWarehouse.length > 0 ? (
-              <ResponsiveContainer width="100%" height={280}>
-                <BarChart data={stockByWarehouse} margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
-                  <CartesianGrid strokeDasharray="3 3" className="stroke-slate-200 dark:stroke-slate-700" />
-                  <XAxis 
-                    dataKey="name" 
-                    tick={{ fontSize: 12 }}
-                    className="text-slate-600 dark:text-slate-400"
-                  />
-                  <YAxis 
-                    tick={{ fontSize: 12 }}
-                    tickFormatter={(value) => `${value}`}
-                    className="text-slate-600 dark:text-slate-400"
-                  />
-                  <Tooltip 
-                    formatter={(value) => [`${Number(value).toLocaleString('ru-RU')} шт.`, t('dashboard.stock')]}
-                    contentStyle={{ 
-                      backgroundColor: 'var(--tooltip-bg, #fff)',
-                      border: '1px solid var(--tooltip-border, #e2e8f0)',
-                      borderRadius: '8px'
-                    }}
-                  />
-                  <Bar dataKey="quantity" fill="#6366f1" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            ) : (
-              <EmptyState className="h-64" message={t('common.noData')} />
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Orders by Status */}
-        <Card className="dark:bg-slate-900 dark:border-slate-800">
-          <CardHeader className="pb-2">
-            <CardTitle className="flex items-center gap-2 text-lg font-semibold">
-              <Truck className="w-5 h-5 text-purple-500" />
-              {t('dashboard.charts.ordersByStatus')}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {loadingOrders ? (
-              <Skeleton className="w-full h-64" />
-            ) : ordersByStatus.filter(o => o.count > 0).length === 0 ? (
-              <EmptyState className="h-64" message={t('common.noData')} />
-            ) : (
-              <div className="flex items-center h-64">
-                <ResponsiveContainer width="50%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={ordersByStatus.filter(o => o.count > 0)}
-                      dataKey="count"
-                      nameKey="status"
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={50}
-                      outerRadius={80}
-                      paddingAngle={2}
-                    >
-                      {ordersByStatus.filter(o => o.count > 0).map((entry, index) => (
-                        <Cell key={entry.status} fill={COLORS[index % COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                  </PieChart>
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+        {/* Our warehouses: stock + orders */}
+        <div className="space-y-6">
+          {/* Stock by our warehouses */}
+          <Card className="dark:bg-slate-900 dark:border-slate-800">
+            <CardHeader className="pb-2">
+              <CardTitle className="flex items-center gap-2 text-lg font-semibold">
+                <Warehouse className="w-5 h-5 text-indigo-500" />
+                {t('dashboard.charts.stockByMainWarehouse')}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {loadingStock || loadingWarehouses ? (
+                <Skeleton className="w-full h-64" />
+              ) : stockByMainWarehouse.length > 0 ? (
+                <ResponsiveContainer width="100%" height={280}>
+                  <BarChart
+                    data={stockByMainWarehouse}
+                    margin={{ top: 20, right: 20, bottom: 20, left: 20 }}
+                  >
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                      className="stroke-slate-200 dark:stroke-slate-700"
+                    />
+                    <XAxis
+                      dataKey="name"
+                      tick={{ fontSize: 12 }}
+                      className="text-slate-600 dark:text-slate-400"
+                    />
+                    <YAxis
+                      tick={{ fontSize: 12 }}
+                      tickFormatter={(value) => `${value}`}
+                      className="text-slate-600 dark:text-slate-400"
+                    />
+                    <Tooltip
+                      formatter={(value) => [
+                        `${Number(value).toLocaleString('ru-RU')} шт.`,
+                        t('dashboard.stock'),
+                      ]}
+                      contentStyle={{
+                        backgroundColor: 'var(--tooltip-bg, #fff)',
+                        border: '1px solid var(--tooltip-border, #e2e8f0)',
+                        borderRadius: '8px',
+                      }}
+                    />
+                    <Bar dataKey="quantity" fill="#6366f1" radius={[4, 4, 0, 0]} />
+                  </BarChart>
                 </ResponsiveContainer>
-                <div className="flex-1 space-y-2">
-                  {ordersByStatus.filter(o => o.count > 0).map((item, index) => (
-                    <div key={item.status} className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <div 
-                          className="w-3 h-3 rounded-full" 
-                          style={{ backgroundColor: COLORS[index % COLORS.length] }}
-                        />
-                        <span className="text-sm capitalize text-slate-600 dark:text-slate-400">
-                          {item.status}
-                        </span>
-                      </div>
-                      <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                        {item.count}
-                      </span>
-                    </div>
-                  ))}
+              ) : (
+                <EmptyState className="h-64" message={t('common.noData')} />
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Orders by Status */}
+          <Card className="dark:bg-slate-900 dark:border-slate-800">
+            <CardHeader className="pb-2">
+              <CardTitle className="flex items-center gap-2 text-lg font-semibold">
+                <Truck className="w-5 h-5 text-purple-500" />
+                {t('dashboard.charts.ordersByStatus')}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {loadingOrders ? (
+                <Skeleton className="w-full h-64" />
+              ) : ordersByStatus.filter((o) => o.count > 0).length === 0 ? (
+                <EmptyState className="h-64" message={t('common.noData')} />
+              ) : (
+                <div className="flex items-center h-64">
+                  <ResponsiveContainer width="50%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={ordersByStatus.filter((o) => o.count > 0)}
+                        dataKey="count"
+                        nameKey="status"
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={50}
+                        outerRadius={80}
+                        paddingAngle={2}
+                      >
+                        {ordersByStatus
+                          .filter((o) => o.count > 0)
+                          .map((entry, index) => (
+                            <Cell
+                              key={entry.status}
+                              fill={COLORS[index % COLORS.length]}
+                            />
+                          ))}
+                      </Pie>
+                      <Tooltip />
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <div className="flex-1 space-y-2">
+                    {ordersByStatus
+                      .filter((o) => o.count > 0)
+                      .map((item, index) => (
+                        <div
+                          key={item.status}
+                          className="flex items-center justify-between"
+                        >
+                          <div className="flex items-center gap-2">
+                            <div
+                              className="w-3 h-3 rounded-full"
+                              style={{
+                                backgroundColor: COLORS[index % COLORS.length],
+                              }}
+                            />
+                            <span className="text-sm capitalize text-slate-600 dark:text-slate-400">
+                              {item.status}
+                            </span>
+                          </div>
+                          <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                            {item.count}
+                          </span>
+                        </div>
+                      ))}
+                  </div>
                 </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* MP warehouses: stock + shipments */}
+        <div className="space-y-6">
+          {/* Stock by MP Warehouses */}
+          <Card className="dark:bg-slate-900 dark:border-slate-800">
+            <CardHeader className="pb-2">
+              <CardTitle className="flex items-center gap-2 text-lg font-semibold">
+                <Warehouse className="w-5 h-5 text-emerald-500" />
+                {t('dashboard.charts.stockByMarketplaceWarehouse')}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {loadingStock || loadingWarehouses ? (
+                <Skeleton className="w-full h-64" />
+              ) : stockByMarketplaceWarehouse.length > 0 ? (
+                <ResponsiveContainer width="100%" height={280}>
+                  <BarChart
+                    data={stockByMarketplaceWarehouse}
+                    margin={{ top: 20, right: 20, bottom: 20, left: 20 }}
+                  >
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                      className="stroke-slate-200 dark:stroke-slate-700"
+                    />
+                    <XAxis
+                      dataKey="name"
+                      tick={{ fontSize: 12 }}
+                      className="text-slate-600 dark:text-slate-400"
+                    />
+                    <YAxis
+                      tick={{ fontSize: 12 }}
+                      tickFormatter={(value) => `${value}`}
+                      className="text-slate-600 dark:text-slate-400"
+                    />
+                    <Tooltip
+                      formatter={(value) => [
+                        `${Number(value).toLocaleString('ru-RU')} шт.`,
+                        t('dashboard.stock'),
+                      ]}
+                      contentStyle={{
+                        backgroundColor: 'var(--tooltip-bg, #fff)',
+                        border: '1px solid var(--tooltip-border, #e2e8f0)',
+                        borderRadius: '8px',
+                      }}
+                    />
+                    <Bar dataKey="quantity" fill="#10b981" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <EmptyState className="h-64" message={t('common.noData')} />
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Shipments by Status */}
+          <Card className="dark:bg-slate-900 dark:border-slate-800">
+            <CardHeader className="pb-2">
+              <CardTitle className="flex items-center gap-2 text-lg font-semibold">
+                <ShoppingCart className="w-5 h-5 text-emerald-500" />
+                {t('dashboard.charts.shipmentsByStatus')}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {loadingShipments ? (
+                <Skeleton className="w-full h-64" />
+              ) : shipmentsByStatus.filter((s) => s.count > 0).length === 0 ? (
+                <EmptyState className="h-64" message={t('dashboard.shipments')} />
+              ) : (
+                <div className="flex items-center h-64">
+                  <ResponsiveContainer width="50%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={shipmentsByStatus.filter((s) => s.count > 0)}
+                        dataKey="count"
+                        nameKey="status"
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={50}
+                        outerRadius={80}
+                        paddingAngle={2}
+                      >
+                        {shipmentsByStatus
+                          .filter((s) => s.count > 0)
+                          .map((entry, index) => (
+                            <Cell
+                              key={entry.status}
+                              fill={COLORS[index % COLORS.length]}
+                            />
+                          ))}
+                      </Pie>
+                      <Tooltip />
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <div className="flex-1 space-y-2">
+                    {shipmentsByStatus
+                      .filter((s) => s.count > 0)
+                      .map((item, index) => (
+                        <div
+                          key={item.status}
+                          className="flex items-center justify-between"
+                        >
+                          <div className="flex items-center gap-2">
+                            <div
+                              className="w-3 h-3 rounded-full"
+                              style={{
+                                backgroundColor: COLORS[index % COLORS.length],
+                              }}
+                            />
+                            <span className="text-sm capitalize text-slate-600 dark:text-slate-400">
+                              {item.status}
+                            </span>
+                          </div>
+                          <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                            {item.count}
+                          </span>
+                        </div>
+                      ))}
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
       </div>
 
       {/* Low stock — operational shortcut to Stock with filters */}

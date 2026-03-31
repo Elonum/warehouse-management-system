@@ -243,13 +243,18 @@ const translations = {
       description: 'Обзор складских операций',
       stats: {
         totalStock: 'Остатки (всего)',
+        mainStock: 'Остатки на наших складах',
+        marketplaceStock: 'Остатки на складах маркетплейсов',
         totalProducts: 'Всего товаров',
         activeOrders: 'Активных заказов',
         activeShipments: 'Активных отгрузок',
       },
       charts: {
         stockByWarehouse: 'Остатки по складам (шт.)',
+        stockByMainWarehouse: 'Остатки по нашим складам (шт.)',
+        stockByMarketplaceWarehouse: 'Остатки по складам маркетплейсов (шт.)',
         ordersByStatus: 'Заказы по статусам',
+        shipmentsByStatus: 'Отгрузки по статусам',
         recentMovements: 'Последние изменения остатков',
         recentOrders: 'Последние заказы',
       },
@@ -266,6 +271,7 @@ const translations = {
       stock: 'Остаток',
       movements: 'Нет движений',
       orders: 'Нет заказов',
+      shipments: 'Нет отгрузок',
     },
     products: {
       title: 'Товары',
@@ -1224,13 +1230,18 @@ const translations = {
       description: 'Warehouse operations overview',
       stats: {
         totalStock: 'Total Stock',
+        mainStock: 'Stock in Our Warehouses',
+        marketplaceStock: 'Stock in Marketplace Warehouses',
         totalProducts: 'Total Products',
         activeOrders: 'Active Orders',
         activeShipments: 'Active Shipments',
       },
       charts: {
         stockByWarehouse: 'Stock by Warehouses (units)',
+        stockByMainWarehouse: 'Stock by Our Warehouses (units)',
+        stockByMarketplaceWarehouse: 'Stock by Marketplace Warehouses (units)',
         ordersByStatus: 'Orders by Status',
+        shipmentsByStatus: 'Shipments by Status',
         recentMovements: 'Recent Stock Movements',
         recentOrders: 'Recent Orders',
       },
@@ -1247,6 +1258,7 @@ const translations = {
       stock: 'Stock',
       movements: 'No movements',
       orders: 'No orders',
+      shipments: 'No shipments',
     },
     products: {
       title: 'Products',

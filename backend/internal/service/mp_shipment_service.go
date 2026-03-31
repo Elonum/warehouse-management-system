@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"sort"
 	"time"
 
 	"github.com/google/uuid"
@@ -18,6 +17,7 @@ var (
 	ErrMpShipmentCompleted = errors.New("mp shipment is completed and cannot be modified")
 	ErrInsufficientMainStock            = errors.New("insufficient stock on main warehouses to transfer to marketplace")
 	ErrMpDestinationWarehouseInvalid    = errors.New("mp destination warehouse must be marked as marketplace")
+	ErrMpSourceWarehouseInvalid         = errors.New("mp source warehouse must NOT be marked as marketplace")
 )
 
 func isFinalShipmentStatus(status *repository.ShipmentStatus) bool {
@@ -33,6 +33,10 @@ type InsufficientMainStockError struct {
 func (e *InsufficientMainStockError) Error() string {
 	return fmt.Sprintf("insufficient main stock for product %s: required=%d available=%d", e.ProductID.String(), e.Required, e.Available)
 }
+
+// NOTE: Previously we supported automatic allocation across multiple main warehouses.
+// The current model explicitly stores both main and marketplace warehouses on the shipment,
+// so the allocation helpers were removed.
 
 type MpShipmentService struct {
 	repo               *repository.MpShipmentRepository
@@ -73,10 +77,15 @@ func (s *MpShipmentService) GetByID(ctx context.Context, shipmentID uuid.UUID) (
 		str := shipment.StoreID.String()
 		storeIDStr = &str
 	}
-	var warehouseIDStr *string
-	if shipment.WarehouseID != nil {
-		str := shipment.WarehouseID.String()
-		warehouseIDStr = &str
+	var mainWarehouseIDStr *string
+	if shipment.MainWarehouseID != nil {
+		str := shipment.MainWarehouseID.String()
+		mainWarehouseIDStr = &str
+	}
+	var mpWarehouseIDStr *string
+	if shipment.MpWarehouseID != nil {
+		str := shipment.MpWarehouseID.String()
+		mpWarehouseIDStr = &str
 	}
 	var statusIDStr *string
 	if shipment.StatusID != nil {
@@ -99,7 +108,8 @@ func (s *MpShipmentService) GetByID(ctx context.Context, shipmentID uuid.UUID) (
 		ShipmentDate:   shipment.ShipmentDate,
 		ShipmentNumber: shipment.ShipmentNumber,
 		StoreID:        storeIDStr,
-		WarehouseID:    warehouseIDStr,
+		MainWarehouseID: mainWarehouseIDStr,
+		MpWarehouseID:   mpWarehouseIDStr,
 		StatusID:       statusIDStr,
 		LogisticsCost:  shipment.LogisticsCost,
 		AcceptanceCost: shipment.AcceptanceCost,
@@ -130,10 +140,15 @@ func (s *MpShipmentService) List(ctx context.Context, limit, offset int, storeID
 			str := shipment.StoreID.String()
 			storeIDStr = &str
 		}
-		var warehouseIDStr *string
-		if shipment.WarehouseID != nil {
-			str := shipment.WarehouseID.String()
-			warehouseIDStr = &str
+		var mainWarehouseIDStr *string
+		if shipment.MainWarehouseID != nil {
+			str := shipment.MainWarehouseID.String()
+			mainWarehouseIDStr = &str
+		}
+		var mpWarehouseIDStr *string
+		if shipment.MpWarehouseID != nil {
+			str := shipment.MpWarehouseID.String()
+			mpWarehouseIDStr = &str
 		}
 		var statusIDStr *string
 		if shipment.StatusID != nil {
@@ -156,7 +171,8 @@ func (s *MpShipmentService) List(ctx context.Context, limit, offset int, storeID
 			ShipmentDate:   shipment.ShipmentDate,
 			ShipmentNumber: shipment.ShipmentNumber,
 			StoreID:        storeIDStr,
-			WarehouseID:    warehouseIDStr,
+			MainWarehouseID: mainWarehouseIDStr,
+			MpWarehouseID:   mpWarehouseIDStr,
 			StatusID:       statusIDStr,
 			LogisticsCost:  shipment.LogisticsCost,
 			AcceptanceCost: shipment.AcceptanceCost,
@@ -195,26 +211,50 @@ func (s *MpShipmentService) Create(ctx context.Context, userID uuid.UUID, req dt
 		}
 	}
 
-	var warehouseID *uuid.UUID
-	if req.WarehouseID != nil && *req.WarehouseID != "" {
-		id, err := uuid.Parse(*req.WarehouseID)
+	var mainWarehouseID *uuid.UUID
+	if req.MainWarehouseID != nil && *req.MainWarehouseID != "" {
+		id, err := uuid.Parse(*req.MainWarehouseID)
 		if err != nil {
-			log.Warn().Str("warehouseId", *req.WarehouseID).Msg("Invalid warehouse ID format")
+			log.Warn().Str("mainWarehouseId", *req.MainWarehouseID).Msg("Invalid main warehouse ID format")
 			return nil, repository.ErrWarehouseNotFound
 		}
-		warehouseID = &id
+		mainWarehouseID = &id
 
 		warehouse, err := s.warehouseRepo.GetByID(ctx, id)
 		if err != nil {
 			if err == repository.ErrWarehouseNotFound {
-				log.Warn().Str("warehouseId", *req.WarehouseID).Msg("Warehouse not found")
+				log.Warn().Str("mainWarehouseId", *req.MainWarehouseID).Msg("Main warehouse not found")
 				return nil, repository.ErrWarehouseNotFound
 			}
-			log.Error().Err(err).Str("warehouseId", *req.WarehouseID).Msg("Failed to validate warehouse")
+			log.Error().Err(err).Str("mainWarehouseId", *req.MainWarehouseID).Msg("Failed to validate main warehouse")
+			return nil, err
+		}
+		if warehouse.IsMarketplace {
+			log.Warn().Str("mainWarehouseId", *req.MainWarehouseID).Msg("Source warehouse must be main (non-marketplace)")
+			return nil, ErrMpSourceWarehouseInvalid
+		}
+	}
+
+	var mpWarehouseID *uuid.UUID
+	if req.MpWarehouseID != nil && *req.MpWarehouseID != "" {
+		id, err := uuid.Parse(*req.MpWarehouseID)
+		if err != nil {
+			log.Warn().Str("mpWarehouseId", *req.MpWarehouseID).Msg("Invalid mp warehouse ID format")
+			return nil, repository.ErrWarehouseNotFound
+		}
+		mpWarehouseID = &id
+
+		warehouse, err := s.warehouseRepo.GetByID(ctx, id)
+		if err != nil {
+			if err == repository.ErrWarehouseNotFound {
+				log.Warn().Str("mpWarehouseId", *req.MpWarehouseID).Msg("Marketplace warehouse not found")
+				return nil, repository.ErrWarehouseNotFound
+			}
+			log.Error().Err(err).Str("mpWarehouseId", *req.MpWarehouseID).Msg("Failed to validate marketplace warehouse")
 			return nil, err
 		}
 		if !warehouse.IsMarketplace {
-			log.Warn().Str("warehouseId", *req.WarehouseID).Msg("Destination warehouse must be marketplace")
+			log.Warn().Str("mpWarehouseId", *req.MpWarehouseID).Msg("Destination warehouse must be marketplace")
 			return nil, ErrMpDestinationWarehouseInvalid
 		}
 	}
@@ -243,7 +283,8 @@ func (s *MpShipmentService) Create(ctx context.Context, userID uuid.UUID, req dt
 		req.ShipmentDate,
 		req.ShipmentNumber,
 		storeID,
-		warehouseID,
+		mainWarehouseID,
+		mpWarehouseID,
 		statusID,
 		req.LogisticsCost,
 		req.AcceptanceCost,
@@ -263,10 +304,15 @@ func (s *MpShipmentService) Create(ctx context.Context, userID uuid.UUID, req dt
 		str := shipment.StoreID.String()
 		storeIDStr = &str
 	}
-	var warehouseIDStr *string
-	if shipment.WarehouseID != nil {
-		str := shipment.WarehouseID.String()
-		warehouseIDStr = &str
+	var mainWarehouseIDStr2 *string
+	if shipment.MainWarehouseID != nil {
+		str := shipment.MainWarehouseID.String()
+		mainWarehouseIDStr2 = &str
+	}
+	var mpWarehouseIDStr2 *string
+	if shipment.MpWarehouseID != nil {
+		str := shipment.MpWarehouseID.String()
+		mpWarehouseIDStr2 = &str
 	}
 	var statusIDStr *string
 	if shipment.StatusID != nil {
@@ -290,7 +336,8 @@ func (s *MpShipmentService) Create(ctx context.Context, userID uuid.UUID, req dt
 		ShipmentDate:   shipment.ShipmentDate,
 		ShipmentNumber: shipment.ShipmentNumber,
 		StoreID:        storeIDStr,
-		WarehouseID:    warehouseIDStr,
+		MainWarehouseID: mainWarehouseIDStr2,
+		MpWarehouseID:   mpWarehouseIDStr2,
 		StatusID:       statusIDStr,
 		LogisticsCost:  shipment.LogisticsCost,
 		AcceptanceCost: shipment.AcceptanceCost,
@@ -326,26 +373,50 @@ func (s *MpShipmentService) Update(ctx context.Context, shipmentID, userID uuid.
 		}
 	}
 
-	var warehouseID *uuid.UUID
-	if req.WarehouseID != nil && *req.WarehouseID != "" {
-		id, err := uuid.Parse(*req.WarehouseID)
+	var mainWarehouseID *uuid.UUID
+	if req.MainWarehouseID != nil && *req.MainWarehouseID != "" {
+		id, err := uuid.Parse(*req.MainWarehouseID)
 		if err != nil {
-			log.Warn().Str("warehouseId", *req.WarehouseID).Msg("Invalid warehouse ID format")
+			log.Warn().Str("mainWarehouseId", *req.MainWarehouseID).Msg("Invalid main warehouse ID format")
 			return nil, repository.ErrWarehouseNotFound
 		}
-		warehouseID = &id
+		mainWarehouseID = &id
 
 		warehouse, err := s.warehouseRepo.GetByID(ctx, id)
 		if err != nil {
 			if err == repository.ErrWarehouseNotFound {
-				log.Warn().Str("warehouseId", *req.WarehouseID).Msg("Warehouse not found")
+				log.Warn().Str("mainWarehouseId", *req.MainWarehouseID).Msg("Main warehouse not found")
 				return nil, repository.ErrWarehouseNotFound
 			}
-			log.Error().Err(err).Str("warehouseId", *req.WarehouseID).Msg("Failed to validate warehouse")
+			log.Error().Err(err).Str("mainWarehouseId", *req.MainWarehouseID).Msg("Failed to validate main warehouse")
+			return nil, err
+		}
+		if warehouse.IsMarketplace {
+			log.Warn().Str("mainWarehouseId", *req.MainWarehouseID).Msg("Source warehouse must be main (non-marketplace)")
+			return nil, ErrMpSourceWarehouseInvalid
+		}
+	}
+
+	var mpWarehouseID *uuid.UUID
+	if req.MpWarehouseID != nil && *req.MpWarehouseID != "" {
+		id, err := uuid.Parse(*req.MpWarehouseID)
+		if err != nil {
+			log.Warn().Str("mpWarehouseId", *req.MpWarehouseID).Msg("Invalid mp warehouse ID format")
+			return nil, repository.ErrWarehouseNotFound
+		}
+		mpWarehouseID = &id
+
+		warehouse, err := s.warehouseRepo.GetByID(ctx, id)
+		if err != nil {
+			if err == repository.ErrWarehouseNotFound {
+				log.Warn().Str("mpWarehouseId", *req.MpWarehouseID).Msg("Marketplace warehouse not found")
+				return nil, repository.ErrWarehouseNotFound
+			}
+			log.Error().Err(err).Str("mpWarehouseId", *req.MpWarehouseID).Msg("Failed to validate marketplace warehouse")
 			return nil, err
 		}
 		if !warehouse.IsMarketplace {
-			log.Warn().Str("warehouseId", *req.WarehouseID).Msg("Destination warehouse must be marketplace")
+			log.Warn().Str("mpWarehouseId", *req.MpWarehouseID).Msg("Destination warehouse must be marketplace")
 			return nil, ErrMpDestinationWarehouseInvalid
 		}
 	}
@@ -408,7 +479,8 @@ func (s *MpShipmentService) Update(ctx context.Context, shipmentID, userID uuid.
 		req.ShipmentDate,
 		req.ShipmentNumber,
 		storeID,
-		warehouseID,
+		mainWarehouseID,
+		mpWarehouseID,
 		statusID,
 		req.LogisticsCost,
 		req.AcceptanceCost,
@@ -439,10 +511,15 @@ func (s *MpShipmentService) Update(ctx context.Context, shipmentID, userID uuid.
 		str := shipment.StoreID.String()
 		storeIDStr = &str
 	}
-	var warehouseIDStr *string
-	if shipment.WarehouseID != nil {
-		str := shipment.WarehouseID.String()
-		warehouseIDStr = &str
+	var mainWarehouseIDStr *string
+	if shipment.MainWarehouseID != nil {
+		str := shipment.MainWarehouseID.String()
+		mainWarehouseIDStr = &str
+	}
+	var mpWarehouseIDStr *string
+	if shipment.MpWarehouseID != nil {
+		str := shipment.MpWarehouseID.String()
+		mpWarehouseIDStr = &str
 	}
 	var statusIDStr *string
 	if shipment.StatusID != nil {
@@ -466,7 +543,8 @@ func (s *MpShipmentService) Update(ctx context.Context, shipmentID, userID uuid.
 		ShipmentDate:   shipment.ShipmentDate,
 		ShipmentNumber: shipment.ShipmentNumber,
 		StoreID:        storeIDStr,
-		WarehouseID:    warehouseIDStr,
+		MainWarehouseID: mainWarehouseIDStr,
+		MpWarehouseID:   mpWarehouseIDStr,
 		StatusID:       statusIDStr,
 		LogisticsCost:  shipment.LogisticsCost,
 		AcceptanceCost: shipment.AcceptanceCost,
@@ -513,8 +591,8 @@ func (s *MpShipmentService) Delete(ctx context.Context, shipmentID uuid.UUID) er
 // applyAcceptedToStock applies accepted quantities from a completed mp shipment to stock snapshots.
 // It runs only once when the shipment transitions from non-final to final status.
 func (s *MpShipmentService) applyAcceptedToStock(ctx context.Context, shipment *repository.MpShipment, userID uuid.UUID) error {
-	if shipment.WarehouseID == nil {
-		log.Warn().Str("shipmentId", shipment.ShipmentID.String()).Msg("Cannot apply shipment to stock: warehouse is not set")
+	if shipment.MainWarehouseID == nil || shipment.MpWarehouseID == nil {
+		log.Warn().Str("shipmentId", shipment.ShipmentID.String()).Msg("Cannot apply shipment to stock: warehouses are not set")
 		return repository.ErrWarehouseNotFound
 	}
 
@@ -528,17 +606,28 @@ func (s *MpShipmentService) applyAcceptedToStock(ctx context.Context, shipment *
 		return nil
 	}
 
-	// mp_shipments.warehouse_id считается складом МП назначения.
-	destWarehouseID := *shipment.WarehouseID
-	destWarehouse, err := s.warehouseRepo.GetByID(ctx, destWarehouseID)
+	mainWarehouseID := *shipment.MainWarehouseID
+	mpWarehouseID := *shipment.MpWarehouseID
+
+	mainWarehouse, err := s.warehouseRepo.GetByID(ctx, mainWarehouseID)
 	if err != nil {
-		log.Error().Err(err).Str("shipmentId", shipment.ShipmentID.String()).Str("destWarehouseId", destWarehouseID.String()).Msg("Failed to load destination warehouse for mp shipment")
+		log.Error().Err(err).Str("shipmentId", shipment.ShipmentID.String()).Str("mainWarehouseId", mainWarehouseID.String()).Msg("Failed to load main warehouse for mp shipment")
+		return err
+	}
+	if mainWarehouse.IsMarketplace {
+		log.Warn().Str("shipmentId", shipment.ShipmentID.String()).Str("mainWarehouseId", mainWarehouseID.String()).Msg("Main warehouse must not be marketplace")
+		return ErrMpSourceWarehouseInvalid
+	}
+
+	destWarehouse, err := s.warehouseRepo.GetByID(ctx, mpWarehouseID)
+	if err != nil {
+		log.Error().Err(err).Str("shipmentId", shipment.ShipmentID.String()).Str("mpWarehouseId", mpWarehouseID.String()).Msg("Failed to load mp warehouse for mp shipment")
 		return err
 	}
 	if !destWarehouse.IsMarketplace {
 		log.Warn().
 			Str("shipmentId", shipment.ShipmentID.String()).
-			Str("destWarehouseId", destWarehouseID.String()).
+			Str("mpWarehouseId", mpWarehouseID.String()).
 			Msg("Destination warehouse is not marked as marketplace")
 		return ErrMpDestinationWarehouseInvalid
 	}
@@ -562,16 +651,26 @@ func (s *MpShipmentService) applyAcceptedToStock(ctx context.Context, shipment *
 		return nil
 	}
 
-	marketplaceWarehouseIDs, err := s.getMarketplaceWarehouseIDs(ctx, destWarehouseID)
-	if err != nil {
-		return err
-	}
-
-	// Для каждого продукта забираем qty с main-складов (вне marketplace) и добавляем на склад МП.
+	// Для каждого продукта списываем qty с выбранного основного склада и добавляем на склад МП.
 	appliedProducts := 0
 	for productID, requiredQty := range totalAcceptedByProduct {
-		allocations, available, err := s.allocateFromMainWarehouses(ctx, productID, requiredQty, marketplaceWarehouseIDs, destWarehouseID)
+		st, err := s.stockRepo.GetCurrentStock(
+			ctx,
+			&mainWarehouseID,
+			&productID,
+			nil,
+			repository.StockLevelFilterAll,
+			1,
+			0,
+		)
 		if err != nil {
+			return err
+		}
+		available := 0
+		if len(st) > 0 {
+			available = st[0].CurrentQuantity
+		}
+		if available < requiredQty {
 			return &InsufficientMainStockError{
 				ProductID: productID,
 				Required:  requiredQty,
@@ -579,28 +678,24 @@ func (s *MpShipmentService) applyAcceptedToStock(ctx context.Context, shipment *
 			}
 		}
 
-		// 1) Вычитаем с main-складов
-		for _, a := range allocations {
-			if err := s.stockRepo.ApplyStockDelta(ctx, productID, a.warehouseID, snapshotDate, -a.qty, &userID); err != nil {
-				log.Error().
-					Err(err).
-					Str("shipmentId", shipment.ShipmentID.String()).
-					Str("productId", productID.String()).
-					Str("sourceWarehouseId", a.warehouseID.String()).
-					Int("qty", a.qty).
-					Time("snapshotDate", snapshotDate).
-					Msg("Failed to apply mp transfer out from main warehouse")
-				return err
-			}
-		}
-
-		// 2) Прибавляем на склад МП назначения
-		if err := s.stockRepo.ApplyStockDelta(ctx, productID, destWarehouseID, snapshotDate, requiredQty, &userID); err != nil {
+		if err := s.stockRepo.ApplyStockDelta(ctx, productID, mainWarehouseID, snapshotDate, -requiredQty, &userID); err != nil {
 			log.Error().
 				Err(err).
 				Str("shipmentId", shipment.ShipmentID.String()).
 				Str("productId", productID.String()).
-				Str("destWarehouseId", destWarehouseID.String()).
+				Str("mainWarehouseId", mainWarehouseID.String()).
+				Int("qty", requiredQty).
+				Time("snapshotDate", snapshotDate).
+				Msg("Failed to apply mp transfer out from main warehouse")
+			return err
+		}
+
+		if err := s.stockRepo.ApplyStockDelta(ctx, productID, mpWarehouseID, snapshotDate, requiredQty, &userID); err != nil {
+			log.Error().
+				Err(err).
+				Str("shipmentId", shipment.ShipmentID.String()).
+				Str("productId", productID.String()).
+				Str("mpWarehouseId", mpWarehouseID.String()).
 				Int("qty", requiredQty).
 				Time("snapshotDate", snapshotDate).
 				Msg("Failed to apply mp transfer in to destination warehouse")
@@ -613,133 +708,7 @@ func (s *MpShipmentService) applyAcceptedToStock(ctx context.Context, shipment *
 	log.Info().
 		Str("shipmentId", shipment.ShipmentID.String()).
 		Int("appliedProducts", appliedProducts).
-		Msg("Successfully transferred mp shipment accepted quantities from main warehouses to marketplace destination")
+		Msg("Successfully transferred mp shipment accepted quantities from main warehouse to marketplace destination")
 
 	return nil
-}
-
-type sourceAllocation struct {
-	warehouseID uuid.UUID
-	qty         int
-}
-
-func (s *MpShipmentService) getMarketplaceWarehouseIDs(ctx context.Context, destWarehouseID uuid.UUID) (map[uuid.UUID]struct{}, error) {
-	warehouses, err := s.warehouseRepo.List(ctx, 5000, 0)
-	if err != nil {
-		log.Error().Err(err).Msg("Failed to list warehouses while detecting marketplace warehouses")
-		return nil, err
-	}
-
-	result, hadMarketplace := collectMarketplaceWarehouseIDs(warehouses, destWarehouseID)
-	// Fallback: всегда гарантируем, что destination не будет считаться source.
-	if !hadMarketplace {
-		log.Warn().Msg("No marketplace warehouses configured. Set warehouses.is_marketplace=true for marketplace destination warehouses.")
-	}
-
-	return result, nil
-}
-
-func collectMarketplaceWarehouseIDs(warehouses []repository.Warehouse, destWarehouseID uuid.UUID) (map[uuid.UUID]struct{}, bool) {
-	result := make(map[uuid.UUID]struct{})
-	hadMarketplace := false
-	for _, w := range warehouses {
-		if w.IsMarketplace {
-			result[w.WarehouseID] = struct{}{}
-			hadMarketplace = true
-		}
-	}
-	// Destination must never be considered as source allocation candidate.
-	if _, ok := result[destWarehouseID]; !ok {
-		result[destWarehouseID] = struct{}{}
-	}
-	return result, hadMarketplace
-}
-
-func (s *MpShipmentService) allocateFromMainWarehouses(
-	ctx context.Context,
-	productID uuid.UUID,
-	requiredQty int,
-	marketplaceWarehouseIDs map[uuid.UUID]struct{},
-	destWarehouseID uuid.UUID,
-) ([]sourceAllocation, int, error) {
-	if requiredQty <= 0 {
-		return nil, 0, nil
-	}
-
-	stocks, err := s.stockRepo.GetCurrentStock(
-		ctx,
-		nil,
-		&productID,
-		nil,
-		repository.StockLevelFilterPositive,
-		5000,
-		0,
-	)
-	if err != nil {
-		return nil, 0, err
-	}
-
-	sources := make([]sourceAllocation, 0, len(stocks))
-	totalAvailable := 0
-	for _, st := range stocks {
-		// источники: все не-marketplace склады и не destination
-		if st.WarehouseID == destWarehouseID {
-			continue
-		}
-		if _, ok := marketplaceWarehouseIDs[st.WarehouseID]; ok {
-			continue
-		}
-		if st.CurrentQuantity <= 0 {
-			continue
-		}
-		sources = append(sources, sourceAllocation{warehouseID: st.WarehouseID, qty: st.CurrentQuantity})
-		totalAvailable += st.CurrentQuantity
-	}
-
-	if totalAvailable < requiredQty {
-		return nil, totalAvailable, fmt.Errorf("insufficient stock")
-	}
-
-	// Детерминированный порядок списания.
-	sort.Slice(sources, func(i, j int) bool {
-		if sources[i].qty != sources[j].qty {
-			return sources[i].qty > sources[j].qty
-		}
-		// UUID сравниваем строковым образом для стабильности
-		return sources[i].warehouseID.String() < sources[j].warehouseID.String()
-	})
-
-	allocations, _, err := allocateFromSortedSources(requiredQty, sources)
-	return allocations, totalAvailable, err
-}
-
-// allocateFromSortedSources consumes requiredQty from sources in order.
-// sources must be pre-sorted deterministically.
-func allocateFromSortedSources(requiredQty int, sources []sourceAllocation) ([]sourceAllocation, int, error) {
-	remaining := requiredQty
-	allocations := make([]sourceAllocation, 0, len(sources))
-	totalAvailable := 0
-	for _, src := range sources {
-		totalAvailable += src.qty
-	}
-	for _, src := range sources {
-		if remaining == 0 {
-			break
-		}
-		if src.qty <= 0 {
-			continue
-		}
-		take := src.qty
-		if take > remaining {
-			take = remaining
-		}
-		if take > 0 {
-			allocations = append(allocations, sourceAllocation{warehouseID: src.warehouseID, qty: take})
-			remaining -= take
-		}
-	}
-	if remaining != 0 {
-		return nil, totalAvailable, fmt.Errorf("insufficient stock")
-	}
-	return allocations, totalAvailable, nil
 }

@@ -7,7 +7,8 @@ type MpShipmentResponse struct {
 	ShipmentDate   *time.Time `json:"shipmentDate,omitempty"`
 	ShipmentNumber string     `json:"shipmentNumber"`
 	StoreID        *string    `json:"storeId,omitempty"`
-	WarehouseID    *string    `json:"warehouseId,omitempty"`
+	MainWarehouseID *string   `json:"mainWarehouseId,omitempty"`
+	MpWarehouseID   *string   `json:"mpWarehouseId,omitempty"`
 	StatusID       *string    `json:"statusId,omitempty"`
 	LogisticsCost  *float64   `json:"logisticsCost,omitempty"`
 	AcceptanceCost *float64   `json:"acceptanceCost,omitempty"`
@@ -25,7 +26,8 @@ type MpShipmentCreateRequest struct {
 	ShipmentDate   *time.Time `json:"shipmentDate,omitempty"`
 	ShipmentNumber string     `json:"shipmentNumber"`
 	StoreID        *string    `json:"storeId,omitempty"`
-	WarehouseID    *string    `json:"warehouseId,omitempty"`
+	MainWarehouseID *string   `json:"mainWarehouseId,omitempty"`
+	MpWarehouseID   *string   `json:"mpWarehouseId,omitempty"`
 	StatusID       *string    `json:"statusId,omitempty"`
 	LogisticsCost  *float64   `json:"logisticsCost,omitempty"`
 	AcceptanceCost *float64   `json:"acceptanceCost,omitempty"`
@@ -39,7 +41,8 @@ type MpShipmentUpdateRequest struct {
 	ShipmentDate   *time.Time `json:"shipmentDate,omitempty"`
 	ShipmentNumber string     `json:"shipmentNumber"`
 	StoreID        *string    `json:"storeId,omitempty"`
-	WarehouseID    *string    `json:"warehouseId,omitempty"`
+	MainWarehouseID *string   `json:"mainWarehouseId,omitempty"`
+	MpWarehouseID   *string   `json:"mpWarehouseId,omitempty"`
 	StatusID       *string    `json:"statusId,omitempty"`
 	LogisticsCost  *float64   `json:"logisticsCost,omitempty"`
 	AcceptanceCost *float64   `json:"acceptanceCost,omitempty"`

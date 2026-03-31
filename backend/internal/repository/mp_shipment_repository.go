@@ -22,7 +22,8 @@ type MpShipment struct {
 	ShipmentDate   *time.Time
 	ShipmentNumber string
 	StoreID        *uuid.UUID
-	WarehouseID    *uuid.UUID
+	MainWarehouseID *uuid.UUID
+	MpWarehouseID   *uuid.UUID
 	StatusID       *uuid.UUID
 	LogisticsCost  *float64
 	AcceptanceCost *float64
@@ -46,7 +47,7 @@ func NewMpShipmentRepository(pool *pgxpool.Pool) *MpShipmentRepository {
 
 func (r *MpShipmentRepository) GetByID(ctx context.Context, shipmentID uuid.UUID) (*MpShipment, error) {
 	query := `
-		SELECT shipment_id, shipment_date, shipment_number, store_id, warehouse_id,
+		SELECT shipment_id, shipment_date, shipment_number, store_id, main_warehouse_id, mp_warehouse_id,
 		       status_id, logistics_cost, acceptance_cost,
 		       acceptance_date, positions_qty, sent_qty, accepted_qty,
 		       created_by, created_at, updated_by, updated_at
@@ -63,7 +64,8 @@ func (r *MpShipmentRepository) GetByID(ctx context.Context, shipmentID uuid.UUID
 		&shipment.ShipmentDate,
 		&shipment.ShipmentNumber,
 		&shipment.StoreID,
-		&shipment.WarehouseID,
+		&shipment.MainWarehouseID,
+		&shipment.MpWarehouseID,
 		&shipment.StatusID,
 		&shipment.LogisticsCost,
 		&shipment.AcceptanceCost,
@@ -89,7 +91,7 @@ func (r *MpShipmentRepository) GetByID(ctx context.Context, shipmentID uuid.UUID
 
 func (r *MpShipmentRepository) List(ctx context.Context, limit, offset int, storeID, warehouseID, statusID *uuid.UUID) ([]MpShipment, error) {
 	query := `
-		SELECT shipment_id, shipment_date, shipment_number, store_id, warehouse_id,
+		SELECT shipment_id, shipment_date, shipment_number, store_id, main_warehouse_id, mp_warehouse_id,
 		       status_id, logistics_cost, acceptance_cost,
 		       acceptance_date, positions_qty, sent_qty, accepted_qty,
 		       created_by, created_at, updated_by, updated_at
@@ -104,8 +106,9 @@ func (r *MpShipmentRepository) List(ctx context.Context, limit, offset int, stor
 		args = append(args, *storeID)
 		argPos++
 	}
+	// Backward-compatible filter: "warehouseID" filters by mp_warehouse_id (destination).
 	if warehouseID != nil {
-		conditions = append(conditions, fmt.Sprintf("warehouse_id = $%d", argPos))
+		conditions = append(conditions, fmt.Sprintf("mp_warehouse_id = $%d", argPos))
 		args = append(args, *warehouseID)
 		argPos++
 	}
@@ -139,7 +142,8 @@ func (r *MpShipmentRepository) List(ctx context.Context, limit, offset int, stor
 			&shipment.ShipmentDate,
 			&shipment.ShipmentNumber,
 			&shipment.StoreID,
-			&shipment.WarehouseID,
+			&shipment.MainWarehouseID,
+			&shipment.MpWarehouseID,
 			&shipment.StatusID,
 			&shipment.LogisticsCost,
 			&shipment.AcceptanceCost,
@@ -164,15 +168,15 @@ func (r *MpShipmentRepository) List(ctx context.Context, limit, offset int, stor
 	return shipments, nil
 }
 
-func (r *MpShipmentRepository) Create(ctx context.Context, shipmentDate *time.Time, shipmentNumber string, storeID, warehouseID, statusID *uuid.UUID, logisticsCost, acceptanceCost *float64, acceptanceDate *time.Time, positionsQty, sentQty, acceptedQty int, createdBy *uuid.UUID) (*MpShipment, error) {
+func (r *MpShipmentRepository) Create(ctx context.Context, shipmentDate *time.Time, shipmentNumber string, storeID, mainWarehouseID, mpWarehouseID, statusID *uuid.UUID, logisticsCost, acceptanceCost *float64, acceptanceDate *time.Time, positionsQty, sentQty, acceptedQty int, createdBy *uuid.UUID) (*MpShipment, error) {
 	query := `
 		INSERT INTO mp_shipments (
-			shipment_date, shipment_number, store_id, warehouse_id, status_id,
+			shipment_date, shipment_number, store_id, main_warehouse_id, mp_warehouse_id, status_id,
 			logistics_cost, acceptance_cost, acceptance_date,
 			positions_qty, sent_qty, accepted_qty, created_by
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-		RETURNING shipment_id, shipment_date, shipment_number, store_id, warehouse_id,
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+		RETURNING shipment_id, shipment_date, shipment_number, store_id, main_warehouse_id, mp_warehouse_id,
 		          status_id, logistics_cost, acceptance_cost,
 		          acceptance_date, positions_qty, sent_qty, accepted_qty,
 		          created_by, created_at, updated_by, updated_at
@@ -183,7 +187,7 @@ func (r *MpShipmentRepository) Create(ctx context.Context, shipmentDate *time.Ti
 
 	var shipment MpShipment
 	err := r.pool.QueryRow(ctx, query,
-		shipmentDate, shipmentNumber, storeID, warehouseID, statusID,
+		shipmentDate, shipmentNumber, storeID, mainWarehouseID, mpWarehouseID, statusID,
 		logisticsCost, acceptanceCost, acceptanceDate,
 		positionsQty, sentQty, acceptedQty, createdBy,
 	).Scan(
@@ -191,7 +195,8 @@ func (r *MpShipmentRepository) Create(ctx context.Context, shipmentDate *time.Ti
 		&shipment.ShipmentDate,
 		&shipment.ShipmentNumber,
 		&shipment.StoreID,
-		&shipment.WarehouseID,
+		&shipment.MainWarehouseID,
+		&shipment.MpWarehouseID,
 		&shipment.StatusID,
 		&shipment.LogisticsCost,
 		&shipment.AcceptanceCost,
@@ -218,16 +223,17 @@ func (r *MpShipmentRepository) Create(ctx context.Context, shipmentDate *time.Ti
 	return &shipment, nil
 }
 
-func (r *MpShipmentRepository) Update(ctx context.Context, shipmentID uuid.UUID, shipmentDate *time.Time, shipmentNumber string, storeID, warehouseID, statusID *uuid.UUID, logisticsCost, acceptanceCost *float64, acceptanceDate *time.Time, positionsQty, sentQty, acceptedQty int, updatedBy *uuid.UUID) (*MpShipment, error) {
+func (r *MpShipmentRepository) Update(ctx context.Context, shipmentID uuid.UUID, shipmentDate *time.Time, shipmentNumber string, storeID, mainWarehouseID, mpWarehouseID, statusID *uuid.UUID, logisticsCost, acceptanceCost *float64, acceptanceDate *time.Time, positionsQty, sentQty, acceptedQty int, updatedBy *uuid.UUID) (*MpShipment, error) {
 	query := `
 		UPDATE mp_shipments
-		SET shipment_date = $1, shipment_number = $2, store_id = $3, warehouse_id = $4,
-		    status_id = $5, logistics_cost = $6,
-		    acceptance_cost = $7, acceptance_date = $8, positions_qty = $9,
-		    sent_qty = $10, accepted_qty = $11, updated_by = $12,
+		SET shipment_date = $1, shipment_number = $2, store_id = $3,
+		    main_warehouse_id = $4, mp_warehouse_id = $5,
+		    status_id = $6, logistics_cost = $7,
+		    acceptance_cost = $8, acceptance_date = $9, positions_qty = $10,
+		    sent_qty = $11, accepted_qty = $12, updated_by = $13,
 		    updated_at = CURRENT_TIMESTAMP
-		WHERE shipment_id = $13
-		RETURNING shipment_id, shipment_date, shipment_number, store_id, warehouse_id,
+		WHERE shipment_id = $14
+		RETURNING shipment_id, shipment_date, shipment_number, store_id, main_warehouse_id, mp_warehouse_id,
 		          status_id, logistics_cost, acceptance_cost,
 		          acceptance_date, positions_qty, sent_qty, accepted_qty,
 		          created_by, created_at, updated_by, updated_at
@@ -238,7 +244,7 @@ func (r *MpShipmentRepository) Update(ctx context.Context, shipmentID uuid.UUID,
 
 	var shipment MpShipment
 	err := r.pool.QueryRow(ctx, query,
-		shipmentDate, shipmentNumber, storeID, warehouseID, statusID,
+		shipmentDate, shipmentNumber, storeID, mainWarehouseID, mpWarehouseID, statusID,
 		logisticsCost, acceptanceCost, acceptanceDate,
 		positionsQty, sentQty, acceptedQty, updatedBy, shipmentID,
 	).Scan(
@@ -246,7 +252,8 @@ func (r *MpShipmentRepository) Update(ctx context.Context, shipmentID uuid.UUID,
 		&shipment.ShipmentDate,
 		&shipment.ShipmentNumber,
 		&shipment.StoreID,
-		&shipment.WarehouseID,
+		&shipment.MainWarehouseID,
+		&shipment.MpWarehouseID,
 		&shipment.StatusID,
 		&shipment.LogisticsCost,
 		&shipment.AcceptanceCost,

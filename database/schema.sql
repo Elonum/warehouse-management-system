@@ -192,7 +192,8 @@ CREATE TABLE IF NOT EXISTS mp_shipments (
     shipment_date DATE,
     shipment_number VARCHAR(50) UNIQUE NOT NULL,
     store_id UUID REFERENCES stores(store_id),
-    warehouse_id UUID REFERENCES warehouses(warehouse_id),
+    main_warehouse_id UUID REFERENCES warehouses(warehouse_id),
+    mp_warehouse_id UUID REFERENCES warehouses(warehouse_id),
     status_id UUID REFERENCES shipment_statuses(shipment_status_id),
     logistics_cost DECIMAL(10,2),
     acceptance_cost DECIMAL(10,2),
@@ -298,7 +299,8 @@ CREATE INDEX IF NOT EXISTS idx_supplier_order_items_stock ON supplier_order_item
 CREATE INDEX IF NOT EXISTS idx_supplier_order_docs_order ON supplier_order_documents(order_id);
 
 CREATE INDEX IF NOT EXISTS idx_mp_shipments_store ON mp_shipments(store_id);
-CREATE INDEX IF NOT EXISTS idx_mp_shipments_warehouse ON mp_shipments(warehouse_id);
+CREATE INDEX IF NOT EXISTS idx_mp_shipments_main_warehouse ON mp_shipments(main_warehouse_id);
+CREATE INDEX IF NOT EXISTS idx_mp_shipments_mp_warehouse ON mp_shipments(mp_warehouse_id);
 CREATE INDEX IF NOT EXISTS idx_mp_shipments_status ON mp_shipments(status_id);
 CREATE INDEX IF NOT EXISTS idx_warehouses_is_marketplace ON warehouses(is_marketplace);
 

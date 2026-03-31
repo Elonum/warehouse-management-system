@@ -43,7 +43,8 @@ import { useModalState } from '@/hooks/useModalState';
 const emptyShipment = {
   shipmentNumber: '',
   storeId: null,
-  warehouseId: null,
+  mainWarehouseId: null,
+  mpWarehouseId: null,
   statusId: null,
   shipmentDate: null,
   acceptanceDate: null,
@@ -97,6 +98,10 @@ export default function Shipments() {
   const shipments = Array.isArray(shipmentsData) ? shipmentsData : [];
   const stores = Array.isArray(storesData) ? storesData : [];
   const warehouses = Array.isArray(warehousesData) ? warehousesData : [];
+  const mainWarehouses = useMemo(
+    () => warehouses.filter((warehouse) => !warehouse?.isMarketplace),
+    [warehouses],
+  );
   const marketplaceWarehouses = useMemo(
     () => warehouses.filter((warehouse) => warehouse?.isMarketplace),
     [warehouses],
@@ -125,10 +130,12 @@ export default function Shipments() {
     return shipments.map((shipment) => ({
       ...shipment,
       storeName: shipment.storeId ? storeMap.get(shipment.storeId) || t('common.notSpecified') : null,
-      warehouseName: shipment.warehouseId
-        ? warehouseMap.get(shipment.warehouseId) || t('common.notSpecified')
+      warehouseName: shipment.mainWarehouseId
+        ? warehouseMap.get(shipment.mainWarehouseId) || t('common.notSpecified')
         : null,
-      mpWarehouseName: t('shipments.table.warehouseAuto'),
+      mpWarehouseName: shipment.mpWarehouseId
+        ? warehouseMap.get(shipment.mpWarehouseId) || t('common.notSpecified')
+        : null,
       statusName: shipment.statusId ? statusMap.get(shipment.statusId) || t('common.notSpecified') : null,
       statusIsFinal: shipment.statusId
         ? statusIsFinalMap.get(String(shipment.statusId)) || false
@@ -256,7 +263,8 @@ export default function Shipments() {
     setFormData({
       shipmentNumber: shipment.shipmentNumber || '',
       storeId: shipment.storeId || null,
-      warehouseId: shipment.warehouseId || null,
+      mainWarehouseId: shipment.mainWarehouseId || null,
+      mpWarehouseId: shipment.mpWarehouseId || null,
       statusId: shipment.statusId || null,
       shipmentDate: shipment.shipmentDate ? format(new Date(shipment.shipmentDate), 'yyyy-MM-dd') : null,
       acceptanceDate: shipment.acceptanceDate ? format(new Date(shipment.acceptanceDate), 'yyyy-MM-dd') : null,
@@ -286,7 +294,11 @@ export default function Shipments() {
       setError(t('shipments.errors.statusRequired'));
       return;
     }
-    if (!formData.warehouseId) {
+    if (!formData.mainWarehouseId) {
+      setError(t('shipments.errors.mainWarehouseRequired'));
+      return;
+    }
+    if (!formData.mpWarehouseId) {
       setError(t('shipments.errors.marketplaceWarehouseRequired'));
       return;
     }
@@ -340,7 +352,8 @@ export default function Shipments() {
     const data = {
       shipmentNumber: trimmedNumber,
       storeId: formData.storeId || null,
-      warehouseId: formData.warehouseId || null,
+      mainWarehouseId: formData.mainWarehouseId || null,
+      mpWarehouseId: formData.mpWarehouseId || null,
       statusId: formData.statusId || null,
       shipmentDate: shipmentDateIso,
       acceptanceDate: acceptanceDateIso,
@@ -371,10 +384,18 @@ export default function Shipments() {
     return store?.name || '';
   };
 
-  const getSelectedWarehouseName = () => {
-    if (!formData.warehouseId) return '';
+  const getSelectedMainWarehouseName = () => {
+    if (!formData.mainWarehouseId) return '';
+    const warehouse = mainWarehouses.find(
+      (w) => String(w.warehouseId) === String(formData.mainWarehouseId),
+    );
+    return warehouse?.name || '';
+  };
+
+  const getSelectedMpWarehouseName = () => {
+    if (!formData.mpWarehouseId) return '';
     const warehouse = marketplaceWarehouses.find(
-      (w) => String(w.warehouseId) === String(formData.warehouseId),
+      (w) => String(w.warehouseId) === String(formData.mpWarehouseId),
     );
     return warehouse?.name || '';
   };
@@ -476,14 +497,36 @@ export default function Shipments() {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="warehouseId">{t('shipments.form.marketplaceWarehouse')} *</Label>
+                <Label htmlFor="mainWarehouseId">{t('shipments.form.mainWarehouse')} *</Label>
                 <Select
-                  value={formData.warehouseId?.toString() || ''}
-                  onValueChange={(value) => setFormData({ ...formData, warehouseId: value || null })}
+                  value={formData.mainWarehouseId?.toString() || ''}
+                  onValueChange={(value) => setFormData({ ...formData, mainWarehouseId: value || null })}
+                >
+                  <SelectTrigger disabled={shouldLockEdit}>
+                    <SelectValue placeholder={t('shipments.form.mainWarehouse')}>
+                      {getSelectedMainWarehouseName()}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {mainWarehouses.map(warehouse => (
+                      <SelectItem key={warehouse.warehouseId} value={warehouse.warehouseId.toString()}>
+                        {warehouse.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="mpWarehouseId">{t('shipments.form.marketplaceWarehouse')} *</Label>
+                <Select
+                  value={formData.mpWarehouseId?.toString() || ''}
+                  onValueChange={(value) => setFormData({ ...formData, mpWarehouseId: value || null })}
                 >
                   <SelectTrigger disabled={shouldLockEdit}>
                     <SelectValue placeholder={t('shipments.form.marketplaceWarehouse')}>
-                      {getSelectedWarehouseName()}
+                      {getSelectedMpWarehouseName()}
                     </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
@@ -495,6 +538,7 @@ export default function Shipments() {
                   </SelectContent>
                 </Select>
               </div>
+              <div />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">

@@ -23,6 +23,7 @@ export function mapShipmentApiError(t, err, fallbackKey) {
   if (err.code === 'SHIPMENT_STATUS_NOT_FOUND') return t('shipments.errors.statusNotFound');
   if (err.code === 'SHIPMENT_NOT_FOUND') return t('shipments.errors.notFound');
   if (err.code === 'MP_DEST_WAREHOUSE_INVALID') return t('shipments.errors.marketplaceWarehouseInvalid');
+  if (err.code === 'MAIN_WAREHOUSE_INVALID') return t('shipments.errors.mainWarehouseInvalid');
 
   if (looksLikeNumericOverflow(err.message)) {
     return t('shipments.errors.amountTooLarge');

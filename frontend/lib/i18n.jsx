@@ -487,7 +487,6 @@ const translations = {
         store: 'Магазин',
         marketplaceWarehouse: 'Склад МП',
         warehouse: 'Склад',
-        warehouseAuto: 'Основные склады (авто)',
         status: 'Статус',
         shipmentDate: 'Дата отгрузки',
         acceptanceDate: 'Дата приёмки',
@@ -498,7 +497,7 @@ const translations = {
       form: {
         shipmentNumber: 'Номер отгрузки',
         store: 'Магазин',
-        warehouse: 'Склад',
+        mainWarehouse: 'Склад (наш)',
         marketplaceWarehouse: 'Склад МП',
         status: 'Статус',
         shipmentDate: 'Дата отгрузки',
@@ -534,7 +533,9 @@ const translations = {
         amountTooLarge: 'Слишком большое значение суммы, уменьшите значение',
         cannotEditCompleted: 'Завершённую отгрузку нельзя изменять',
         cannotDeleteCompleted: 'Завершённую отгрузку нельзя удалить, так как она уже применена к остаткам склада',
+        mainWarehouseRequired: 'Склад (наш) обязателен',
         marketplaceWarehouseRequired: 'Склад МП обязателен',
+        mainWarehouseInvalid: 'Выберите основной склад (не склад маркетплейса)',
         marketplaceWarehouseInvalid: 'Выберите склад с признаком маркетплейса',
       },
       import: {
@@ -1466,7 +1467,6 @@ const translations = {
         store: 'Store',
         marketplaceWarehouse: 'Marketplace warehouse',
         warehouse: 'Warehouse',
-        warehouseAuto: 'Main warehouses (auto)',
         status: 'Status',
         shipmentDate: 'Shipment Date',
         acceptanceDate: 'Acceptance Date',
@@ -1477,7 +1477,7 @@ const translations = {
       form: {
         shipmentNumber: 'Shipment Number',
         store: 'Store',
-        warehouse: 'Warehouse',
+        mainWarehouse: 'Main warehouse',
         marketplaceWarehouse: 'Marketplace warehouse',
         status: 'Status',
         shipmentDate: 'Shipment Date',
@@ -1513,7 +1513,9 @@ const translations = {
         amountTooLarge: 'Amount is too large, please enter a smaller value',
         cannotEditCompleted: 'Completed shipment cannot be edited',
         cannotDeleteCompleted: 'Cannot delete a completed shipment because it has already been applied to stock levels',
+        mainWarehouseRequired: 'Main warehouse is required',
         marketplaceWarehouseRequired: 'Marketplace warehouse is required',
+        mainWarehouseInvalid: 'Please select a main (non-marketplace) warehouse',
         marketplaceWarehouseInvalid: 'Please select a warehouse marked as marketplace',
       },
       import: {

@@ -2213,7 +2213,7 @@ export default function SupplierOrderDetails() {
                                     )
                                   }
                                   disabled={isDisabled}
-                                  placeholder="Все"
+                                  placeholder={t('common.all')}
                                 />
                               </td>
 

@@ -5,7 +5,15 @@ import DataTable from '@/components/ui/DataTable';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 
-function StockTable({ t, stock, warehouseFilter, isLoading, serverPagination }) {
+function StockTable({
+  t,
+  stock,
+  warehouseFilter,
+  isLoading,
+  serverPagination,
+  showReorderPoint = true,
+  showHistoryAction = true,
+}) {
   const columns = useMemo(() => {
     const cols = [
       {
@@ -45,17 +53,18 @@ function StockTable({ t, stock, warehouseFilter, isLoading, serverPagination }) 
       });
     }
 
-    cols.push(
-      {
-        accessorKey: 'currentQuantity',
-        header: t('stock.table.quantity'),
-        cell: ({ row }) => (
-          <span className="font-semibold text-slate-900 dark:text-slate-100">
-            {row.original.currentQuantity?.toLocaleString() || 0}
-          </span>
-        ),
-      },
-      {
+    cols.push({
+      accessorKey: 'currentQuantity',
+      header: t('stock.table.quantity'),
+      cell: ({ row }) => (
+        <span className="font-semibold text-slate-900 dark:text-slate-100">
+          {row.original.currentQuantity?.toLocaleString() || 0}
+        </span>
+      ),
+    });
+
+    if (showReorderPoint) {
+      cols.push({
         accessorKey: 'reorderPoint',
         header: t('products.table.reorderPoint'),
         cell: ({ row }) => (
@@ -63,8 +72,11 @@ function StockTable({ t, stock, warehouseFilter, isLoading, serverPagination }) 
             {row.original.reorderPoint ?? 0}
           </span>
         ),
-      },
-      {
+      });
+    }
+
+    if (showHistoryAction) {
+      cols.push({
         id: 'actions',
         header: '',
         sortable: false,
@@ -76,11 +88,11 @@ function StockTable({ t, stock, warehouseFilter, isLoading, serverPagination }) 
             </Link>
           </Button>
         ),
-      },
-    );
+      });
+    }
 
     return cols;
-  }, [warehouseFilter, t]);
+  }, [warehouseFilter, t, showReorderPoint, showHistoryAction]);
 
   return (
     <DataTable

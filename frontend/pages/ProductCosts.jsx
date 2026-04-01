@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError } from '@/api';
 import { Plus, Edit2, Trash2, DollarSign, MoreHorizontal, Package } from 'lucide-react';
+import { useI18n } from '@/lib/i18n';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -40,7 +41,6 @@ import {
 import PageHeader from '@/components/ui/PageHeader';
 import DataTable from '@/components/ui/DataTable';
 import { format } from 'date-fns';
-import { ru } from 'date-fns/locale';
 
 const emptyCost = {
   productId: null,
@@ -51,6 +51,7 @@ const emptyCost = {
 };
 
 export default function ProductCosts() {
+  const { t } = useI18n();
   const queryClient = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -79,9 +80,11 @@ export default function ProductCosts() {
 
   // Enrich product costs with product names
   const getProductDisplay = (product) => {
-    if (!product) return 'Неизвестный товар';
+    if (!product) return t('productCosts.unknownProduct');
     const primary = product.article || product.name || `ID: ${product.productId}`;
-    const barcode = product.barcode ? `, баркод: ${product.barcode}` : '';
+    const barcode = product.barcode
+      ? `, ${t('productCosts.barcodeLabel')}: ${product.barcode}`
+      : '';
     return `${primary}${barcode}`;
   };
 
@@ -92,7 +95,7 @@ export default function ProductCosts() {
       const product = cost.productId ? productMap.get(cost.productId) : null;
       return {
         ...cost,
-        productName: product ? getProductDisplay(product) : 'Неизвестный товар',
+        productName: product ? getProductDisplay(product) : t('productCosts.unknownProduct'),
         productArticle: product?.article || product?.name || '',
         productBarcode: product?.barcode || '',
       };
@@ -109,9 +112,9 @@ export default function ProductCosts() {
     },
     onError: (err) => {
       if (err instanceof ApiError) {
-        setError(err.message || 'Ошибка создания стоимости товара');
+        setError(err.message || t('productCosts.errors.createFailed'));
       } else {
-        setError('Ошибка создания стоимости товара');
+        setError(t('productCosts.errors.createFailed'));
       }
     },
   });
@@ -126,9 +129,9 @@ export default function ProductCosts() {
     },
     onError: (err) => {
       if (err instanceof ApiError) {
-        setError(err.message || 'Ошибка обновления стоимости товара');
+        setError(err.message || t('productCosts.errors.updateFailed'));
       } else {
-        setError('Ошибка обновления стоимости товара');
+        setError(t('productCosts.errors.updateFailed'));
       }
     },
   });
@@ -157,9 +160,9 @@ export default function ProductCosts() {
         queryClient.setQueryData(['productCosts'], context.previousData);
       }
       if (err instanceof ApiError) {
-        setError(err.message || 'Ошибка удаления стоимости товара');
+        setError(err.message || t('productCosts.errors.deleteFailed'));
       } else {
-        setError('Ошибка удаления стоимости товара');
+        setError(t('productCosts.errors.deleteFailed'));
       }
       setDeleteDialogOpen(false);
     },
@@ -212,7 +215,7 @@ export default function ProductCosts() {
   const columns = [
     {
       accessorKey: 'productName',
-      header: 'Товар',
+      header: t('productCosts.table.product'),
       cell: ({ row }) => (
         <div className="flex items-center gap-3">
           <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-emerald-100 dark:bg-emerald-500/20">
@@ -220,11 +223,11 @@ export default function ProductCosts() {
           </div>
           <div className="flex flex-col">
             <span className="font-medium text-slate-900 dark:text-slate-100">
-              {row.original.productName || 'Неизвестный товар'}
+              {row.original.productName || t('productCosts.unknownProduct')}
             </span>
             {row.original.productBarcode && (
               <span className="text-xs text-slate-500 dark:text-slate-400">
-                Баркод: {row.original.productBarcode}
+                {t('productCosts.barcodeLabel')}: {row.original.productBarcode}
               </span>
             )}
           </div>
@@ -233,25 +236,27 @@ export default function ProductCosts() {
     },
     {
       accessorKey: 'periodStart',
-      header: 'Начало периода',
+      header: t('productCosts.table.periodStart'),
       cell: ({ row }) => (
         <span className="text-slate-600 dark:text-slate-400">
-          {row.original.periodStart ? format(new Date(row.original.periodStart), 'dd.MM.yyyy', { locale: ru }) : '—'}
+          {row.original.periodStart ? format(new Date(row.original.periodStart), 'dd.MM.yyyy') : '—'}
         </span>
       ),
     },
     {
       accessorKey: 'periodEnd',
-      header: 'Конец периода',
+      header: t('productCosts.table.periodEnd'),
       cell: ({ row }) => (
         <span className="text-slate-600 dark:text-slate-400">
-          {row.original.periodEnd ? format(new Date(row.original.periodEnd), 'dd.MM.yyyy', { locale: ru }) : 'Текущий'}
+          {row.original.periodEnd
+            ? format(new Date(row.original.periodEnd), 'dd.MM.yyyy')
+            : t('productCosts.currentPeriod')}
         </span>
       ),
     },
     {
       accessorKey: 'unitCostToWarehouse',
-      header: 'Стоимость за единицу',
+      header: t('productCosts.table.unitCost'),
       cell: ({ row }) => (
         <span className="font-semibold text-slate-900 dark:text-slate-100">
           {row.original.unitCostToWarehouse?.toFixed(2) || '0.00'} ₽
@@ -260,7 +265,7 @@ export default function ProductCosts() {
     },
     {
       accessorKey: 'notes',
-      header: 'Примечания',
+      header: t('productCosts.table.notes'),
       cell: ({ row }) => (
         <span className="block max-w-xs text-sm truncate text-slate-500 dark:text-slate-400">
           {row.original.notes || '—'}
@@ -281,7 +286,7 @@ export default function ProductCosts() {
           <DropdownMenuContent align="end">
             <DropdownMenuItem onClick={() => handleEdit(row.original)}>
               <Edit2 className="w-4 h-4 mr-2" />
-              Редактировать
+              {t('common.edit')}
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem 
@@ -289,7 +294,7 @@ export default function ProductCosts() {
               className="text-red-600"
             >
               <Trash2 className="w-4 h-4 mr-2" />
-              Удалить
+              {t('common.delete')}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -300,12 +305,12 @@ export default function ProductCosts() {
   return (
     <div className="space-y-6">
       <PageHeader 
-        title="Стоимость товаров" 
-        description="Управление периодами стоимости товаров"
+        title={t('productCosts.title')}
+        description={t('productCosts.description')}
       >
         <Button onClick={() => { resetForm(); setDialogOpen(true); }}>
           <Plus className="w-4 h-4 mr-2" />
-          Добавить период стоимости
+          {t('productCosts.addPeriod')}
         </Button>
       </PageHeader>
 
@@ -313,8 +318,8 @@ export default function ProductCosts() {
         columns={columns}
         data={enrichedProductCosts}
         isLoading={isLoading}
-        searchPlaceholder="Поиск по стоимости товаров..."
-        emptyMessage="Периоды стоимости не найдены"
+        searchPlaceholder={t('productCosts.searchPlaceholder')}
+        emptyMessage={t('productCosts.emptyMessage')}
       />
 
       {/* Create/Edit Dialog */}
@@ -330,7 +335,7 @@ export default function ProductCosts() {
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>
-              {currentCost ? 'Редактировать период стоимости' : 'Добавить период стоимости'}
+              {currentCost ? t('productCosts.editPeriod') : t('productCosts.addPeriod')}
             </DialogTitle>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -340,13 +345,15 @@ export default function ProductCosts() {
               </div>
             )}
             <div className="space-y-2">
-              <Label htmlFor="productId">Товар *</Label>
+              <Label htmlFor="productId">{t('productCosts.form.productRequired')}</Label>
               <Select
                 value={formData.productId?.toString() || ''}
                 onValueChange={(value) => setFormData({ ...formData, productId: value || null })}
               >
                   <SelectTrigger>
-                    <SelectValue placeholder="Выберите товар">{getSelectedProductName()}</SelectValue>
+                    <SelectValue placeholder={t('productCosts.form.selectProduct')}>
+                      {getSelectedProductName()}
+                    </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {products.map(product => (
@@ -359,7 +366,7 @@ export default function ProductCosts() {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="periodStart">Начало периода *</Label>
+                <Label htmlFor="periodStart">{t('productCosts.form.periodStartRequired')}</Label>
                 <Input
                   id="periodStart"
                   type="date"
@@ -369,7 +376,7 @@ export default function ProductCosts() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="periodEnd">Конец периода</Label>
+                <Label htmlFor="periodEnd">{t('productCosts.form.periodEnd')}</Label>
                 <Input
                   id="periodEnd"
                   type="date"
@@ -379,7 +386,7 @@ export default function ProductCosts() {
               </div>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="unitCostToWarehouse">Стоимость за единицу (₽) *</Label>
+              <Label htmlFor="unitCostToWarehouse">{t('productCosts.form.unitCostRequired')}</Label>
               <Input
                 id="unitCostToWarehouse"
                 type="number"
@@ -391,13 +398,13 @@ export default function ProductCosts() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="notes">Примечания</Label>
+              <Label htmlFor="notes">{t('productCosts.form.notes')}</Label>
               <Textarea
                 id="notes"
                 value={formData.notes || ''}
                 onChange={(e) => setFormData({ ...formData, notes: e.target.value || null })}
                 rows={3}
-                placeholder="Введите примечания к периоду стоимости"
+                placeholder={t('productCosts.form.notesPlaceholder')}
               />
             </div>
             <DialogFooter>
@@ -405,10 +412,12 @@ export default function ProductCosts() {
                 setDialogOpen(false);
                 resetForm();
               }}>
-                Отмена
+                {t('common.cancel')}
               </Button>
               <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending}>
-                {currentCost ? (updateMutation.isPending ? 'Сохранение...' : 'Сохранить') : (createMutation.isPending ? 'Создание...' : 'Создать')}
+                {currentCost
+                  ? (updateMutation.isPending ? t('common.saving') : t('common.save'))
+                  : (createMutation.isPending ? t('common.creating') : t('common.create'))}
               </Button>
             </DialogFooter>
           </form>
@@ -419,9 +428,9 @@ export default function ProductCosts() {
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Удалить период стоимости</AlertDialogTitle>
+            <AlertDialogTitle>{t('productCosts.deleteConfirm.title')}</AlertDialogTitle>
             <AlertDialogDescription>
-              Вы уверены, что хотите удалить этот период стоимости? Это действие нельзя отменить.
+              {t('productCosts.deleteConfirm.description')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -429,7 +438,7 @@ export default function ProductCosts() {
               setDeleteDialogOpen(false);
               setCurrentCost(null);
             }}>
-              Отмена
+              {t('common.cancel')}
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={(e) => {
@@ -442,7 +451,7 @@ export default function ProductCosts() {
               className="bg-red-600 hover:bg-red-700"
               disabled={deleteMutation.isPending}
             >
-              {deleteMutation.isPending ? 'Удаление...' : 'Удалить'}
+              {deleteMutation.isPending ? t('common.deleting') : t('common.delete')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

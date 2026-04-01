@@ -19,12 +19,16 @@ import StockTable from '@/features/stock/components/StockTable';
 import { LoadingState } from '@/components/common/LoadingState';
 import { EmptyState } from '@/components/common/EmptyState';
 import { Input } from '@/components/ui/input';
+import { fetchMarketplaceStock } from '@/features/stock/marketplaceStockAdapter';
 
 const LEVEL_FILTERS = new Set(['all', 'positive', 'zero', 'below_reorder']);
+const STOCK_SOURCES = new Set(['our', 'wildberries', 'ozon']);
 
 function readFiltersFromSearchParams(searchParams) {
   const levelRaw = searchParams.get('levelFilter') || 'all';
+  const sourceRaw = searchParams.get('source') || 'our';
   return {
+    source: STOCK_SOURCES.has(sourceRaw) ? sourceRaw : 'our',
     product: searchParams.get('product') || 'all',
     warehouse: searchParams.get('warehouse') || 'all',
     q: (searchParams.get('q') || '').slice(0, 100),
@@ -38,6 +42,7 @@ function StockPageContainer() {
 
   const initial = useMemo(() => readFiltersFromSearchParams(searchParams), [searchParams]);
 
+  const [stockSource, setStockSource] = useState(initial.source);
   const [productFilter, setProductFilter] = useState(initial.product);
   const [warehouseFilter, setWarehouseFilter] = useState(initial.warehouse);
   const [q, setQ] = useState(initial.q);
@@ -53,6 +58,7 @@ function StockPageContainer() {
 
   useLayoutEffect(() => {
     const f = readFiltersFromSearchParams(searchParams);
+    setStockSource(f.source);
     setProductFilter(f.product);
     setWarehouseFilter(f.warehouse);
     setQ(f.q);
@@ -61,6 +67,8 @@ function StockPageContainer() {
   }, [searchParams, resetPage]);
 
   const qNormalized = useMemo(() => q.trim().slice(0, 100), [q]);
+  const isOwnStockMode = stockSource === 'our';
+  const isMarketplaceMode = !isOwnStockMode;
 
   const selectedLevelLabel = useMemo(() => {
     switch (levelFilter) {
@@ -76,9 +84,9 @@ function StockPageContainer() {
   }, [levelFilter, t]);
 
   const {
-    data: stockPayload,
-    isLoading: loadingStock,
-    isFetching: fetchingStock,
+    data: ownStockPayload,
+    isLoading: loadingOwnStock,
+    isFetching: fetchingOwnStock,
   } = useQuery({
     queryKey: [
       'stock',
@@ -89,6 +97,7 @@ function StockPageContainer() {
       limit,
       offset,
     ],
+    enabled: isOwnStockMode,
     queryFn: async () => {
       const params = { limit, offset };
       if (warehouseFilter !== 'all') {
@@ -108,8 +117,27 @@ function StockPageContainer() {
     },
   });
 
-  const stock = stockPayload?.items ?? [];
-  const totalRows = stockPayload?.total ?? 0;
+  const {
+    data: marketplaceStockPayload,
+    isLoading: loadingMarketplaceStock,
+    isFetching: fetchingMarketplaceStock,
+  } = useQuery({
+    queryKey: ['stock-marketplace', stockSource],
+    enabled: isMarketplaceMode,
+    queryFn: async () => {
+      const data = await fetchMarketplaceStock({ source: stockSource });
+      return data;
+    },
+  });
+
+  const stock = isOwnStockMode
+    ? ownStockPayload?.items ?? []
+    : marketplaceStockPayload?.items ?? [];
+  const totalRows = isOwnStockMode
+    ? ownStockPayload?.total ?? 0
+    : marketplaceStockPayload?.total ?? 0;
+  const loadingStock = isOwnStockMode ? loadingOwnStock : loadingMarketplaceStock;
+  const fetchingStock = isOwnStockMode ? fetchingOwnStock : fetchingMarketplaceStock;
 
   useEffect(() => {
     if (fetchingStock) return;
@@ -134,6 +162,10 @@ function StockPageContainer() {
 
   const products = Array.isArray(productsData) ? productsData : [];
   const warehouses = Array.isArray(warehousesData) ? warehousesData : [];
+  const ownWarehouses = useMemo(
+    () => warehouses.filter((w) => !w?.isMarketplace),
+    [warehouses],
+  );
 
   const selectedProductLabel = useMemo(() => {
     if (productFilter === 'all') return t('stock.filters.allProducts');
@@ -144,9 +176,9 @@ function StockPageContainer() {
 
   const warehouseTriggerLabel = useMemo(() => {
     if (warehouseFilter === 'all') return t('stock.filters.allWarehouses');
-    const warehouse = warehouses.find((w) => String(w.warehouseId) === String(warehouseFilter));
+    const warehouse = ownWarehouses.find((w) => String(w.warehouseId) === String(warehouseFilter));
     return warehouse?.name || t('stock.filters.warehouse');
-  }, [warehouseFilter, warehouses, t]);
+  }, [warehouseFilter, ownWarehouses, t]);
 
   const isLoadingAny = loadingStock || loadingProducts || loadingWarehouses;
 
@@ -158,16 +190,14 @@ function StockPageContainer() {
 
   const warehousesMap = useMemo(() => {
     const map = new Map();
-    warehouses.forEach((w) => map.set(w.warehouseId, w));
+    ownWarehouses.forEach((w) => map.set(w.warehouseId, w));
     return map;
-  }, [warehouses]);
+  }, [ownWarehouses]);
 
   const selectedWarehouse = useMemo(() => {
-    if (warehouseFilter === 'all') return null;
-    return (
-      warehouses.find((w) => String(w.warehouseId) === String(warehouseFilter)) || null
-    );
-  }, [warehouseFilter, warehouses]);
+    if (!isOwnStockMode || warehouseFilter === 'all') return null;
+    return ownWarehouses.find((w) => String(w.warehouseId) === String(warehouseFilter)) || null;
+  }, [warehouseFilter, ownWarehouses, isOwnStockMode]);
 
   const enrichedStock = useMemo(
     () =>
@@ -180,7 +210,7 @@ function StockPageContainer() {
             product?.article || t('stock.unknownProduct', { id: item.productId }),
           productBarcode: product?.barcode ?? null,
           warehouseName:
-            warehouse?.name || t('stock.unknownWarehouse', { id: item.warehouseId }),
+            item.warehouseName || warehouse?.name || t('stock.unknownWarehouse', { id: item.warehouseId }),
         };
       }),
     [stock, productsMap, warehousesMap, t],
@@ -225,24 +255,81 @@ function StockPageContainer() {
 
   const hasActiveFilters =
     productFilter !== 'all' ||
-    warehouseFilter !== 'all' ||
-    levelFilter !== 'all' ||
-    !!qNormalized;
+    !!qNormalized ||
+    (isOwnStockMode && (warehouseFilter !== 'all' || levelFilter !== 'all'));
 
   return (
     <div className="space-y-6">
       <PageHeader
         title={
           selectedWarehouse
-            ? `${t('stock.title')} - ${selectedWarehouse.name}`
-            : t('stock.title')
+            ? `${t('stock.ourTitle')} - ${selectedWarehouse.name}`
+            : isOwnStockMode
+              ? t('stock.ourTitle')
+              : t('stock.marketplaceTitle', {
+                  source: stockSource === 'wildberries'
+                    ? t('stock.sources.wildberries')
+                    : t('stock.sources.ozon'),
+                })
         }
         description={
           selectedWarehouse
             ? t('stock.descriptionWarehouse', { warehouse: selectedWarehouse.name })
-            : t('stock.description')
+            : isOwnStockMode
+              ? t('stock.ourDescription')
+              : t('stock.marketplaceDescription', {
+                  source: stockSource === 'wildberries'
+                    ? t('stock.sources.wildberries')
+                    : t('stock.sources.ozon'),
+                })
         }
       />
+
+      <div className="flex flex-wrap gap-2">
+        <Button
+          variant={stockSource === 'our' ? 'default' : 'outline'}
+          onClick={() => {
+            setStockSource('our');
+            setWarehouseFilter('all');
+            setLevelFilter('all');
+            resetPage();
+          }}
+        >
+          {t('stock.sources.our')}
+        </Button>
+        <Button
+          variant={stockSource === 'wildberries' ? 'default' : 'outline'}
+          className={
+            stockSource === 'wildberries'
+              ? 'border-transparent bg-gradient-to-r from-purple-600 to-fuchsia-600 text-white hover:from-purple-600 hover:to-fuchsia-600'
+              : ''
+          }
+          onClick={() => {
+            setStockSource('wildberries');
+            setWarehouseFilter('all');
+            setLevelFilter('all');
+            resetPage();
+          }}
+        >
+          {t('stock.sources.wildberries')}
+        </Button>
+        <Button
+          variant={stockSource === 'ozon' ? 'default' : 'outline'}
+          className={
+            stockSource === 'ozon'
+              ? 'border-transparent bg-gradient-to-r from-sky-600 to-blue-700 text-white hover:from-sky-600 hover:to-blue-700'
+              : ''
+          }
+          onClick={() => {
+            setStockSource('ozon');
+            setWarehouseFilter('all');
+            setLevelFilter('all');
+            resetPage();
+          }}
+        >
+          {t('stock.sources.ozon')}
+        </Button>
+      </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         {isLoadingAny ? (
@@ -366,49 +453,53 @@ function StockPageContainer() {
                   ))}
                 </SelectContent>
               </Select>
-              <Select
-                value={warehouseFilter}
-                onValueChange={(v) => {
-                  setWarehouseFilter(v);
-                  resetPage();
-                }}
-              >
-                <SelectTrigger className="w-48">
-                  <SelectValue>{warehouseTriggerLabel}</SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">
-                    {t('stock.filters.allWarehouses')}
-                  </SelectItem>
-                  {warehouses.map((warehouse) => (
-                    <SelectItem
-                      key={warehouse.warehouseId}
-                      value={warehouse.warehouseId.toString()}
-                    >
-                      {warehouse.name}
+              {isOwnStockMode && (
+                <Select
+                  value={warehouseFilter}
+                  onValueChange={(v) => {
+                    setWarehouseFilter(v);
+                    resetPage();
+                  }}
+                >
+                  <SelectTrigger className="w-48">
+                    <SelectValue>{warehouseTriggerLabel}</SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">
+                      {t('stock.filters.allWarehouses')}
                     </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select
-                value={levelFilter}
-                onValueChange={(v) => {
-                  setLevelFilter(v);
-                  resetPage();
-                }}
-              >
-                <SelectTrigger className="w-56 min-w-[12rem]">
-                  <SelectValue>{selectedLevelLabel}</SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">{t('stock.filters.allLevels')}</SelectItem>
-                  <SelectItem value="positive">{t('stock.filters.levelPositive')}</SelectItem>
-                  <SelectItem value="zero">{t('stock.filters.levelZero')}</SelectItem>
-                  <SelectItem value="below_reorder">
-                    {t('stock.filters.levelBelowReorder')}
-                  </SelectItem>
-                </SelectContent>
-              </Select>
+                    {ownWarehouses.map((warehouse) => (
+                      <SelectItem
+                        key={warehouse.warehouseId}
+                        value={warehouse.warehouseId.toString()}
+                      >
+                        {warehouse.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+              {isOwnStockMode && (
+                <Select
+                  value={levelFilter}
+                  onValueChange={(v) => {
+                    setLevelFilter(v);
+                    resetPage();
+                  }}
+                >
+                  <SelectTrigger className="w-56 min-w-[12rem]">
+                    <SelectValue>{selectedLevelLabel}</SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">{t('stock.filters.allLevels')}</SelectItem>
+                    <SelectItem value="positive">{t('stock.filters.levelPositive')}</SelectItem>
+                    <SelectItem value="zero">{t('stock.filters.levelZero')}</SelectItem>
+                    <SelectItem value="below_reorder">
+                      {t('stock.filters.levelBelowReorder')}
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              )}
               {hasActiveFilters && (
                 <Button variant="ghost" size="sm" onClick={clearFilters}>
                   <X className="w-4 h-4 mr-1" />
@@ -429,7 +520,13 @@ function StockPageContainer() {
       ) : enrichedStock.length === 0 ? (
         <Card className="dark:bg-slate-900 dark:border-slate-800">
           <CardContent className="pt-6">
-            <EmptyState message={t('stock.emptyMessage')} />
+            <EmptyState
+              message={
+                isOwnStockMode
+                  ? t('stock.emptyMessage')
+                  : t('stock.marketplaceEmptyMessage')
+              }
+            />
           </CardContent>
         </Card>
       ) : (
@@ -440,6 +537,8 @@ function StockPageContainer() {
             warehouseFilter={warehouseFilter}
             isLoading={loadingStock}
             serverPagination={serverPagination}
+            showReorderPoint={isOwnStockMode}
+            showHistoryAction={isOwnStockMode}
           />
         </Card>
       )}

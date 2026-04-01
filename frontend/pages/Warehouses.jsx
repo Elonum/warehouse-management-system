@@ -92,9 +92,9 @@ export default function Warehouses() {
     },
     onError: (err) => {
       if (err instanceof ApiError) {
-        setError(err.message || 'Ошибка создания склада');
+        setError(err.message || t('warehouses.errors.createFailed'));
       } else {
-        setError('Ошибка создания склада');
+        setError(t('warehouses.errors.createFailed'));
       }
     },
   });
@@ -110,9 +110,9 @@ export default function Warehouses() {
     },
     onError: (err) => {
       if (err instanceof ApiError) {
-        setError(err.message || 'Ошибка обновления склада');
+        setError(err.message || t('warehouses.errors.updateFailed'));
       } else {
-        setError('Ошибка обновления склада');
+        setError(t('warehouses.errors.updateFailed'));
       }
     },
   });
@@ -142,9 +142,9 @@ export default function Warehouses() {
         queryClient.setQueryData(['warehouses'], context.previousData);
       }
       if (err instanceof ApiError) {
-        setError(err.message || 'Ошибка удаления склада');
+        setError(err.message || t('warehouses.errors.deleteFailed'));
       } else {
-        setError('Ошибка удаления склада');
+        setError(t('warehouses.errors.deleteFailed'));
       }
       deleteModal.close();
     },
@@ -162,9 +162,9 @@ export default function Warehouses() {
     },
     onError: (err) => {
       if (err instanceof ApiError) {
-        setError(err.message || 'Ошибка создания магазина');
+        setError(err.message || t('warehouses.errors.createFailed'));
       } else {
-        setError('Ошибка создания магазина');
+        setError(t('warehouses.errors.createFailed'));
       }
     },
   });
@@ -180,9 +180,9 @@ export default function Warehouses() {
     },
     onError: (err) => {
       if (err instanceof ApiError) {
-        setError(err.message || 'Ошибка обновления магазина');
+        setError(err.message || t('warehouses.errors.updateFailed'));
       } else {
-        setError('Ошибка обновления магазина');
+        setError(t('warehouses.errors.updateFailed'));
       }
     },
   });
@@ -212,9 +212,9 @@ export default function Warehouses() {
         queryClient.setQueryData(['stores'], context.previousData);
       }
       if (err instanceof ApiError) {
-        setError(err.message || 'Ошибка удаления магазина');
+        setError(err.message || t('warehouses.errors.deleteFailed'));
       } else {
-        setError('Ошибка удаления магазина');
+        setError(t('warehouses.errors.deleteFailed'));
       }
       deleteModal.close();
     },

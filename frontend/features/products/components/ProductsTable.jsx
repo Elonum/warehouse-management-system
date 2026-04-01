@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Package, Eye, MoreHorizontal, Image as ImageIcon, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Package, Eye, MoreHorizontal, Image as ImageIcon, ChevronLeft, ChevronRight, Pencil } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import DataTable from '@/components/ui/DataTable';
 import { Link } from 'react-router-dom';
@@ -149,7 +149,9 @@ function ProductsTable({
         cell: ({ row }) => (
           <div className="flex items-center justify-center h-full">
             <span className="text-slate-600 dark:text-slate-400">
-              {row.original.unitWeight ? `${row.original.unitWeight} г` : '—'}
+              {row.original.unitWeight
+                ? `${row.original.unitWeight} ${t('common.unitGrams')}`
+                : '—'}
             </span>
           </div>
         ),
@@ -222,7 +224,7 @@ function ProductsTable({
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={() => onEditProduct(row.original)}>
-                <Package className="w-4 h-4 mr-2" />
+                <Pencil className="w-4 h-4 mr-2" />
                 {t('common.edit')}
               </DropdownMenuItem>
               <DropdownMenuItem

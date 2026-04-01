@@ -223,18 +223,18 @@ export default function Dashboard() {
           <>
             <StatCard
               title={t('dashboard.stats.totalStock')}
-              value={`${totalStockQty.toLocaleString('ru-RU')} шт.`}
+              value={`${totalStockQty.toLocaleString()} ${t('common.units')}`}
               icon={Boxes}
             />
             <StatCard
               title={t('dashboard.stats.mainStock')}
-              value={`${mainStockQty.toLocaleString('ru-RU')} шт.`}
+              value={`${mainStockQty.toLocaleString()} ${t('common.units')}`}
               icon={Warehouse}
               variant="indigo"
             />
             <StatCard
               title={t('dashboard.stats.marketplaceStock')}
-              value={`${marketplaceStockQty.toLocaleString('ru-RU')} шт.`}
+              value={`${marketplaceStockQty.toLocaleString()} ${t('common.units')}`}
               icon={Warehouse}
               variant="emerald"
             />
@@ -294,7 +294,7 @@ export default function Dashboard() {
                     />
                     <Tooltip
                       formatter={(value) => [
-                        `${Number(value).toLocaleString('ru-RU')} шт.`,
+                        `${Number(value).toLocaleString()} ${t('common.units')}`,
                         t('dashboard.stock'),
                       ]}
                       contentStyle={{
@@ -417,7 +417,7 @@ export default function Dashboard() {
                     />
                     <Tooltip
                       formatter={(value) => [
-                        `${Number(value).toLocaleString('ru-RU')} шт.`,
+                        `${Number(value).toLocaleString()} ${t('common.units')}`,
                         t('dashboard.stock'),
                       ]}
                       contentStyle={{
@@ -627,7 +627,7 @@ export default function Dashboard() {
                       <p className={`text-sm font-semibold ${
                         'text-slate-900 dark:text-slate-100'
                       }`}>
-                        {snapshot.quantity?.toLocaleString('ru-RU') || 0} шт.
+                        {snapshot.quantity?.toLocaleString() || 0} {t('common.units')}
                       </p>
                       <p className="text-xs text-slate-500 dark:text-slate-400">
                         {snapshot.snapshotDate ? format(new Date(snapshot.snapshotDate), 'dd.MM') : ''}

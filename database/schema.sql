@@ -74,7 +74,6 @@ CREATE TABLE IF NOT EXISTS products (
     reorder_point INTEGER NOT NULL DEFAULT 0,
     unit_cost DECIMAL(10,2),
     purchase_price DECIMAL(10,2),
-    processing_price DECIMAL(10,2)
 );
 -- UNIQUE (article), UNIQUE (barcode) create B-tree indexes for exact match and sort by article.
 -- Substring search (ILIKE '%…%') uses trigram GIN indexes defined in the indexes section.

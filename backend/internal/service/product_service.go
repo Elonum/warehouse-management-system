@@ -50,7 +50,6 @@ func (s *ProductService) GetByID(ctx context.Context, productID uuid.UUID) (*dto
 		ReorderPoint:    product.ReorderPoint,
 		UnitCost:        product.UnitCost,
 		PurchasePrice:   product.PurchasePrice,
-		ProcessingPrice: product.ProcessingPrice,
 		Images:          imageResponses,
 	}, nil
 }
@@ -78,7 +77,6 @@ func (s *ProductService) GetByArticle(ctx context.Context, article string) (*dto
 		ReorderPoint:    product.ReorderPoint,
 		UnitCost:        product.UnitCost,
 		PurchasePrice:   product.PurchasePrice,
-		ProcessingPrice: product.ProcessingPrice,
 		Images:          imageResponses,
 	}, nil
 }
@@ -106,7 +104,6 @@ func (s *ProductService) GetByBarcode(ctx context.Context, barcode string) (*dto
 		ReorderPoint:    product.ReorderPoint,
 		UnitCost:        product.UnitCost,
 		PurchasePrice:   product.PurchasePrice,
-		ProcessingPrice: product.ProcessingPrice,
 		Images:          imageResponses,
 	}, nil
 }
@@ -130,7 +127,6 @@ func (s *ProductService) List(ctx context.Context, limit, offset int) ([]dto.Pro
 			ReorderPoint:    product.ReorderPoint,
 			UnitCost:        product.UnitCost,
 			PurchasePrice:   product.PurchasePrice,
-			ProcessingPrice: product.ProcessingPrice,
 			Images:          s.mapImagesToDTO(images),
 		}
 
@@ -141,7 +137,7 @@ func (s *ProductService) List(ctx context.Context, limit, offset int) ([]dto.Pro
 }
 
 func (s *ProductService) Create(ctx context.Context, req dto.ProductCreateRequest) (*dto.ProductResponse, error) {
-	product, err := s.repo.Create(ctx, req.Article, req.Barcode, req.UnitWeight, req.ReorderPoint, req.UnitCost, req.PurchasePrice, req.ProcessingPrice)
+	product, err := s.repo.Create(ctx, req.Article, req.Barcode, req.UnitWeight, req.ReorderPoint, req.UnitCost, req.PurchasePrice)
 	if err != nil {
 		log.Error().Err(err).Str("article", req.Article).Str("barcode", req.Barcode).Msg("Failed to create product")
 		return nil, err
@@ -171,13 +167,12 @@ func (s *ProductService) Create(ctx context.Context, req dto.ProductCreateReques
 		ReorderPoint:    product.ReorderPoint,
 		UnitCost:        product.UnitCost,
 		PurchasePrice:   product.PurchasePrice,
-		ProcessingPrice: product.ProcessingPrice,
 		Images:          imageResponses,
 	}, nil
 }
 
 func (s *ProductService) Update(ctx context.Context, productID uuid.UUID, req dto.ProductUpdateRequest) (*dto.ProductResponse, error) {
-	product, err := s.repo.Update(ctx, productID, req.Article, req.Barcode, req.UnitWeight, req.ReorderPoint, req.UnitCost, req.PurchasePrice, req.ProcessingPrice)
+	product, err := s.repo.Update(ctx, productID, req.Article, req.Barcode, req.UnitWeight, req.ReorderPoint, req.UnitCost, req.PurchasePrice)
 	if err != nil {
 		log.Error().Err(err).Str("productId", productID.String()).Msg("Failed to update product")
 		return nil, err
@@ -206,7 +201,6 @@ func (s *ProductService) Update(ctx context.Context, productID uuid.UUID, req dt
 		ReorderPoint:    product.ReorderPoint,
 		UnitCost:        product.UnitCost,
 		PurchasePrice:   product.PurchasePrice,
-		ProcessingPrice: product.ProcessingPrice,
 		Images:          imageResponses,
 	}, nil
 }

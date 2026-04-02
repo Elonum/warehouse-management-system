@@ -327,7 +327,6 @@ const translations = {
         reorderPoint: 'Порог пополнения',
         price: 'Цена',
         purchasePrice: 'Цена закупа',
-        processingPrice: 'Цена обработки',
         stock: 'Остатки',
       },
       form: {
@@ -338,8 +337,6 @@ const translations = {
         price: 'Цена (₽)',
         purchasePrice: 'Цена закупа',
         purchasePricePlaceholder: 'Цена закупа из Китая (¥)',
-        processingPrice: 'Цена обработки (₽)',
-        processingPricePlaceholder: 'Цена обработки товара',
         images: 'Изображения товара',
         articleRequired: 'Артикул обязателен для заполнения',
         barcodeRequired: 'Баркод обязателен для заполнения',
@@ -349,7 +346,6 @@ const translations = {
         reorderPointInvalid: 'Порог пополнения должен быть неотрицательным числом',
         priceInvalid: 'Цена должна быть положительным числом',
         purchasePriceInvalid: 'Цена закупа должна быть положительным числом',
-        processingPriceInvalid: 'Цена обработки должна быть положительным числом',
       },
       images: {
         uploadHint: 'Перетащите изображение сюда или нажмите для выбора',
@@ -1364,7 +1360,6 @@ const translations = {
         reorderPoint: 'Reorder Point',
         price: 'Price',
         purchasePrice: 'Purchase Price',
-        processingPrice: 'Processing Price',
         stock: 'Stock',
       },
       form: {
@@ -1375,8 +1370,6 @@ const translations = {
         price: 'Price (₽)',
         purchasePrice: 'Purchase Price',
         purchasePricePlaceholder: 'Purchase price from China (¥)',
-        processingPrice: 'Processing Price (₽)',
-        processingPricePlaceholder: 'Product processing price',
         images: 'Product Images',
         articleRequired: 'Article is required',
         barcodeRequired: 'Barcode is required',
@@ -1386,7 +1379,6 @@ const translations = {
         reorderPointInvalid: 'Reorder point must be a non-negative number',
         priceInvalid: 'Price must be a positive number',
         purchasePriceInvalid: 'Purchase price must be a positive number',
-        processingPriceInvalid: 'Processing price must be a positive number',
       },
       images: {
         uploadHint: 'Drag and drop an image here or click to select',

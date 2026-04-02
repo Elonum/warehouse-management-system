@@ -101,7 +101,7 @@ function ProductFormDialog({
             </div>
           </div>
           <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
+            <div className="space-y-2 col-span-2">
               <Label htmlFor="purchasePrice">{t('products.form.purchasePrice')} (¥)</Label>
               <Input
                 id="purchasePrice"
@@ -111,18 +111,6 @@ function ProductFormDialog({
                 value={formData.purchasePrice || ''}
                 onChange={(e) => onChangeField('purchasePrice', e.target.value || null)}
                 placeholder={t('products.form.purchasePricePlaceholder')}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="processingPrice">{t('products.form.processingPrice')}</Label>
-              <Input
-                id="processingPrice"
-                type="number"
-                step="0.01"
-                min="0"
-                value={formData.processingPrice || ''}
-                onChange={(e) => onChangeField('processingPrice', e.target.value || null)}
-                placeholder={t('products.form.processingPricePlaceholder')}
               />
             </div>
           </div>

@@ -27,7 +27,6 @@ const emptyProduct = {
   reorderPoint: 0,
   unitCost: null,
   purchasePrice: null,
-  processingPrice: null,
   imagePaths: [],
   images: [],
 };
@@ -183,7 +182,6 @@ function ProductsPageContainer() {
       reorderPoint: product.reorderPoint || 0,
       unitCost: product.unitCost || null,
       purchasePrice: product.purchasePrice || null,
-      processingPrice: product.processingPrice || null,
       imagePaths: productImages.map((img) => img.filePath) || [],
       images: productImages,
     });
@@ -232,7 +230,6 @@ function ProductsPageContainer() {
 
     const unitCost = formData.unitCost ? parseFloat(formData.unitCost) : null;
     const purchasePrice = formData.purchasePrice ? parseFloat(formData.purchasePrice) : null;
-    const processingPrice = formData.processingPrice ? parseFloat(formData.processingPrice) : null;
 
     if (unitCost !== null && (Number.isNaN(unitCost) || unitCost < 0)) {
       setError(t('products.form.priceInvalid'));
@@ -241,11 +238,6 @@ function ProductsPageContainer() {
 
     if (purchasePrice !== null && (Number.isNaN(purchasePrice) || purchasePrice < 0)) {
       setError(t('products.form.purchasePriceInvalid'));
-      return null;
-    }
-
-    if (processingPrice !== null && (Number.isNaN(processingPrice) || processingPrice < 0)) {
-      setError(t('products.form.processingPriceInvalid'));
       return null;
     }
 
@@ -263,7 +255,6 @@ function ProductsPageContainer() {
       reorderPoint,
       unitCost,
       purchasePrice,
-      processingPrice,
       imagePaths: mergedImagePaths,
     };
   };

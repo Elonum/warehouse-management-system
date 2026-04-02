@@ -8,7 +8,6 @@ type ProductResponse struct {
 	ReorderPoint    int                    `json:"reorderPoint"`
 	UnitCost        *float64               `json:"unitCost,omitempty"`
 	PurchasePrice   *float64               `json:"purchasePrice,omitempty"`
-	ProcessingPrice *float64               `json:"processingPrice,omitempty"`
 	Images          []ProductImageResponse `json:"images,omitempty"`
 }
 
@@ -26,7 +25,6 @@ type ProductCreateRequest struct {
 	ReorderPoint    int      `json:"reorderPoint"`
 	UnitCost        *float64 `json:"unitCost,omitempty"`
 	PurchasePrice   *float64 `json:"purchasePrice,omitempty"`
-	ProcessingPrice *float64 `json:"processingPrice,omitempty"`
 	ImagePaths      []string `json:"imagePaths,omitempty"` // Paths to already uploaded images
 }
 
@@ -37,6 +35,5 @@ type ProductUpdateRequest struct {
 	ReorderPoint    int      `json:"reorderPoint"`
 	UnitCost        *float64 `json:"unitCost,omitempty"`
 	PurchasePrice   *float64 `json:"purchasePrice,omitempty"`
-	ProcessingPrice *float64 `json:"processingPrice,omitempty"`
 	ImagePaths      []string `json:"imagePaths,omitempty"` // Paths to already uploaded images
 }

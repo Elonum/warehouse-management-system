@@ -157,13 +157,13 @@ function ProductsTable({
         ),
       },
       {
-        accessorKey: 'reorderPoint',
-        header: t('products.table.reorderPoint'),
+        accessorKey: 'purchasePrice',
+        header: t('products.table.purchasePrice'),
         headerClassName: 'text-center',
         cell: ({ row }) => (
           <div className="flex items-center justify-center h-full">
             <span className="text-slate-600 dark:text-slate-400">
-              {row.original.reorderPoint ?? 0}
+              {row.original.purchasePrice ? `¥${row.original.purchasePrice.toFixed(2)}` : '—'}
             </span>
           </div>
         ),
@@ -181,25 +181,13 @@ function ProductsTable({
         ),
       },
       {
-        accessorKey: 'purchasePrice',
-        header: t('products.table.purchasePrice'),
+        accessorKey: 'reorderPoint',
+        header: t('products.table.reorderPoint'),
         headerClassName: 'text-center',
         cell: ({ row }) => (
           <div className="flex items-center justify-center h-full">
             <span className="text-slate-600 dark:text-slate-400">
-              {row.original.purchasePrice ? `¥${row.original.purchasePrice.toFixed(2)}` : '—'}
-            </span>
-          </div>
-        ),
-      },
-      {
-        accessorKey: 'processingPrice',
-        header: t('products.table.processingPrice'),
-        headerClassName: 'text-center',
-        cell: ({ row }) => (
-          <div className="flex items-center justify-center h-full">
-            <span className="text-slate-600 dark:text-slate-400">
-              {row.original.processingPrice ? `₽${row.original.processingPrice.toFixed(2)}` : '—'}
+              {row.original.reorderPoint ?? 0}
             </span>
           </div>
         ),

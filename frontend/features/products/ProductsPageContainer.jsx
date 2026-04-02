@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError } from '@/api';
 import { useI18n } from '@/lib/i18n';
-import { Plus } from 'lucide-react';
+import { Plus, FileSpreadsheet } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import PageHeader from '@/components/ui/PageHeader';
 import {
@@ -17,6 +17,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import ProductsTable from './components/ProductsTable';
 import ProductFormDialog from './components/ProductFormDialog';
+import ChinaOrderExportDialog from './components/ChinaOrderExportDialog';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 
@@ -44,6 +45,7 @@ function ProductsPageContainer() {
   const [imageViewerProduct, setImageViewerProduct] = useState(null);
   const [imageViewerIndex, setImageViewerIndex] = useState(0);
   const [imageIndices, setImageIndices] = useState({});
+  const [chinaOrderDialogOpen, setChinaOrderDialogOpen] = useState(false);
 
   const { data: productsData, isLoading, refetch } = useQuery({
     queryKey: ['products'],
@@ -293,15 +295,26 @@ function ProductsPageContainer() {
   return (
     <div className="space-y-6">
       <PageHeader title={t('products.title')} description={t('products.description')}>
-        <Button
-          onClick={() => {
-            resetForm();
-            setDialogOpen(true);
-          }}
-        >
-          <Plus className="w-4 h-4 mr-2" />
-          {t('products.addProduct')}
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant="outline"
+            onClick={() => {
+              setChinaOrderDialogOpen(true);
+            }}
+          >
+            <FileSpreadsheet className="w-4 h-4 mr-2" />
+            {t('products.orderExport.open')}
+          </Button>
+          <Button
+            onClick={() => {
+              resetForm();
+              setDialogOpen(true);
+            }}
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            {t('products.addProduct')}
+          </Button>
+        </div>
       </PageHeader>
 
       <ProductsTable
@@ -326,6 +339,13 @@ function ProductsPageContainer() {
         onSubmit={handleSubmit}
         isSubmitting={isSubmitting}
         onResetForm={resetForm}
+      />
+
+      <ChinaOrderExportDialog
+        t={t}
+        open={chinaOrderDialogOpen}
+        onOpenChange={setChinaOrderDialogOpen}
+        products={products}
       />
 
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>

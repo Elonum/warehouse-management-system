@@ -179,3 +179,33 @@ func (r *ProductImageRepository) DeleteByProductID(ctx context.Context, productI
 	_, err := r.pool.Exec(ctx, query, productID)
 	return err
 }
+
+func (r *ProductImageRepository) ListAllFilePaths(ctx context.Context) ([]string, error) {
+	query := `
+		SELECT file_path
+		FROM product_images
+	`
+
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	rows, err := r.pool.Query(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	paths := make([]string, 0, 256)
+	for rows.Next() {
+		var filePath string
+		if err := rows.Scan(&filePath); err != nil {
+			return nil, err
+		}
+		paths = append(paths, filePath)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return paths, nil
+}

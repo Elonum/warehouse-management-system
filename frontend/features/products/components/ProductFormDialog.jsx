@@ -125,6 +125,7 @@ function ProductFormDialog({
               onChangeField('images', newImages);
             }}
             productId={currentProduct?.productId || null}
+            maxImages={10}
           />
 
           <DialogFooter>

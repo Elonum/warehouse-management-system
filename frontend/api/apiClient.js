@@ -886,9 +886,8 @@ const api = {
 
     getFileUrl: (filePath) => {
       if (!filePath) return null;
-      const token = localStorage.getItem('auth_token');
       const fileName = filePath.split('/').pop();
-      return `${API_BASE_URL}/files?path=${encodeURIComponent(fileName)}${token ? `&token=${token}` : ''}`;
+      return `${API_BASE_URL}/files?path=${encodeURIComponent(fileName)}`;
     },
   },
 };

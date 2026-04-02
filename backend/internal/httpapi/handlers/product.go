@@ -100,6 +100,14 @@ func (h *ProductHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	product, err := h.service.Create(r.Context(), req)
 	if err != nil {
+		if err == service.ErrInvalidProductImagePath {
+			writeError(w, http.StatusBadRequest, "INVALID_IMAGE_PATH", "invalid image paths")
+			return
+		}
+		if err == service.ErrTooManyProductImages {
+			writeError(w, http.StatusBadRequest, "TOO_MANY_IMAGES", "too many images per product")
+			return
+		}
 		if err == repository.ErrProductExists {
 			log.Warn().Str("article", req.Article).Str("barcode", req.Barcode).Msg("Product already exists")
 			writeError(w, http.StatusConflict, "PRODUCT_EXISTS", "product with this article or barcode already exists")
@@ -144,6 +152,14 @@ func (h *ProductHandler) Update(w http.ResponseWriter, r *http.Request) {
 
 	product, err := h.service.Update(r.Context(), productID, req)
 	if err != nil {
+		if err == service.ErrInvalidProductImagePath {
+			writeError(w, http.StatusBadRequest, "INVALID_IMAGE_PATH", "invalid image paths")
+			return
+		}
+		if err == service.ErrTooManyProductImages {
+			writeError(w, http.StatusBadRequest, "TOO_MANY_IMAGES", "too many images per product")
+			return
+		}
 		if err == repository.ErrProductNotFound {
 			log.Warn().Str("productId", productID.String()).Msg("Product not found for update")
 			writeError(w, http.StatusNotFound, "PRODUCT_NOT_FOUND", "product not found")

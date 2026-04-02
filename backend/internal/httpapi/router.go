@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"context"
 	"net/http"
 	"time"
 
@@ -13,6 +14,7 @@ import (
 	"warehouse-backend/internal/service"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/rs/zerolog/log"
 )
 
 func NewRouter(pg *db.Postgres, cfg config.Config) *chi.Mux {
@@ -55,6 +57,18 @@ func NewRouter(pg *db.Postgres, cfg config.Config) *chi.Mux {
 	emailService := service.NewEmailService(cfg.FrontendURL, cfg.Env)
 	authService := service.NewAuthService(userRepo, roleRepo, passwordResetRepo, emailService, jwtManager)
 	productService := service.NewProductService(productRepo, productImageRepo, cfg.BaseURL)
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+		defer cancel()
+		removed, err := productService.CleanupOrphanProductImageFiles(ctx)
+		if err != nil {
+			log.Warn().Err(err).Msg("Failed to cleanup orphan product image files")
+			return
+		}
+		if removed > 0 {
+			log.Info().Int("removedFiles", removed).Msg("Orphan product image files cleaned up")
+		}
+	}()
 	warehouseService := service.NewWarehouseService(warehouseRepo)
 	storeService := service.NewStoreService(storeRepo)
 	supplierOrderService := service.NewSupplierOrderService(supplierOrderRepo, orderStatusRepo, supplierOrderItemRepo, stockRepo)

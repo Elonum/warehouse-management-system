@@ -36,7 +36,6 @@ function normalizeUrl(raw) {
 }
 
 function firstImageUrl(p) {
-  const token = localStorage.getItem('auth_token');
   const base = import.meta.env.VITE_API_URL || 'http://localhost:8080/api/v1';
   const images = Array.isArray(p?.images) ? p.images : [];
   return images
@@ -44,8 +43,7 @@ function firstImageUrl(p) {
       if (img?.imageUrl) return String(img.imageUrl);
       const filePath = img?.filePath ? String(img.filePath) : '';
       if (!filePath) return '';
-      const withToken = token ? `&token=${encodeURIComponent(token)}` : '';
-      return `${base}/files?path=${encodeURIComponent(filePath)}${withToken}`;
+      return `${base}/files?path=${encodeURIComponent(filePath)}`;
     })
     .filter(Boolean);
 }

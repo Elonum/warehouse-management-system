@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"warehouse-backend/internal/dto"
@@ -101,6 +103,17 @@ func (h *ProductImageHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Best-effort filesystem cleanup to avoid orphan files.
+	if fullPath, ok := resolveProductImagePath(image.FilePath); ok {
+		if removeErr := os.Remove(fullPath); removeErr != nil && !os.IsNotExist(removeErr) {
+			log.Warn().
+				Err(removeErr).
+				Str("imageId", imageID.String()).
+				Str("filePath", image.FilePath).
+				Msg("Failed to delete product image file from disk")
+		}
+	}
+
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -124,6 +137,10 @@ func (h *ProductImageHandler) UpdateDisplayOrder(w http.ResponseWriter, r *http.
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "invalid request body")
+		return
+	}
+	if req.DisplayOrder < 0 {
+		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "displayOrder must be non-negative")
 		return
 	}
 
@@ -170,4 +187,19 @@ func buildImageURL(r *http.Request, filePath string) string {
 		scheme = "https"
 	}
 	return fmt.Sprintf("%s://%s/api/v1/files?path=%s", scheme, r.Host, filePath)
+}
+
+func resolveProductImagePath(filePath string) (string, bool) {
+	normalized := strings.ReplaceAll(strings.TrimSpace(filePath), "\\", "/")
+	normalized = strings.TrimPrefix(normalized, "./")
+	if !strings.HasPrefix(normalized, "uploads/products/") || strings.Contains(normalized, "..") {
+		return "", false
+	}
+	fullPath := filepath.Join(".", filepath.FromSlash(normalized))
+	absRoot, _ := filepath.Abs(filepath.Join(".", "uploads", "products"))
+	absFile, _ := filepath.Abs(fullPath)
+	if !strings.HasPrefix(absFile, absRoot) {
+		return "", false
+	}
+	return fullPath, true
 }

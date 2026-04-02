@@ -14,7 +14,8 @@ const ALLOWED_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'ima
 export default function ProductImageUpload({ 
   images = [], 
   onImagesChange,
-  productId = null 
+  productId = null,
+  maxImages = 10,
 }) {
   const { t } = useI18n();
   const [uploading, setUploading] = useState(false);
@@ -25,6 +26,10 @@ export default function ProductImageUpload({
   const uploadMutation = useMutation({
     mutationFn: (file) => api.products.uploadImage(file),
     onSuccess: (data) => {
+      if (images.length >= maxImages) {
+        setUploadError(t('products.images.maxImages', { count: String(maxImages) }));
+        return;
+      }
       const normalizedPath = data.filePath.replace(/\\/g, '/');
       const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:8080/api/v1';
       const imageUrl = `${baseUrl}/files?path=${encodeURIComponent(normalizedPath)}`;
@@ -86,6 +91,11 @@ export default function ProductImageUpload({
   const handleFileSelect = useCallback(async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    if (images.length >= maxImages) {
+      setUploadError(t('products.images.maxImages', { count: String(maxImages) }));
+      e.target.value = '';
+      return;
+    }
 
     const validationError = validateFile(file);
     if (validationError) {
@@ -97,7 +107,7 @@ export default function ProductImageUpload({
     setUploadError('');
     uploadMutation.mutate(file);
     e.target.value = '';
-  }, [uploadMutation, t]);
+  }, [uploadMutation, t, images.length, maxImages]);
 
   const handleDragOver = useCallback((e) => {
     e.preventDefault();
@@ -110,6 +120,10 @@ export default function ProductImageUpload({
 
     const file = e.dataTransfer.files?.[0];
     if (!file) return;
+    if (images.length >= maxImages) {
+      setUploadError(t('products.images.maxImages', { count: String(maxImages) }));
+      return;
+    }
 
     const validationError = validateFile(file);
     if (validationError) {
@@ -120,7 +134,7 @@ export default function ProductImageUpload({
     setUploading(true);
     setUploadError('');
     uploadMutation.mutate(file);
-  }, [uploadMutation, t]);
+  }, [uploadMutation, t, images.length, maxImages]);
 
   const handleDeleteImage = useCallback(async (image) => {
     const confirmMessage = `${t('products.images.deleteConfirm')}\n\n${t('products.images.deleteWarning')}`;

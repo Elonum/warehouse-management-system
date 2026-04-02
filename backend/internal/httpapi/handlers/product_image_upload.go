@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"mime"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -74,6 +75,30 @@ func (h *ProductImageUploadHandler) UploadProductImage(w http.ResponseWriter, r 
 		return
 	}
 
+	// Security: validate actual content type, not just extension.
+	sniff := make([]byte, 512)
+	n, readErr := file.Read(sniff)
+	if readErr != nil && readErr != io.EOF {
+		writeError(w, http.StatusBadRequest, "INVALID_FILE_TYPE", "failed to read file header")
+		return
+	}
+	detected := strings.ToLower(http.DetectContentType(sniff[:n]))
+	allowedMimes := map[string]bool{
+		"image/jpeg": true,
+		"image/png":  true,
+		"image/gif":  true,
+		"image/webp": true,
+		"image/bmp":  true,
+	}
+	if !allowedMimes[detected] {
+		writeError(w, http.StatusBadRequest, "INVALID_FILE_TYPE", fmt.Sprintf("detected mime type %s is not allowed", detected))
+		return
+	}
+	if _, err := file.Seek(0, io.SeekStart); err != nil {
+		writeError(w, http.StatusBadRequest, "INVALID_FILE_TYPE", "failed to reset file stream")
+		return
+	}
+
 	uniqueID := uuid.New().String()
 	filename := fmt.Sprintf("%s%s", uniqueID, ext)
 	filePath := filepath.Join(productImageDir, filename)
@@ -102,6 +127,7 @@ func (h *ProductImageUploadHandler) UploadProductImage(w http.ResponseWriter, r 
 			"filePath": relativePath,
 			"fileSize": header.Size,
 			"fileType": ext,
+			"mimeType": mime.TypeByExtension(ext),
 		},
 	}
 

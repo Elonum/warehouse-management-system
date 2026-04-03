@@ -41,6 +41,7 @@ function ProductsPageContainer() {
   const [currentProduct, setCurrentProduct] = useState(null);
   const [formData, setFormData] = useState(emptyProduct);
   const [error, setError] = useState('');
+  const [deleteError, setDeleteError] = useState('');
   const [imageViewerOpen, setImageViewerOpen] = useState(false);
   const [imageViewerProduct, setImageViewerProduct] = useState(null);
   const [imageViewerIndex, setImageViewerIndex] = useState(0);
@@ -134,6 +135,7 @@ function ProductsPageContainer() {
       await queryClient.cancelQueries({ queryKey: ['products'] });
       const previousData = queryClient.getQueryData(['products']);
 
+      setDeleteError('');
       queryClient.setQueryData(['products'], (oldData) => {
         if (!oldData || !Array.isArray(oldData)) return oldData;
         return oldData.filter((product) => product.productId !== deletedId);
@@ -144,6 +146,7 @@ function ProductsPageContainer() {
     onSuccess: async () => {
       setDeleteDialogOpen(false);
       setCurrentProduct(null);
+      setDeleteError('');
       setError('');
       await queryClient.invalidateQueries({ queryKey: ['products'] });
       await refetch();
@@ -152,12 +155,22 @@ function ProductsPageContainer() {
       if (context?.previousData) {
         queryClient.setQueryData(['products'], context.previousData);
       }
+
       if (err instanceof ApiError) {
-        setError(err.message || t('products.errors.deleteFailed'));
-      } else {
-        setError(t('products.errors.deleteFailed'));
+        if (err.code === 'PRODUCT_IN_USE') {
+          setDeleteError(t('products.errors.deleteInUse'));
+        }
+        // Always show i18n errors to the user.
+        // Keep backend message for debugging only.
+        if (err.code !== 'PRODUCT_IN_USE') {
+          // eslint-disable-next-line no-console
+          console.warn('Delete product failed:', { code: err.code, status: err.status, message: err.message });
+          setDeleteError(t('products.errors.deleteFailed'));
+        }
+        return;
       }
-      setDeleteDialogOpen(false);
+
+      setDeleteError(t('products.errors.deleteFailed'));
     },
   });
 
@@ -192,6 +205,7 @@ function ProductsPageContainer() {
 
   const handleDelete = (product) => {
     setCurrentProduct(product);
+    setDeleteError('');
     setDeleteDialogOpen(true);
   };
 
@@ -348,7 +362,13 @@ function ProductsPageContainer() {
         products={products}
       />
 
-      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+      <AlertDialog
+        open={deleteDialogOpen}
+        onOpenChange={(nextOpen) => {
+          setDeleteDialogOpen(nextOpen);
+          if (!nextOpen) setDeleteError('');
+        }}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>{t('products.deleteConfirm.title')}</AlertDialogTitle>
@@ -356,10 +376,16 @@ function ProductsPageContainer() {
               {t('products.deleteConfirm.description', { article: currentProduct?.article || '' })}
             </AlertDialogDescription>
           </AlertDialogHeader>
+          {deleteError && (
+            <div className="p-3 text-sm text-red-600 bg-red-50 dark:bg-red-900/20 dark:text-red-400 rounded-lg">
+              {deleteError}
+            </div>
+          )}
           <AlertDialogFooter>
             <AlertDialogCancel
               onClick={() => {
                 setDeleteDialogOpen(false);
+                setDeleteError('');
               }}
             >
               {t('common.cancel')}

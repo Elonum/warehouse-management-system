@@ -409,6 +409,7 @@ const translations = {
         createFailed: 'Ошибка создания товара',
         updateFailed: 'Ошибка обновления товара',
         deleteFailed: 'Ошибка удаления товара',
+        deleteInUse: 'Нельзя удалить товар: он используется в других данных',
       },
     },
     warehouses: {
@@ -1485,6 +1486,7 @@ const translations = {
         createFailed: 'Failed to create product',
         updateFailed: 'Failed to update product',
         deleteFailed: 'Failed to delete product',
+        deleteInUse: 'Cannot delete product: it is used in other records',
       },
     },
     warehouses: {

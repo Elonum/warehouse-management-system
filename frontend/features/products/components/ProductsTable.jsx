@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Package, Eye, MoreHorizontal, Image as ImageIcon, ChevronLeft, ChevronRight, Pencil } from 'lucide-react';
+import { Package, Eye, MoreHorizontal, Image as ImageIcon, ChevronLeft, ChevronRight, Pencil, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import DataTable from '@/components/ui/DataTable';
 import { Link } from 'react-router-dom';
@@ -219,7 +219,7 @@ function ProductsTable({
                 onClick={() => onRequestDelete(row.original)}
                 className="text-red-600"
               >
-                <Package className="w-4 h-4 mr-2" />
+                <Trash2 className="w-4 h-4 mr-2" />
                 {t('common.delete')}
               </DropdownMenuItem>
             </DropdownMenuContent>

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgconn"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -14,16 +15,17 @@ import (
 var (
 	ErrProductNotFound = errors.New("product not found")
 	ErrProductExists   = errors.New("product already exists")
+	ErrProductInUse    = errors.New("product is used in other records")
 )
 
 type Product struct {
-	ProductID       uuid.UUID
-	Article         string
-	Barcode         string
-	UnitWeight      int
-	ReorderPoint    int
-	UnitCost        *float64
-	PurchasePrice   *float64
+	ProductID     uuid.UUID
+	Article       string
+	Barcode       string
+	UnitWeight    int
+	ReorderPoint  int
+	UnitCost      *float64
+	PurchasePrice *float64
 }
 
 type ProductRepository struct {
@@ -251,6 +253,14 @@ func (r *ProductRepository) Delete(ctx context.Context, productID uuid.UUID) err
 
 	result, err := r.pool.Exec(ctx, query, productID)
 	if err != nil {
+		// Map FK violations to a domain-level error to avoid leaking raw DB errors.
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) {
+			// 23503 - foreign_key_violation
+			if pgErr.SQLState() == "23503" {
+				return ErrProductInUse
+			}
+		}
 		return err
 	}
 

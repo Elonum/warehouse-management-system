@@ -40,10 +40,14 @@ function firstImageUrl(p) {
   const images = Array.isArray(p?.images) ? p.images : [];
   return images
     .map((img) => {
-      if (img?.imageUrl) return String(img.imageUrl);
-      const filePath = img?.filePath ? String(img.filePath) : '';
-      if (!filePath) return '';
-      return `${base}/files?path=${encodeURIComponent(filePath)}`;
+      const filePath = img?.filePath ? String(img.filePath).replace(/\\/g, '/').replace(/^\.\/+/, '') : '';
+      if (filePath) {
+        return `${base}/files?path=${encodeURIComponent(filePath)}`;
+      }
+      if (img?.imageUrl) {
+        return String(img.imageUrl);
+      }
+      return '';
     })
     .filter(Boolean);
 }
@@ -82,7 +86,7 @@ export default function ChinaOrderExportDialog({ t, open, onOpenChange, products
         const price = String(priceById[p.productId] ?? '').trim();
         return {
           productId: p.productId,
-          factoryId: factoryId || 'NULL',
+          factoryId,
           article: p.article,
           unitWeight: unitWeight !== '' ? Number(unitWeight) : (p.unitWeight ?? null),
           purchasePrice: price !== '' ? Number(price) : (p.purchasePrice ?? null),

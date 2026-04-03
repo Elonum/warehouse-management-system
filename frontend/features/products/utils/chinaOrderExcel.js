@@ -27,7 +27,7 @@ const EN = {
   totalsLabel: 'Totals:',
   columns: {
     no: '№',
-    factoryId: 'factory ID',
+    factoryId: 'Factory ID',
     skuid: 'SKUID',
     photo1: 'Photo 1',
     productLink: 'Product link',
@@ -39,7 +39,6 @@ const EN = {
     totalCostYuan: 'Total cost',
     readyTime: 'Ready time',
   },
-  photoLinkText: 'photo',
 };
 
 function inferImageExtension(url, contentType = '') {
@@ -50,7 +49,50 @@ function inferImageExtension(url, contentType = '') {
   const lower = String(url || '').toLowerCase();
   if (lower.includes('.png')) return 'png';
   if (lower.includes('.gif')) return 'gif';
+  if (lower.includes('.webp')) return 'webp';
+  if (lower.includes('.bmp')) return 'bmp';
   return 'jpeg';
+}
+
+function excelColumnWidthToPixels(width) {
+  // Approximation used by ExcelJS layout; close enough for image placement.
+  const w = Number(width);
+  if (!Number.isFinite(w) || w <= 0) return 100;
+  return Math.round(w * 7 + 5);
+}
+
+async function convertBlobToPng(blob) {
+  return new Promise((resolve, reject) => {
+    const objectUrl = URL.createObjectURL(blob);
+    const image = new Image();
+    image.onload = async () => {
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = image.naturalWidth || image.width;
+        canvas.height = image.naturalHeight || image.height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          throw new Error('canvas context unavailable');
+        }
+        ctx.drawImage(image, 0, 0);
+        const pngBlob = await new Promise((resolveBlob) => canvas.toBlob(resolveBlob, 'image/png'));
+        if (!pngBlob) {
+          throw new Error('failed to convert image to png');
+        }
+        const pngBuffer = await pngBlob.arrayBuffer();
+        resolve({ buffer: pngBuffer, extension: 'png' });
+      } catch (err) {
+        reject(err);
+      } finally {
+        URL.revokeObjectURL(objectUrl);
+      }
+    };
+    image.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      reject(new Error('image decode failed'));
+    };
+    image.src = objectUrl;
+  });
 }
 
 async function fetchImageBinary(url) {
@@ -64,8 +106,20 @@ async function fetchImageBinary(url) {
     });
     clearTimeout(timeout);
     if (!res.ok) return null;
-    const buffer = await res.arrayBuffer();
-    const extension = inferImageExtension(url, res.headers.get('content-type'));
+    const contentType = String(res.headers.get('content-type') || '').toLowerCase();
+    const extension = inferImageExtension(url, contentType);
+    const blob = await res.blob();
+
+    // ExcelJS supports png/jpeg/gif. Convert unsupported formats to png.
+    if (extension === 'webp' || extension === 'bmp' || contentType.includes('image/webp') || contentType.includes('image/bmp')) {
+      try {
+        return await convertBlobToPng(blob);
+      } catch {
+        return null;
+      }
+    }
+
+    const buffer = await blob.arrayBuffer();
     return { buffer, extension };
   } catch {
     return null;
@@ -104,9 +158,9 @@ export async function buildChinaOrderWorkbook({
 
     const row = sheet.addRow([
       rowNumber,
-      safeText(r.factoryId || 'NULL'),
+      safeText(r.factoryId),
       safeText(r.article),
-      Array.isArray(r.photoUrls) && r.photoUrls.length > 0 ? EN.photoLinkText : '',
+      '',
       safeText(r.productLink),
       safeText(r.packagingComment),
       qty,
@@ -140,7 +194,7 @@ export async function buildChinaOrderWorkbook({
     { width: 6 },
     { width: 12 },
     { width: 18 },
-    { width: 20 },
+    { width: 26 },
     { width: 40 },
     { width: 22 },
     { width: 10 },
@@ -252,13 +306,21 @@ export async function buildChinaOrderWorkbook({
     if (!imageBuffers.length) continue;
 
     // Arrange images in the same row: 3 per line, thumbnail style.
-    const perLine = 3;
-    const thumbW = 46;
-    const thumbH = 46;
-    const gap = 4;
+    const perLine = 2;
+    const thumbW = 72;
+    const thumbH = 72;
+    const gap = 6;
     const lines = Math.ceil(imageBuffers.length / perLine);
     const rowHeightPx = lines * thumbH + Math.max(0, lines - 1) * gap + 6;
-    sheet.getRow(excelRow).height = Math.max(sheet.getRow(excelRow).height || 15, rowHeightPx * 0.75);
+    const rowHeightPoints = Math.max(sheet.getRow(excelRow).height || 15, rowHeightPx * 0.75);
+    sheet.getRow(excelRow).height = rowHeightPoints;
+
+    // Convert pixel offsets to ExcelJS grid offsets.
+    // - row: tl.row uses "row units", where 1 unit ~= current row height in pixels.
+    // - col: tl.col uses "column units" where 1 unit ~= column width in pixels.
+    const pixelsPerRow = rowHeightPoints / 0.75; // inverse of points = pixels * 0.75
+    const colDIndex0Based = 3; // Photo 1 is column D (1-based col 4)
+    const pixelsPerCol = excelColumnWidthToPixels(sheet.getColumn(colDIndex0Based + 1).width);
 
     imageBuffers.forEach((img, i) => {
       const imageId = workbook.addImage({
@@ -270,7 +332,10 @@ export async function buildChinaOrderWorkbook({
       const offsetX = 2 + colInLine * (thumbW + gap);
       const offsetY = 2 + line * (thumbH + gap);
       sheet.addImage(imageId, {
-        tl: { col: 3 + offsetX / 64, row: (excelRow - 1) + offsetY / 20 }, // col D = index 3
+        tl: {
+          col: colDIndex0Based + offsetX / pixelsPerCol,
+          row: (excelRow - 1) + offsetY / pixelsPerRow,
+        },
         ext: { width: thumbW, height: thumbH },
       });
     });

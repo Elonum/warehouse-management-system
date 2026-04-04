@@ -30,8 +30,8 @@ export default function DataTable({
   /** No outer border/radius — for embedding inside Card */
   embedded = false,
   /**
-   * Server-driven paging: full page in `data`, footer under the table.
-   * Build with `useServerOffsetPagination().toDataTableServerPagination(...)`.
+   * Server-driven paging: put **only the current page** in `data` (no slicing inside the table).
+   * Footer: `useServerOffsetPagination().toDataTableServerPagination(...)`.
    */
   serverPagination = null,
   onRowClick,

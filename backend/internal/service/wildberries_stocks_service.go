@@ -35,9 +35,6 @@ func (s *WildberriesStockService) List(ctx context.Context, req dto.WildberriesS
 	client := wildberries.NewStatisticsClient(s.cfg.WbStatisticsBaseURL, s.cfg.WbStatisticsToken)
 	raw, err := client.FetchAllSupplierStocks(ctx, dateFrom)
 	if err != nil {
-		if errors.Is(err, wildberries.ErrStatisticsTokenMissing) {
-			return nil, ErrWbStatisticsTokenNotConfigured
-		}
 		return nil, err
 	}
 	merged := wildberries.DedupeSupplierStocks(raw)

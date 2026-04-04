@@ -19,22 +19,23 @@ function normalizeRow(source, row, idx) {
     productBarcode: row?.barcode || row?.barcodes?.[0] || null,
     warehouseName: row?.warehouseName || row?.warehouse || row?.clusterName || null,
     currentQuantity:
-      Number(row?.quantity ?? row?.availableQuantity ?? row?.present ?? row?.freeToSellAmount ?? 0) || 0,
+      Number(
+        row?.quantity ??
+          row?.quantityFull ??
+          row?.availableQuantity ??
+          row?.present ??
+          row?.freeToSellAmount ??
+          0,
+      ) || 0,
     reorderPoint: null,
   };
 }
 
 export async function fetchMarketplaceStock({ source }) {
-  // Production-safe placeholder: keep response contract stable until
-  // marketplace stock endpoints and API keys are enabled.
   if (source !== 'wildberries' && source !== 'ozon') {
     return { items: [], total: 0 };
   }
 
-  // Future integration point:
-  // - api.integrations.wildberries.listStocks(...)
-  // - api.integrations.ozon.listStocks(...)
-  // For now return empty data without throwing to keep UI stable.
   const integrationApi =
     source === 'wildberries'
       ? api.integrations?.wildberries?.listStocks

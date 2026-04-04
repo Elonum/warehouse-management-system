@@ -2,7 +2,6 @@ package wildberries
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -50,13 +49,10 @@ type SupplierStockRow struct {
 	QuantityFull    int    `json:"quantityFull"`
 }
 
-// ErrStatisticsTokenMissing — токен Statistics API не задан.
-var ErrStatisticsTokenMissing = errors.New("wildberries statistics token missing")
-
 // FetchAllSupplierStocks загружает все страницы остатков согласно правилам WB (пагинация по dateFrom / lastChangeDate).
 func (c *StatisticsClient) FetchAllSupplierStocks(ctx context.Context, dateFromRFC3339 string) ([]SupplierStockRow, error) {
 	if c.token == "" {
-		return nil, ErrStatisticsTokenMissing
+		return nil, errors.New("wildberries statistics token missing")
 	}
 	var all []SupplierStockRow
 	cursor := dateFromRFC3339
@@ -119,9 +115,9 @@ func (c *StatisticsClient) fetchSupplierStocksPage(ctx context.Context, dateFrom
 		return nil, fmt.Errorf("wildberries statistics GET /supplier/stocks: status %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
 	}
 
-	var rows []SupplierStockRow
-	if err := json.Unmarshal(body, &rows); err != nil {
-		return nil, fmt.Errorf("wildberries statistics: decode stocks: %w", err)
+	rows, err := decodeSupplierStocksJSON(body)
+	if err != nil {
+		return nil, err
 	}
 	return rows, nil
 }

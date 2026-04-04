@@ -20,6 +20,7 @@ import { LoadingState } from '@/components/common/LoadingState';
 import { EmptyState } from '@/components/common/EmptyState';
 import { Input } from '@/components/ui/input';
 import { fetchMarketplaceStock } from '@/features/stock/marketplaceStockAdapter';
+import { summarizeStockRows } from '@/features/stock/stockMetrics';
 
 const LEVEL_FILTERS = new Set(['all', 'positive', 'zero', 'below_reorder']);
 const STOCK_SOURCES = new Set(['our', 'wildberries', 'ozon']);
@@ -150,16 +151,9 @@ function StockPageContainer() {
   const stock = isOwnStockMode
     ? ownStockPayload?.items ?? []
     : marketplaceStockPayload?.items ?? [];
-  const totalRows = isOwnStockMode
-    ? ownStockPayload?.total ?? 0
-    : marketplaceStockPayload?.total ?? 0;
+  const ownStockServerTotal = ownStockPayload?.total ?? 0;
   const loadingStock = isOwnStockMode ? loadingOwnStock : loadingMarketplaceStock;
   const fetchingStock = isOwnStockMode ? fetchingOwnStock : fetchingMarketplaceStock;
-
-  useEffect(() => {
-    if (fetchingStock) return;
-    clampToTotal(totalRows);
-  }, [totalRows, clampToTotal, fetchingStock]);
 
   const { data: productsData, isLoading: loadingProducts } = useQuery({
     queryKey: ['products'],
@@ -240,34 +234,55 @@ function StockPageContainer() {
     [stock, productsMap, warehousesMap, t],
   );
 
+  // Our stock: one API page. Marketplace: full list; filter by search here, slice to page below.
+  const rowsForPaging = useMemo(() => {
+    if (isOwnStockMode) return enrichedStock;
+    if (!qNormalized) return enrichedStock;
+    const needle = qNormalized.toLowerCase();
+    return enrichedStock.filter((item) => {
+      const blob = [
+        item.productName,
+        item.productBarcode,
+        String(item.productId),
+        item.warehouseName,
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+      return blob.includes(needle);
+    });
+  }, [isOwnStockMode, enrichedStock, qNormalized]);
+
+  const serverTotalRows = isOwnStockMode ? ownStockServerTotal : rowsForPaging.length;
+
+  const displayedStock = useMemo(() => {
+    if (isOwnStockMode) return rowsForPaging;
+    return rowsForPaging.slice(offset, offset + limit);
+  }, [isOwnStockMode, rowsForPaging, offset, limit]);
+
+  useEffect(() => {
+    if (fetchingStock) return;
+    clampToTotal(serverTotalRows);
+  }, [serverTotalRows, clampToTotal, fetchingStock]);
+
   const serverPagination = useMemo(
     () =>
       toDataTableServerPagination({
-        totalRows,
-        pageRowCount: enrichedStock.length,
+        totalRows: serverTotalRows,
+        pageRowCount: displayedStock.length,
         isLoading: loadingStock,
         ariaLabel: t('stock.paginationNav'),
       }),
     [
       toDataTableServerPagination,
-      totalRows,
-      enrichedStock.length,
+      serverTotalRows,
+      displayedStock.length,
       loadingStock,
       t,
     ],
   );
 
-  const totals = useMemo(
-    () =>
-      enrichedStock.reduce(
-        (acc, item) => ({
-          quantity: acc.quantity + (item.currentQuantity || 0),
-          positions: acc.positions + (item.currentQuantity > 0 ? 1 : 0),
-        }),
-        { quantity: 0, positions: 0 },
-      ),
-    [enrichedStock],
-  );
+  const stockSummary = useMemo(() => summarizeStockRows(rowsForPaging), [rowsForPaging]);
 
   const clearFilters = () => {
     setProductFilter('all');
@@ -355,34 +370,39 @@ function StockPageContainer() {
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {isLoadingAny ? (
           <>
-            <Card className="dark:bg-slate-900 dark:border-slate-800">
-              <CardContent className="pt-6">
-                <LoadingState />
-              </CardContent>
-            </Card>
-            <Card className="dark:bg-slate-900 dark:border-slate-800">
-              <CardContent className="pt-6">
-                <LoadingState />
-              </CardContent>
-            </Card>
-            <Card className="dark:bg-slate-900 dark:border-slate-800">
-              <CardContent className="pt-6">
-                <LoadingState />
-              </CardContent>
-            </Card>
+            {[1, 2, 3, 4].map((i) => (
+              <Card key={i} className="dark:bg-slate-900 dark:border-slate-800">
+                <CardContent className="pt-6">
+                  <LoadingState />
+                </CardContent>
+              </Card>
+            ))}
           </>
         ) : (
           <>
             <Card className="dark:bg-slate-900 dark:border-slate-800">
               <CardContent className="pt-6">
-                <p className="text-sm text-slate-500 dark:text-slate-400">
-                  {t('stock.stats.totalProducts')}
+                <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
+                  {t('stock.stats.stockTotal')}
                 </p>
                 <p className="mt-1 text-2xl font-bold text-slate-900 dark:text-slate-100">
-                  {totals.quantity.toLocaleString()}
+                  {stockSummary.totalUnits.toLocaleString()}{' '}
+                  <span className="text-lg font-semibold text-slate-500 dark:text-slate-400">
+                    {t('common.units')}
+                  </span>
+                </p>
+              </CardContent>
+            </Card>
+            <Card className="dark:bg-slate-900 dark:border-slate-800">
+              <CardContent className="pt-6">
+                <p className="text-sm text-slate-500 dark:text-slate-400">
+                  {t('stock.stats.uniqueSkus')}
+                </p>
+                <p className="mt-1 text-2xl font-bold text-slate-900 dark:text-slate-100">
+                  {stockSummary.uniqueProductsWithStock.toLocaleString()}
                 </p>
               </CardContent>
             </Card>
@@ -392,7 +412,7 @@ function StockPageContainer() {
                   {t('stock.stats.positions')}
                 </p>
                 <p className="mt-1 text-2xl font-bold text-indigo-600 dark:text-indigo-400">
-                  {totals.positions}
+                  {stockSummary.positionsWithStock.toLocaleString()}
                 </p>
               </CardContent>
             </Card>
@@ -547,7 +567,7 @@ function StockPageContainer() {
             <LoadingState />
           </CardContent>
         </Card>
-      ) : enrichedStock.length === 0 ? (
+      ) : rowsForPaging.length === 0 ? (
         <Card className="dark:bg-slate-900 dark:border-slate-800">
           <CardContent className="pt-6">
             <EmptyState
@@ -563,7 +583,7 @@ function StockPageContainer() {
         <Card className="overflow-hidden p-0 dark:border-slate-800 dark:bg-slate-900">
           <StockTable
             t={t}
-            stock={enrichedStock}
+            stock={displayedStock}
             warehouseFilter={warehouseFilter}
             isLoading={loadingStock}
             serverPagination={serverPagination}

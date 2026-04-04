@@ -26,6 +26,8 @@ import {
   Cell
 } from 'recharts';
 import { api } from '@/api';
+import { fetchMarketplaceStock } from '@/features/stock/marketplaceStockAdapter';
+import { sumStockQuantities } from '@/features/stock/stockMetrics';
 import { useI18n } from '@/lib/i18n';
 import PageHeader from '@/components/ui/PageHeader';
 import StatCard from '@/components/ui/StatCard';
@@ -64,6 +66,18 @@ export default function Dashboard() {
       const { items } = await api.stock.getCurrent({});
       return items;
     },
+  });
+
+  const {
+    data: dashboardWbStock,
+    isSuccess: dashboardWbStockOk,
+    isError: dashboardWbStockErr,
+  } = useQuery({
+    queryKey: ['dashboard-wildberries-stocks'],
+    queryFn: () => fetchMarketplaceStock({ source: 'wildberries' }),
+    staleTime: 90_000,
+    gcTime: 300_000,
+    retry: 1,
   });
 
   const { data: lowStockRows = [], isLoading: loadingLowStock } = useQuery({
@@ -143,37 +157,91 @@ export default function Dashboard() {
     [warehouses],
   );
 
-  // Stock by warehouse data
-  const stockByMainWarehouse = mainWarehouses
-    .map((wh) => ({
-      name: wh.name,
-      quantity: stock
-        .filter((s) => s.warehouseId === wh.warehouseId)
-        .reduce((sum, s) => sum + (s.currentQuantity || 0), 0),
-    }))
-    .filter((item) => item.quantity > 0);
-
-  const stockByMarketplaceWarehouse = marketplaceWarehouses
-    .map((wh) => ({
-      name: wh.name,
-      quantity: stock
-        .filter((s) => s.warehouseId === wh.warehouseId)
-        .reduce((sum, s) => sum + (s.currentQuantity || 0), 0),
-    }))
-    .filter((item) => item.quantity > 0);
-
-  const mainWarehouseIds = new Set(mainWarehouses.map((w) => w.warehouseId));
-  const marketplaceWarehouseIds = new Set(
-    marketplaceWarehouses.map((w) => w.warehouseId),
+  const mainWarehouseIds = useMemo(
+    () => new Set(mainWarehouses.map((w) => w.warehouseId)),
+    [mainWarehouses],
+  );
+  const marketplaceWarehouseIds = useMemo(
+    () => new Set(marketplaceWarehouses.map((w) => w.warehouseId)),
+    [marketplaceWarehouses],
   );
 
-  const mainStockQty = stock
-    .filter((s) => mainWarehouseIds.has(s.warehouseId))
-    .reduce((sum, s) => sum + (s.currentQuantity || 0), 0);
+  const stockByMainWarehouse = useMemo(
+    () =>
+      mainWarehouses
+        .map((wh) => ({
+          name: wh.name,
+          quantity: stock
+            .filter((s) => s.warehouseId === wh.warehouseId)
+            .reduce((sum, s) => sum + (s.currentQuantity || 0), 0),
+        }))
+        .filter((item) => item.quantity > 0),
+    [mainWarehouses, stock],
+  );
 
-  const marketplaceStockQty = stock
-    .filter((s) => marketplaceWarehouseIds.has(s.warehouseId))
-    .reduce((sum, s) => sum + (s.currentQuantity || 0), 0);
+  const dbMarketplaceStockQty = useMemo(
+    () =>
+      stock
+        .filter((s) => marketplaceWarehouseIds.has(s.warehouseId))
+        .reduce((sum, s) => sum + (s.currentQuantity || 0), 0),
+    [stock, marketplaceWarehouseIds],
+  );
+
+  const wbMarketplaceStockQty = useMemo(
+    () =>
+      dashboardWbStockOk && dashboardWbStock
+        ? sumStockQuantities(dashboardWbStock.items)
+        : 0,
+    [dashboardWbStockOk, dashboardWbStock],
+  );
+
+  const marketplaceStockQty = useMemo(() => {
+    if (dashboardWbStockErr) return dbMarketplaceStockQty;
+    if (dashboardWbStockOk) return wbMarketplaceStockQty;
+    return dbMarketplaceStockQty;
+  }, [
+    dashboardWbStockErr,
+    dashboardWbStockOk,
+    wbMarketplaceStockQty,
+    dbMarketplaceStockQty,
+  ]);
+
+  const stockByMarketplaceWarehouse = useMemo(() => {
+    const dbBars = marketplaceWarehouses
+      .map((wh) => ({
+        name: wh.name,
+        quantity: stock
+          .filter((s) => s.warehouseId === wh.warehouseId)
+          .reduce((sum, s) => sum + (s.currentQuantity || 0), 0),
+      }))
+      .filter((item) => item.quantity > 0);
+
+    if (!dashboardWbStockErr && dashboardWbStockOk && wbMarketplaceStockQty > 0) {
+      return [
+        ...dbBars,
+        {
+          name: t('dashboard.charts.wildberriesStocksApi'),
+          quantity: wbMarketplaceStockQty,
+        },
+      ];
+    }
+    return dbBars;
+  }, [
+    marketplaceWarehouses,
+    stock,
+    dashboardWbStockOk,
+    dashboardWbStockErr,
+    wbMarketplaceStockQty,
+    t,
+  ]);
+
+  const mainStockQty = useMemo(
+    () =>
+      stock
+        .filter((s) => mainWarehouseIds.has(s.warehouseId))
+        .reduce((sum, s) => sum + (s.currentQuantity || 0), 0),
+    [stock, mainWarehouseIds],
+  );
 
   const totalStockQty = mainStockQty + marketplaceStockQty;
 
@@ -224,6 +292,7 @@ export default function Dashboard() {
             <StatCard
               title={t('dashboard.stats.totalStock')}
               value={`${totalStockQty.toLocaleString()} ${t('common.units')}`}
+              subtitle={t('dashboard.stats.totalStockSubtitle')}
               icon={Boxes}
             />
             <StatCard

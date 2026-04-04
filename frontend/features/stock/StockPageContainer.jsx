@@ -1,7 +1,7 @@
 import React, { useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
-import { api } from '@/api';
+import { api, ApiError } from '@/api';
 import { useServerOffsetPagination } from '@/hooks/useServerOffsetPagination';
 import { useI18n } from '@/lib/i18n';
 import { Filter, X } from 'lucide-react';
@@ -23,6 +23,21 @@ import { fetchMarketplaceStock } from '@/features/stock/marketplaceStockAdapter'
 
 const LEVEL_FILTERS = new Set(['all', 'positive', 'zero', 'below_reorder']);
 const STOCK_SOURCES = new Set(['our', 'wildberries', 'ozon']);
+
+function messageForMarketplaceStockError(err, t) {
+  if (err instanceof ApiError) {
+    if (err.code === 'WB_STATISTICS_TOKEN_MISSING') {
+      return t('stock.marketplaceConfigNeeded');
+    }
+    if (err.code === 'WB_STOCKS_LIST_FAILED') {
+      return t('stock.marketplaceUpstreamError');
+    }
+    if (err.code === 'NETWORK_ERROR') {
+      return t('stock.marketplaceLoadError');
+    }
+  }
+  return t('stock.marketplaceLoadError');
+}
 
 function readFiltersFromSearchParams(searchParams) {
   const levelRaw = searchParams.get('levelFilter') || 'all';
@@ -121,6 +136,8 @@ function StockPageContainer() {
     data: marketplaceStockPayload,
     isLoading: loadingMarketplaceStock,
     isFetching: fetchingMarketplaceStock,
+    isError: marketplaceStockQueryError,
+    error: marketplaceStockErrorObj,
   } = useQuery({
     queryKey: ['stock-marketplace', stockSource],
     enabled: isMarketplaceMode,
@@ -181,6 +198,13 @@ function StockPageContainer() {
   }, [warehouseFilter, ownWarehouses, t]);
 
   const isLoadingAny = loadingStock || loadingProducts || loadingWarehouses;
+
+  const marketplaceBlockingErrorMessage = useMemo(() => {
+    if (!isMarketplaceMode || !marketplaceStockQueryError || !marketplaceStockErrorObj) {
+      return null;
+    }
+    return messageForMarketplaceStockError(marketplaceStockErrorObj, t);
+  }, [isMarketplaceMode, marketplaceStockQueryError, marketplaceStockErrorObj, t]);
 
   const productsMap = useMemo(() => {
     const map = new Map();
@@ -511,7 +535,13 @@ function StockPageContainer() {
         </CardContent>
       </Card>
 
-      {isLoadingAny ? (
+      {marketplaceBlockingErrorMessage ? (
+        <Card className="dark:bg-slate-900 dark:border-slate-800 border-destructive/40">
+          <CardContent className="pt-6 text-sm text-destructive">
+            {marketplaceBlockingErrorMessage}
+          </CardContent>
+        </Card>
+      ) : isLoadingAny ? (
         <Card className="dark:bg-slate-900 dark:border-slate-800">
           <CardContent className="pt-6">
             <LoadingState />

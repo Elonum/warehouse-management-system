@@ -26,6 +26,10 @@ type Config struct {
 	WbSuppliesToken   string
 	WbSuppliesBaseURL string
 
+	// Wildberries Statistics API — остатки GET /api/v1/supplier/stocks (категория «Статистика»; для песочницы — тестовый контур и WB_STATISTICS_BASE_URL).
+	WbStatisticsToken   string
+	WbStatisticsBaseURL string
+
 	// HTTP hardening / proxy settings
 	AllowedOrigins       []string
 	TrustProxyHeaders    bool
@@ -58,6 +62,9 @@ func Load() Config {
 
 		WbSuppliesToken:   getEnv("WB_SUPPLIES_TOKEN", ""),
 		WbSuppliesBaseURL: getEnv("WB_SUPPLIES_BASE_URL", "https://supplies-api.wildberries.ru"),
+
+		WbStatisticsToken:   getEnv("WB_STATISTICS_TOKEN", ""),
+		WbStatisticsBaseURL: getEnv("WB_STATISTICS_BASE_URL", "https://statistics-api.wildberries.ru"),
 
 		AllowedOrigins:       getCSVEnv("ALLOWED_ORIGINS", "http://localhost:5173,http://localhost:5174,http://localhost:3000,http://127.0.0.1:5173,http://127.0.0.1:5174,http://127.0.0.1:3000"),
 		TrustProxyHeaders:    getEnv("TRUST_PROXY_HEADERS", "false") == "true",

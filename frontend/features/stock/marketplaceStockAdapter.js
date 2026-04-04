@@ -10,7 +10,12 @@ function normalizeRow(source, row, idx) {
 
   return {
     productId: String(productId),
-    productName: row?.article || row?.name || row?.offerName || `#${productId}`,
+    productName:
+      row?.article ||
+      row?.supplierArticle ||
+      row?.name ||
+      row?.offerName ||
+      `#${productId}`,
     productBarcode: row?.barcode || row?.barcodes?.[0] || null,
     warehouseName: row?.warehouseName || row?.warehouse || row?.clusterName || null,
     currentQuantity:
@@ -39,18 +44,14 @@ export async function fetchMarketplaceStock({ source }) {
     return { items: [], total: 0 };
   }
 
-  try {
-    const response = await integrationApi({});
-    const rows = Array.isArray(response?.items)
-      ? response.items
-      : Array.isArray(response)
-        ? response
-        : [];
-    return {
-      items: rows.map((row, idx) => normalizeRow(source, row, idx)),
-      total: Number(response?.meta?.total ?? rows.length) || 0,
-    };
-  } catch {
-    return { items: [], total: 0 };
-  }
+  const response = await integrationApi({});
+  const rows = Array.isArray(response?.items)
+    ? response.items
+    : Array.isArray(response)
+      ? response
+      : [];
+  return {
+    items: rows.map((row, idx) => normalizeRow(source, row, idx)),
+    total: Number(response?.total ?? response?.meta?.total ?? rows.length) || 0,
+  };
 }

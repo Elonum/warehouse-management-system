@@ -486,6 +486,11 @@ const translations = {
       searchPlaceholder: 'Поиск остатков...',
       emptyMessage: 'Остатки не найдены',
       marketplaceEmptyMessage: 'Нет данных остатков маркетплейса',
+      marketplaceLoadError: 'Не удалось загрузить остатки маркетплейса.',
+      marketplaceConfigNeeded:
+        'Интеграция с маркетплейсом не настроена на сервере. Обратитесь к администратору.',
+      marketplaceUpstreamError:
+        'Данные маркетплейса временно недоступны. Повторите попытку позже.',
       sources: {
         our: 'Наши склады',
         wildberries: 'Wildberries',
@@ -1583,6 +1588,10 @@ const translations = {
       searchPlaceholder: 'Search stock...',
       emptyMessage: 'No stock found',
       marketplaceEmptyMessage: 'No marketplace stock data',
+      marketplaceLoadError: 'Could not load marketplace stock.',
+      marketplaceConfigNeeded:
+        'Marketplace integration is not configured on the server. Contact your administrator.',
+      marketplaceUpstreamError: 'Marketplace data is temporarily unavailable. Please try again later.',
       sources: {
         our: 'Our warehouses',
         wildberries: 'Wildberries',

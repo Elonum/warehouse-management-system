@@ -504,6 +504,13 @@ const api = {
           body,
         });
       },
+      /** @param {{ dateFrom?: string }} body — RFC3339 или YYYY-MM-DD; пусто = дефолт WB (с 2020-11-15). */
+      listStocks: async (body = {}) => {
+        return await request('/integrations/wildberries/stocks/list', {
+          method: 'POST',
+          body,
+        });
+      },
     },
   },
 

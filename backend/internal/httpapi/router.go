@@ -85,6 +85,7 @@ func NewRouter(pg *db.Postgres, cfg config.Config) *chi.Mux {
 	mpShipmentItemService := service.NewMpShipmentItemService(mpShipmentItemRepo, mpShipmentRepo, productRepo, shipmentStatusRepo)
 	wildberriesImportService := service.NewWildberriesImportService(cfg, mpShipmentRepo, mpShipmentItemRepo, productRepo, mpShipmentItemService)
 	wildberriesSupplyListService := service.NewWildberriesSupplyListService(cfg)
+	wildberriesStockService := service.NewWildberriesStockService(cfg)
 	orderStatusService := service.NewOrderStatusService(orderStatusRepo)
 	shipmentStatusService := service.NewShipmentStatusService(shipmentStatusRepo)
 	inventoryStatusService := service.NewInventoryStatusService(inventoryStatusRepo)
@@ -109,6 +110,7 @@ func NewRouter(pg *db.Postgres, cfg config.Config) *chi.Mux {
 	mpShipmentItemHandler := handlers.NewMpShipmentItemHandler(mpShipmentItemService)
 	wildberriesImportHandler := handlers.NewWildberriesImportHandler(wildberriesImportService)
 	wildberriesSupplyListHandler := handlers.NewWildberriesSupplyListHandler(wildberriesSupplyListService)
+	wildberriesStocksListHandler := handlers.NewWildberriesStocksListHandler(wildberriesStockService)
 	orderStatusHandler := handlers.NewOrderStatusHandler(orderStatusService)
 	shipmentStatusHandler := handlers.NewShipmentStatusHandler(shipmentStatusService)
 	supplierOrderDocumentHandler := handlers.NewSupplierOrderDocumentHandler(supplierOrderDocumentService)
@@ -226,6 +228,7 @@ func NewRouter(pg *db.Postgres, cfg config.Config) *chi.Mux {
 
 			r.Route("/integrations/wildberries", func(r chi.Router) {
 				r.Post("/supplies/list", wildberriesSupplyListHandler.List)
+				r.Post("/stocks/list", wildberriesStocksListHandler.List)
 			})
 
 			r.Route("/mp-shipment-items", func(r chi.Router) {

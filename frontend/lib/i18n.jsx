@@ -397,6 +397,24 @@ const translations = {
         invalidType: 'Недопустимый тип файла. Разрешены только изображения',
         fileTooLarge: 'Файл слишком большой. Максимальный размер: {size} МБ',
         maxImages: 'Можно загрузить не более {count} изображений на товар',
+        crop: {
+          title: 'Редактирование изображения',
+          loading: 'Загрузка изображения...',
+          frameHint:
+            'Тяните углы рамки, чтобы уменьшить или увеличить область; перетаскивайте саму рамку, чтобы сдвинуть её.',
+          scaleFrameHint:
+            'Рамка обводит всё изображение. Тяните углы — масштаб; перетаскивайте изображение — положение в квадрате (без обрезки, с полями).',
+          outputHint: 'Сохранение: квадрат JPEG до {size}×{size} px (при большом файле размер или качество могут быть снижены).',
+          outputHintFit:
+            'Сохранение: квадрат JPEG до {size}×{size} px, изображение целиком вписано по центру (поля залиты белым). При большом файле размер или качество могут быть снижены.',
+          ariaCropper: 'Кадрирование изображения',
+          resizeHandle: 'Изменить размер области',
+          apply: 'Применить',
+          processing: 'Обработка...',
+          errorDecode: 'Не удалось прочитать изображение',
+          errorTooLarge: 'Изображение слишком большое. Максимальная сторона: {max}px',
+          errorProcess: 'Не удалось обработать изображение',
+        },
         deleteConfirm: 'Вы уверены, что хотите удалить это изображение?',
         deleteWarning: 'Это действие невозможно отменить.',
         deleteFailed: 'Ошибка удаления изображения',
@@ -1474,6 +1492,25 @@ const translations = {
         invalidType: 'Invalid file type. Only images are allowed',
         fileTooLarge: 'File is too large. Maximum size: {size} MB',
         maxImages: 'No more than {count} images per product are allowed',
+        crop: {
+          title: 'Edit image',
+          loading: 'Loading image...',
+          frameHint:
+            'Drag the frame corners to shrink or enlarge the crop; drag the frame to move it.',
+          scaleFrameHint:
+            'The frame wraps the whole image. Drag corners to scale; drag the image to position it in the square (letterboxing, no crop).',
+          outputHint:
+            'Export: square JPEG up to {size}×{size} px (size or quality may be reduced if the file is large).',
+          outputHintFit:
+            'Export: square JPEG up to {size}×{size} px; full image centered (white margins). Size or quality may be reduced for very large files.',
+          ariaCropper: 'Image crop',
+          resizeHandle: 'Resize crop area',
+          apply: 'Apply',
+          processing: 'Processing...',
+          errorDecode: 'Failed to read image',
+          errorTooLarge: 'Image is too large. Max side: {max}px',
+          errorProcess: 'Failed to process image',
+        },
         deleteConfirm: 'Are you sure you want to delete this image?',
         deleteWarning: 'This action cannot be undone.',
         deleteFailed: 'Failed to delete image',

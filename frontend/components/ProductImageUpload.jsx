@@ -1,12 +1,13 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { useMutation } from '@tanstack/react-query';
-import { api, ApiError } from '@/api';
+import { api } from '@/api';
 import { useI18n } from '@/lib/i18n';
 import { Upload, X, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
+import ImageCropDialog from '@/components/ImageCropDialog';
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 const ALLOWED_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp', 'image/bmp'];
@@ -22,6 +23,8 @@ export default function ProductImageUpload({
   const [uploadError, setUploadError] = useState('');
   const [viewerOpen, setViewerOpen] = useState(false);
   const [viewerIndex, setViewerIndex] = useState(0);
+  const [cropOpen, setCropOpen] = useState(false);
+  const [pendingFile, setPendingFile] = useState(null);
 
   const uploadMutation = useMutation({
     mutationFn: (file) => api.products.uploadImage(file),
@@ -43,7 +46,10 @@ export default function ProductImageUpload({
       setUploadError('');
     },
     onError: (err) => {
-      setUploadError(err instanceof ApiError ? err.message : t('products.images.uploadFailed'));
+      // Keep UX consistent and avoid leaking backend raw messages to end-users.
+      // eslint-disable-next-line no-console
+      console.warn('Upload image failed:', err);
+      setUploadError(t('products.images.uploadFailed'));
     },
     onSettled: () => {
       setUploading(false);
@@ -61,8 +67,9 @@ export default function ProductImageUpload({
           const productImages = await api.products.getImages(variables.productId);
           onImagesChange(productImages || []);
         } catch (err) {
-          console.error('Failed to reload images:', err);
-          setUploadError(err instanceof ApiError ? err.message : t('products.images.deleteFailed'));
+          // eslint-disable-next-line no-console
+          console.warn('Failed to reload images after delete:', err);
+          setUploadError(t('products.images.deleteFailed'));
         }
       } else {
         onImagesChange(images.filter(img => {
@@ -72,14 +79,15 @@ export default function ProductImageUpload({
       }
     },
     onError: (err) => {
-      console.error('Failed to delete image:', err);
-      setUploadError(err instanceof ApiError ? err.message : t('products.images.deleteFailed'));
+      // eslint-disable-next-line no-console
+      console.warn('Delete image failed:', err);
+      setUploadError(t('products.images.deleteFailed'));
     },
   });
 
 
   const validateFile = (file) => {
-    if (!ALLOWED_TYPES.includes(file.type)) {
+    if (!file?.type || !file.type.startsWith('image/')) {
       return t('products.images.invalidType');
     }
     if (file.size > MAX_FILE_SIZE) {
@@ -103,11 +111,11 @@ export default function ProductImageUpload({
       return;
     }
 
-    setUploading(true);
     setUploadError('');
-    uploadMutation.mutate(file);
+    setPendingFile(file);
+    setCropOpen(true);
     e.target.value = '';
-  }, [uploadMutation, t, images.length, maxImages]);
+  }, [t, images.length, maxImages]);
 
   const handleDragOver = useCallback((e) => {
     e.preventDefault();
@@ -131,10 +139,10 @@ export default function ProductImageUpload({
       return;
     }
 
-    setUploading(true);
     setUploadError('');
-    uploadMutation.mutate(file);
-  }, [uploadMutation, t, images.length, maxImages]);
+    setPendingFile(file);
+    setCropOpen(true);
+  }, [t, images.length, maxImages]);
 
   const handleDeleteImage = useCallback(async (image) => {
     const confirmMessage = `${t('products.images.deleteConfirm')}\n\n${t('products.images.deleteWarning')}`;
@@ -210,7 +218,7 @@ export default function ProductImageUpload({
             type="file"
             accept={ALLOWED_TYPES.join(',')}
             onChange={handleFileSelect}
-            disabled={uploading}
+            disabled={uploading || cropOpen}
             className="hidden"
             id="product-image-upload"
           />
@@ -366,6 +374,24 @@ export default function ProductImageUpload({
           )}
         </DialogContent>
       </Dialog>
+
+      <ImageCropDialog
+        t={t}
+        open={cropOpen}
+        onOpenChange={(next) => {
+          setCropOpen(next);
+          if (!next) setPendingFile(null);
+        }}
+        file={pendingFile}
+        outputSize={512}
+        onApply={(croppedFile) => {
+          setCropOpen(false);
+          setPendingFile(null);
+          setUploadError('');
+          setUploading(true);
+          uploadMutation.mutate(croppedFile);
+        }}
+      />
     </div>
   );
 }

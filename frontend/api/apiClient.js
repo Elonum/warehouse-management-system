@@ -512,6 +512,14 @@ const api = {
         });
       },
     },
+    ozon: {
+      listStocks: async (body = {}) => {
+        return await request('/integrations/ozon/stocks/list', {
+          method: 'POST',
+          body,
+        });
+      },
+    },
   },
 
   orderStatuses: {

@@ -30,6 +30,11 @@ type Config struct {
 	WbStatisticsToken   string
 	WbStatisticsBaseURL string
 
+	// Ozon Seller API — Client-Id + Api-Key из кабинета продавца.
+	OzonClientID string
+	OzonAPIKey   string
+	OzonBaseURL  string
+
 	// HTTP hardening / proxy settings
 	AllowedOrigins       []string
 	TrustProxyHeaders    bool
@@ -65,6 +70,10 @@ func Load() Config {
 
 		WbStatisticsToken:   getEnv("WB_STATISTICS_TOKEN", ""),
 		WbStatisticsBaseURL: getEnv("WB_STATISTICS_BASE_URL", "https://statistics-api.wildberries.ru"),
+
+		OzonClientID: getEnv("OZON_CLIENT_ID", ""),
+		OzonAPIKey:   getEnv("OZON_API_KEY", ""),
+		OzonBaseURL:  getEnv("OZON_BASE_URL", "https://api-seller.ozon.ru"),
 
 		AllowedOrigins:       getCSVEnv("ALLOWED_ORIGINS", "http://localhost:5173,http://localhost:5174,http://localhost:3000,http://127.0.0.1:5173,http://127.0.0.1:5174,http://127.0.0.1:3000"),
 		TrustProxyHeaders:    getEnv("TRUST_PROXY_HEADERS", "false") == "true",

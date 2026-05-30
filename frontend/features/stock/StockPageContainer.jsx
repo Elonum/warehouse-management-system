@@ -27,10 +27,10 @@ const STOCK_SOURCES = new Set(['our', 'wildberries', 'ozon']);
 
 function messageForMarketplaceStockError(err, t) {
   if (err instanceof ApiError) {
-    if (err.code === 'WB_STATISTICS_TOKEN_MISSING') {
+    if (err.code === 'WB_STATISTICS_TOKEN_MISSING' || err.code === 'OZON_CREDENTIALS_MISSING') {
       return t('stock.marketplaceConfigNeeded');
     }
-    if (err.code === 'WB_STOCKS_LIST_FAILED') {
+    if (err.code === 'WB_STOCKS_LIST_FAILED' || err.code === 'OZON_STOCKS_LIST_FAILED') {
       return t('stock.marketplaceUpstreamError');
     }
     if (err.code === 'NETWORK_ERROR') {
@@ -225,8 +225,10 @@ function StockPageContainer() {
         return {
           ...item,
           productName:
-            product?.article || t('stock.unknownProduct', { id: item.productId }),
-          productBarcode: product?.barcode ?? null,
+            item.productName ||
+            product?.article ||
+            t('stock.unknownProduct', { id: item.productId }),
+          productBarcode: item.productBarcode ?? product?.barcode ?? null,
           warehouseName:
             item.warehouseName || warehouse?.name || t('stock.unknownWarehouse', { id: item.warehouseId }),
         };

@@ -247,7 +247,6 @@ const translations = {
       description: 'Обзор складских операций',
       stats: {
         totalStock: 'Остатки',
-        totalStockSubtitle: 'Сумма единиц по всем складам и МП',
         mainStock: 'Наши склады',
         marketplaceStock: 'Маркетплейсы',
         totalProducts: 'Товаров в каталоге',
@@ -259,6 +258,7 @@ const translations = {
         stockByMainWarehouse: 'Остатки по нашим складам (шт.)',
         stockByMarketplaceWarehouse: 'Остатки по складам маркетплейсов (шт.)',
         wildberriesStocksApi: 'Wildberries (остатки по API)',
+        ozonStocksApi: 'Ozon (остатки по API)',
         ordersByStatus: 'Заказы по статусам',
         shipmentsByStatus: 'Отгрузки по статусам',
         recentMovements: 'Последние изменения остатков',
@@ -1352,7 +1352,6 @@ const translations = {
       description: 'Warehouse operations overview',
       stats: {
         totalStock: 'Stock',
-        totalStockSubtitle: 'Total units (warehouses + marketplaces)',
         mainStock: 'Our warehouses',
         marketplaceStock: 'Marketplaces',
         totalProducts: 'Products in catalog',
@@ -1364,6 +1363,7 @@ const translations = {
         stockByMainWarehouse: 'Stock by Our Warehouses (units)',
         stockByMarketplaceWarehouse: 'Stock by Marketplace Warehouses (units)',
         wildberriesStocksApi: 'Wildberries (API stocks)',
+        ozonStocksApi: 'Ozon (API stocks)',
         ordersByStatus: 'Orders by Status',
         shipmentsByStatus: 'Shipments by Status',
         recentMovements: 'Recent Stock Movements',

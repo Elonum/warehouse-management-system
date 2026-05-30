@@ -22,6 +22,8 @@ function normalizeRow(source, row, idx) {
       Number(
         row?.quantity ??
           row?.quantityFull ??
+          row?.available_stock_count ??
+          row?.valid_stock_count ??
           row?.availableQuantity ??
           row?.present ??
           row?.freeToSellAmount ??

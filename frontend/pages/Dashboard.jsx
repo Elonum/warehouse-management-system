@@ -80,6 +80,18 @@ export default function Dashboard() {
     retry: 1,
   });
 
+  const {
+    data: dashboardOzonStock,
+    isSuccess: dashboardOzonStockOk,
+    isError: dashboardOzonStockErr,
+  } = useQuery({
+    queryKey: ['dashboard-ozon-stocks'],
+    queryFn: () => fetchMarketplaceStock({ source: 'ozon' }),
+    staleTime: 90_000,
+    gcTime: 300_000,
+    retry: 1,
+  });
+
   const { data: lowStockRows = [], isLoading: loadingLowStock } = useQuery({
     queryKey: ['stock-current-low', LOW_STOCK_DASHBOARD_LIMIT],
     queryFn: async () => {
@@ -195,14 +207,28 @@ export default function Dashboard() {
     [dashboardWbStockOk, dashboardWbStock],
   );
 
+  const ozonMarketplaceStockQty = useMemo(
+    () =>
+      dashboardOzonStockOk && dashboardOzonStock
+        ? sumStockQuantities(dashboardOzonStock.items)
+        : 0,
+    [dashboardOzonStockOk, dashboardOzonStock],
+  );
+
   const marketplaceStockQty = useMemo(() => {
-    if (dashboardWbStockErr) return dbMarketplaceStockQty;
-    if (dashboardWbStockOk) return wbMarketplaceStockQty;
+    const wbOk = dashboardWbStockOk && !dashboardWbStockErr;
+    const ozOk = dashboardOzonStockOk && !dashboardOzonStockErr;
+    if (wbOk || ozOk) {
+      return (wbOk ? wbMarketplaceStockQty : 0) + (ozOk ? ozonMarketplaceStockQty : 0);
+    }
     return dbMarketplaceStockQty;
   }, [
-    dashboardWbStockErr,
     dashboardWbStockOk,
+    dashboardWbStockErr,
+    dashboardOzonStockOk,
+    dashboardOzonStockErr,
     wbMarketplaceStockQty,
+    ozonMarketplaceStockQty,
     dbMarketplaceStockQty,
   ]);
 
@@ -216,22 +242,29 @@ export default function Dashboard() {
       }))
       .filter((item) => item.quantity > 0);
 
+    const apiBars = [];
     if (!dashboardWbStockErr && dashboardWbStockOk && wbMarketplaceStockQty > 0) {
-      return [
-        ...dbBars,
-        {
-          name: t('dashboard.charts.wildberriesStocksApi'),
-          quantity: wbMarketplaceStockQty,
-        },
-      ];
+      apiBars.push({
+        name: t('dashboard.charts.wildberriesStocksApi'),
+        quantity: wbMarketplaceStockQty,
+      });
     }
-    return dbBars;
+    if (!dashboardOzonStockErr && dashboardOzonStockOk && ozonMarketplaceStockQty > 0) {
+      apiBars.push({
+        name: t('dashboard.charts.ozonStocksApi'),
+        quantity: ozonMarketplaceStockQty,
+      });
+    }
+    return [...dbBars, ...apiBars];
   }, [
     marketplaceWarehouses,
     stock,
     dashboardWbStockOk,
     dashboardWbStockErr,
+    dashboardOzonStockOk,
+    dashboardOzonStockErr,
     wbMarketplaceStockQty,
+    ozonMarketplaceStockQty,
     t,
   ]);
 
@@ -292,7 +325,6 @@ export default function Dashboard() {
             <StatCard
               title={t('dashboard.stats.totalStock')}
               value={`${totalStockQty.toLocaleString()} ${t('common.units')}`}
-              subtitle={t('dashboard.stats.totalStockSubtitle')}
               icon={Boxes}
             />
             <StatCard

@@ -8,14 +8,23 @@ function normalizeRow(source, row, idx) {
     row?.offerId ??
     `${source}-item-${idx}`;
 
+  const listingArticle =
+    row?.article ||
+    row?.supplierArticle ||
+    row?.offerId ||
+    row?.offerName ||
+    '';
+
+  const displayName =
+    listingArticle ||
+    row?.name ||
+    row?.offerName ||
+    `#${productId}`;
+
   return {
     productId: String(productId),
-    productName:
-      row?.article ||
-      row?.supplierArticle ||
-      row?.name ||
-      row?.offerName ||
-      `#${productId}`,
+    listingArticle,
+    productName: displayName,
     productBarcode: row?.barcode || row?.barcodes?.[0] || null,
     warehouseName: row?.warehouseName || row?.warehouse || row?.clusterName || null,
     currentQuantity:

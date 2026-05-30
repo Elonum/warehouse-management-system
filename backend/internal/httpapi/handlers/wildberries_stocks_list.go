@@ -8,6 +8,7 @@ import (
 
 	"warehouse-backend/internal/dto"
 	"warehouse-backend/internal/httpapi/middleware"
+	"warehouse-backend/internal/integration/integrationlog"
 	"warehouse-backend/internal/service"
 
 	"github.com/rs/zerolog/log"
@@ -27,6 +28,10 @@ func (h *WildberriesStocksListHandler) List(w http.ResponseWriter, r *http.Reque
 	requestID := middleware.GetRequestID(r.Context())
 	var req dto.WildberriesStockListRequest
 	if err := decodeJSONBodyAllowEmpty(w, r, &req); err != nil {
+		log.Warn().
+			Str("integration", "wildberries").
+			Str("request_id", requestID).
+			Msg("wildberries stocks list: invalid request body")
 		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "invalid request body")
 		return
 	}
@@ -35,7 +40,10 @@ func (h *WildberriesStocksListHandler) List(w http.ResponseWriter, r *http.Reque
 	if err != nil {
 		log.Warn().
 			Err(err).
+			Str("integration", "wildberries").
 			Str("request_id", requestID).
+			Str("date_from", req.DateFrom).
+			Str("error_detail", integrationlog.Truncate(err.Error(), 500)).
 			Dur("duration", time.Since(startedAt)).
 			Msg("wildberries stocks list failed")
 		if errors.Is(err, service.ErrWbStatisticsTokenNotConfigured) {
@@ -51,6 +59,7 @@ func (h *WildberriesStocksListHandler) List(w http.ResponseWriter, r *http.Reque
 	}
 
 	log.Info().
+		Str("integration", "wildberries").
 		Str("request_id", requestID).
 		Int("items", len(out.Items)).
 		Dur("duration", time.Since(startedAt)).

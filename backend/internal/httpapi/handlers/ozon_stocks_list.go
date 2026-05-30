@@ -8,6 +8,7 @@ import (
 
 	"warehouse-backend/internal/dto"
 	"warehouse-backend/internal/httpapi/middleware"
+	"warehouse-backend/internal/integration/integrationlog"
 	"warehouse-backend/internal/service"
 
 	"github.com/rs/zerolog/log"
@@ -27,6 +28,10 @@ func (h *OzonStocksListHandler) List(w http.ResponseWriter, r *http.Request) {
 	requestID := middleware.GetRequestID(r.Context())
 	var req dto.OzonStockListRequest
 	if err := decodeJSONBodyAllowEmpty(w, r, &req); err != nil {
+		log.Warn().
+			Str("integration", "ozon").
+			Str("request_id", requestID).
+			Msg("ozon stocks list: invalid request body")
 		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "invalid request body")
 		return
 	}
@@ -35,7 +40,9 @@ func (h *OzonStocksListHandler) List(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Warn().
 			Err(err).
+			Str("integration", "ozon").
 			Str("request_id", requestID).
+			Str("error_detail", integrationlog.Truncate(err.Error(), 800)).
 			Dur("duration", time.Since(startedAt)).
 			Msg("ozon stocks list failed")
 		if errors.Is(err, service.ErrOzonCredentialsNotConfigured) {
@@ -47,6 +54,7 @@ func (h *OzonStocksListHandler) List(w http.ResponseWriter, r *http.Request) {
 	}
 
 	log.Info().
+		Str("integration", "ozon").
 		Str("request_id", requestID).
 		Int("items", len(out.Items)).
 		Dur("duration", time.Since(startedAt)).

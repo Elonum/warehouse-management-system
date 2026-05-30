@@ -29,8 +29,7 @@ ON CONFLICT (store_id) DO NOTHING;
 INSERT INTO warehouses (warehouse_id, name, is_marketplace, location) VALUES
 ('30000000-0000-0000-0000-000000000001', 'Склад Москва', false, 'Москва, ул. Складская, 1'),
 ('30000000-0000-0000-0000-000000000002', 'Склад Казань', false, 'Казань, ул. Складская, 2'),
-('30000000-0000-0000-0000-000000000003', 'Склад возвратов', false, 'Москва, ул. Возвратная, 1'),
-('30000000-0000-0000-0000-000000000004', 'WB Коледино', true, 'Московская обл., Коледино')
+('30000000-0000-0000-0000-000000000003', 'Склад возвратов', false, 'Москва, ул. Возвратная, 1')
 ON CONFLICT (warehouse_id) DO NOTHING;
 
 INSERT INTO products (product_id, article, barcode, unit_weight, unit_cost, purchase_price) VALUES
@@ -90,11 +89,11 @@ INSERT INTO shipment_statuses (shipment_status_id, name) VALUES
 ON CONFLICT (shipment_status_id) DO NOTHING;
 
 INSERT INTO mp_shipments (
-    shipment_id, shipment_date, shipment_number, store_id, warehouse_id, status_id,
+    shipment_id, shipment_date, shipment_number, store_id, main_warehouse_id, mp_warehouse_id, status_id,
     logistics_cost, acceptance_cost, acceptance_date, positions_qty, sent_qty, accepted_qty, created_by, created_at
 ) VALUES
-('a0000000-0000-0000-0000-000000000001', '2024-01-20', 'SHIP-2024-001', '20000000-0000-0000-0000-000000000001', '30000000-0000-0000-0000-000000000004', '90000000-0000-0000-0000-000000000002', 1500.00, 500.00, NULL, 2, 100, 0, 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', CURRENT_TIMESTAMP),
-('a0000000-0000-0000-0000-000000000002', '2024-01-18', 'SHIP-2024-002', '20000000-0000-0000-0000-000000000002', '30000000-0000-0000-0000-000000000004', '90000000-0000-0000-0000-000000000004', 2000.00, 600.00, '2024-01-22', 3, 150, 150, 'cccccccc-cccc-cccc-cccc-cccccccccccc', CURRENT_TIMESTAMP)
+('a0000000-0000-0000-0000-000000000001', '2024-01-20', 'SHIP-2024-001', '20000000-0000-0000-0000-000000000001', '30000000-0000-0000-0000-000000000001', NULL, '90000000-0000-0000-0000-000000000002', 1500.00, 500.00, NULL, 2, 100, 0, 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', CURRENT_TIMESTAMP),
+('a0000000-0000-0000-0000-000000000002', '2024-01-18', 'SHIP-2024-002', '20000000-0000-0000-0000-000000000002', '30000000-0000-0000-0000-000000000001', NULL, '90000000-0000-0000-0000-000000000004', 2000.00, 600.00, '2024-01-22', 3, 150, 150, 'cccccccc-cccc-cccc-cccc-cccccccccccc', CURRENT_TIMESTAMP)
 ON CONFLICT (shipment_id) DO NOTHING;
 
 INSERT INTO mp_shipment_items (shipment_item_id, shipment_id, product_id, sent_qty, accepted_qty, logistics_for_item) VALUES

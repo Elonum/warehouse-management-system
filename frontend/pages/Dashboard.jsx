@@ -72,6 +72,7 @@ export default function Dashboard() {
     data: dashboardWbStock,
     isSuccess: dashboardWbStockOk,
     isError: dashboardWbStockErr,
+    isFetching: loadingDashboardWbStock,
   } = useQuery({
     queryKey: ['dashboard-wildberries-stocks'],
     queryFn: () => fetchMarketplaceStock({ source: 'wildberries' }),
@@ -84,6 +85,7 @@ export default function Dashboard() {
     data: dashboardOzonStock,
     isSuccess: dashboardOzonStockOk,
     isError: dashboardOzonStockErr,
+    isFetching: loadingDashboardOzonStock,
   } = useQuery({
     queryKey: ['dashboard-ozon-stocks'],
     queryFn: () => fetchMarketplaceStock({ source: 'ozon' }),
@@ -164,18 +166,9 @@ export default function Dashboard() {
     [warehouses],
   );
 
-  const marketplaceWarehouses = useMemo(
-    () => warehouses.filter((w) => w?.isMarketplace),
-    [warehouses],
-  );
-
   const mainWarehouseIds = useMemo(
     () => new Set(mainWarehouses.map((w) => w.warehouseId)),
     [mainWarehouses],
-  );
-  const marketplaceWarehouseIds = useMemo(
-    () => new Set(marketplaceWarehouses.map((w) => w.warehouseId)),
-    [marketplaceWarehouses],
   );
 
   const stockByMainWarehouse = useMemo(
@@ -189,14 +182,6 @@ export default function Dashboard() {
         }))
         .filter((item) => item.quantity > 0),
     [mainWarehouses, stock],
-  );
-
-  const dbMarketplaceStockQty = useMemo(
-    () =>
-      stock
-        .filter((s) => marketplaceWarehouseIds.has(s.warehouseId))
-        .reduce((sum, s) => sum + (s.currentQuantity || 0), 0),
-    [stock, marketplaceWarehouseIds],
   );
 
   const wbMarketplaceStockQty = useMemo(
@@ -218,10 +203,7 @@ export default function Dashboard() {
   const marketplaceStockQty = useMemo(() => {
     const wbOk = dashboardWbStockOk && !dashboardWbStockErr;
     const ozOk = dashboardOzonStockOk && !dashboardOzonStockErr;
-    if (wbOk || ozOk) {
-      return (wbOk ? wbMarketplaceStockQty : 0) + (ozOk ? ozonMarketplaceStockQty : 0);
-    }
-    return dbMarketplaceStockQty;
+    return (wbOk ? wbMarketplaceStockQty : 0) + (ozOk ? ozonMarketplaceStockQty : 0);
   }, [
     dashboardWbStockOk,
     dashboardWbStockErr,
@@ -229,36 +211,27 @@ export default function Dashboard() {
     dashboardOzonStockErr,
     wbMarketplaceStockQty,
     ozonMarketplaceStockQty,
-    dbMarketplaceStockQty,
   ]);
 
-  const stockByMarketplaceWarehouse = useMemo(() => {
-    const dbBars = marketplaceWarehouses
-      .map((wh) => ({
-        name: wh.name,
-        quantity: stock
-          .filter((s) => s.warehouseId === wh.warehouseId)
-          .reduce((sum, s) => sum + (s.currentQuantity || 0), 0),
-      }))
-      .filter((item) => item.quantity > 0);
+  const loadingMarketplaceStockChart =
+    loadingDashboardWbStock || loadingDashboardOzonStock;
 
-    const apiBars = [];
-    if (!dashboardWbStockErr && dashboardWbStockOk && wbMarketplaceStockQty > 0) {
-      apiBars.push({
+  const stockByMarketplaceWarehouse = useMemo(() => {
+    const bars = [];
+    if (dashboardWbStockOk && !dashboardWbStockErr) {
+      bars.push({
         name: t('dashboard.charts.wildberriesStocksApi'),
         quantity: wbMarketplaceStockQty,
       });
     }
-    if (!dashboardOzonStockErr && dashboardOzonStockOk && ozonMarketplaceStockQty > 0) {
-      apiBars.push({
+    if (dashboardOzonStockOk && !dashboardOzonStockErr) {
+      bars.push({
         name: t('dashboard.charts.ozonStocksApi'),
         quantity: ozonMarketplaceStockQty,
       });
     }
-    return [...dbBars, ...apiBars];
+    return bars;
   }, [
-    marketplaceWarehouses,
-    stock,
     dashboardWbStockOk,
     dashboardWbStockErr,
     dashboardOzonStockOk,
@@ -494,7 +467,7 @@ export default function Dashboard() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {loadingStock || loadingWarehouses ? (
+              {loadingMarketplaceStockChart ? (
                 <Skeleton className="w-full h-64" />
               ) : stockByMarketplaceWarehouse.length > 0 ? (
                 <ResponsiveContainer width="100%" height={280}>

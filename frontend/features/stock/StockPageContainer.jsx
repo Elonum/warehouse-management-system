@@ -157,6 +157,7 @@ function StockPageContainer() {
 
   const { data: productsData, isLoading: loadingProducts } = useQuery({
     queryKey: ['products'],
+    enabled: isOwnStockMode,
     queryFn: async () => {
       const response = await api.products.list({ limit: 1000, offset: 0 });
       return Array.isArray(response) ? response : [];
@@ -165,6 +166,7 @@ function StockPageContainer() {
 
   const { data: warehousesData, isLoading: loadingWarehouses } = useQuery({
     queryKey: ['warehouses'],
+    enabled: isOwnStockMode,
     queryFn: async () => {
       const response = await api.warehouses.list({ limit: 1000, offset: 0 });
       return Array.isArray(response) ? response : [];
@@ -178,12 +180,34 @@ function StockPageContainer() {
     [warehouses],
   );
 
+  const mpListingOptions = useMemo(() => {
+    if (!isMarketplaceMode) return [];
+    const seen = new Map();
+    for (const row of stock) {
+      const sku = String(row.productId);
+      const article = (row.listingArticle || row.productName || '').trim();
+      const label = article && article !== `#${sku}` ? `${article} (${sku})` : sku;
+      if (!seen.has(sku)) {
+        seen.set(sku, label);
+      }
+    }
+    return Array.from(seen, ([value, label]) => ({ value, label })).sort((a, b) =>
+      a.label.localeCompare(b.label, 'ru'),
+    );
+  }, [stock, isMarketplaceMode]);
+
   const selectedProductLabel = useMemo(() => {
-    if (productFilter === 'all') return t('stock.filters.allProducts');
+    if (productFilter === 'all') {
+      return isMarketplaceMode ? t('stock.filters.allSkus') : t('stock.filters.allProducts');
+    }
+    if (isMarketplaceMode) {
+      const option = mpListingOptions.find((o) => o.value === productFilter);
+      return option?.label || productFilter;
+    }
     const product = products.find((p) => String(p.productId) === String(productFilter));
     if (!product) return t('stock.filters.product');
     return product.article || t('stock.selectArticleFallback', { id: product.productId });
-  }, [productFilter, products, t]);
+  }, [productFilter, products, isMarketplaceMode, mpListingOptions, t]);
 
   const warehouseTriggerLabel = useMemo(() => {
     if (warehouseFilter === 'all') return t('stock.filters.allWarehouses');
@@ -191,7 +215,7 @@ function StockPageContainer() {
     return warehouse?.name || t('stock.filters.warehouse');
   }, [warehouseFilter, ownWarehouses, t]);
 
-  const isLoadingAny = loadingStock || loadingProducts || loadingWarehouses;
+  const isLoadingAny = loadingStock || (isOwnStockMode && (loadingProducts || loadingWarehouses));
 
   const marketplaceBlockingErrorMessage = useMemo(() => {
     if (!isMarketplaceMode || !marketplaceStockQueryError || !marketplaceStockErrorObj) {
@@ -239,11 +263,16 @@ function StockPageContainer() {
   // Our stock: one API page. Marketplace: full list; filter by search here, slice to page below.
   const rowsForPaging = useMemo(() => {
     if (isOwnStockMode) return enrichedStock;
-    if (!qNormalized) return enrichedStock;
+    let rows = enrichedStock;
+    if (productFilter !== 'all') {
+      rows = rows.filter((item) => String(item.productId) === productFilter);
+    }
+    if (!qNormalized) return rows;
     const needle = qNormalized.toLowerCase();
-    return enrichedStock.filter((item) => {
+    return rows.filter((item) => {
       const blob = [
         item.productName,
+        item.listingArticle,
         item.productBarcode,
         String(item.productId),
         item.warehouseName,
@@ -253,7 +282,7 @@ function StockPageContainer() {
         .toLowerCase();
       return blob.includes(needle);
     });
-  }, [isOwnStockMode, enrichedStock, qNormalized]);
+  }, [isOwnStockMode, enrichedStock, qNormalized, productFilter]);
 
   const serverTotalRows = isOwnStockMode ? ownStockServerTotal : rowsForPaging.length;
 
@@ -331,6 +360,7 @@ function StockPageContainer() {
           variant={stockSource === 'our' ? 'default' : 'outline'}
           onClick={() => {
             setStockSource('our');
+            setProductFilter('all');
             setWarehouseFilter('all');
             setLevelFilter('all');
             resetPage();
@@ -347,6 +377,7 @@ function StockPageContainer() {
           }
           onClick={() => {
             setStockSource('wildberries');
+            setProductFilter('all');
             setWarehouseFilter('all');
             setLevelFilter('all');
             resetPage();
@@ -363,6 +394,7 @@ function StockPageContainer() {
           }
           onClick={() => {
             setStockSource('ozon');
+            setProductFilter('all');
             setWarehouseFilter('all');
             setLevelFilter('all');
             resetPage();
@@ -487,16 +519,26 @@ function StockPageContainer() {
                   <SelectValue>{selectedProductLabel}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">{t('stock.filters.allProducts')}</SelectItem>
-                  {products.map((product) => (
-                    <SelectItem
-                      key={product.productId}
-                      value={String(product.productId)}
-                    >
-                      {product.article ||
-                        t('stock.selectArticleFallback', { id: product.productId })}
-                    </SelectItem>
-                  ))}
+                  <SelectItem value="all">
+                    {isMarketplaceMode
+                      ? t('stock.filters.allSkus')
+                      : t('stock.filters.allProducts')}
+                  </SelectItem>
+                  {isMarketplaceMode
+                    ? mpListingOptions.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))
+                    : products.map((product) => (
+                        <SelectItem
+                          key={product.productId}
+                          value={String(product.productId)}
+                        >
+                          {product.article ||
+                            t('stock.selectArticleFallback', { id: product.productId })}
+                        </SelectItem>
+                      ))}
                 </SelectContent>
               </Select>
               {isOwnStockMode && (

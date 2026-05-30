@@ -4,10 +4,14 @@ import (
 	"context"
 	"errors"
 	"strings"
+	"time"
 
 	"warehouse-backend/internal/config"
 	"warehouse-backend/internal/dto"
+	"warehouse-backend/internal/integration/integrationlog"
 	"warehouse-backend/internal/integration/wildberries"
+
+	"github.com/rs/zerolog/log"
 )
 
 var (
@@ -28,6 +32,7 @@ func (s *WildberriesStockService) List(ctx context.Context, req dto.WildberriesS
 	if strings.TrimSpace(s.cfg.WbStatisticsToken) == "" {
 		return nil, ErrWbStatisticsTokenNotConfigured
 	}
+	startedAt := time.Now()
 	dateFrom, err := wildberries.ParseStatisticsDateFrom(req.DateFrom)
 	if err != nil {
 		return nil, ErrWbStockListInvalidDateFrom
@@ -35,6 +40,13 @@ func (s *WildberriesStockService) List(ctx context.Context, req dto.WildberriesS
 	client := wildberries.NewStatisticsClient(s.cfg.WbStatisticsBaseURL, s.cfg.WbStatisticsToken)
 	raw, err := client.FetchAllSupplierStocks(ctx, dateFrom)
 	if err != nil {
+		log.Warn().
+			Str("integration", "wildberries").
+			Err(err).
+			Str("date_from", dateFrom).
+			Str("error_detail", integrationlog.Truncate(err.Error(), 500)).
+			Dur("duration", time.Since(startedAt)).
+			Msg("wildberries stocks fetch failed")
 		return nil, err
 	}
 	merged := wildberries.DedupeSupplierStocks(raw)
@@ -52,5 +64,13 @@ func (s *WildberriesStockService) List(ctx context.Context, req dto.WildberriesS
 			LastChangeDate:  strings.TrimSpace(r.LastChangeDate),
 		})
 	}
+	log.Info().
+		Str("integration", "wildberries").
+		Str("date_from", dateFrom).
+		Int("raw_rows", len(raw)).
+		Int("deduped_rows", len(merged)).
+		Int("items", len(items)).
+		Dur("duration", time.Since(startedAt)).
+		Msg("wildberries stocks fetch completed")
 	return &dto.WildberriesStockListResponse{Items: items, Total: len(items)}, nil
 }

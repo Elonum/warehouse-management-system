@@ -1,14 +1,12 @@
-import React, { useState } from 'react';
-import { Settings, Moon, Sun, Globe, User, LogOut, Bell } from 'lucide-react';
+import React from 'react';
+import { ArrowLeft, Settings, Moon, Sun, Globe, User, LogOut } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Switch } from '@/components/ui/switch';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
 import { useI18n } from '@/lib/i18n';
-import { cn } from '@/lib/utils';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -21,21 +19,16 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useModalState } from '@/hooks/useModalState';
 
+function userInitial(user, fallback) {
+  const name = user?.full_name || user?.name || '';
+  return name.trim().charAt(0).toUpperCase() || fallback;
+}
+
 export function SettingsDialog({ open, onOpenChange, user, darkMode, onDarkModeChange, onLogout }) {
   const { language, setLanguage, t } = useI18n();
-  const [notifications, setNotifications] = useState(() => {
-    return localStorage.getItem('notifications') !== 'false';
-  });
   const logoutModal = useModalState(false);
 
-  const handleNotificationsChange = (checked) => {
-    setNotifications(checked);
-    localStorage.setItem('notifications', checked.toString());
-  };
-
-  const handleLogoutClick = () => {
-    logoutModal.open();
-  };
+  const handleClose = () => onOpenChange(false);
 
   const handleLogoutConfirm = () => {
     logoutModal.close();
@@ -47,14 +40,25 @@ export function SettingsDialog({ open, onOpenChange, user, darkMode, onDarkModeC
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-2xl">
-              <Settings className="w-6 h-6" />
-              {t('settings.title')}
-            </DialogTitle>
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-9 w-9 shrink-0"
+                onClick={handleClose}
+                aria-label={t('settings.back')}
+              >
+                <ArrowLeft className="h-5 w-5" />
+              </Button>
+              <DialogTitle className="flex items-center gap-2 text-2xl">
+                <Settings className="w-6 h-6" />
+                {t('settings.title')}
+              </DialogTitle>
+            </div>
           </DialogHeader>
 
           <div className="space-y-6 py-4">
-            {/* User Information */}
             <div className="space-y-4">
               <div className="flex items-center gap-2">
                 <User className="w-5 h-5 text-slate-500 dark:text-slate-400" />
@@ -64,11 +68,13 @@ export function SettingsDialog({ open, onOpenChange, user, darkMode, onDarkModeC
                 <div className="flex items-center gap-4 mb-4">
                   <Avatar className="w-16 h-16">
                     <AvatarFallback className="text-lg font-semibold bg-indigo-500 text-white">
-                      {user?.full_name?.charAt(0) || 'U'}
+                      {userInitial(user, t('settings.user.fallbackInitial'))}
                     </AvatarFallback>
                   </Avatar>
                   <div className="flex-1">
-                    <p className="text-lg font-semibold">{user?.full_name || 'User'}</p>
+                    <p className="text-lg font-semibold">
+                      {user?.full_name || t('settings.user.fallbackName')}
+                    </p>
                     <p className="text-sm text-slate-500 dark:text-slate-400">{user?.email || ''}</p>
                   </div>
                 </div>
@@ -83,7 +89,9 @@ export function SettingsDialog({ open, onOpenChange, user, darkMode, onDarkModeC
                   </div>
                   <div className="col-span-2">
                     <p className="text-slate-500 dark:text-slate-400 mb-1">{t('settings.user.role')}</p>
-                    <p className="font-medium capitalize">{user?.role || 'user'}</p>
+                    <p className="font-medium capitalize">
+                      {user?.role || t('settings.user.defaultRole')}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -91,7 +99,6 @@ export function SettingsDialog({ open, onOpenChange, user, darkMode, onDarkModeC
 
             <Separator />
 
-            {/* Appearance */}
             <div className="space-y-4">
               <div className="flex items-center gap-2">
                 <Moon className="w-5 h-5 text-slate-500 dark:text-slate-400" />
@@ -134,31 +141,11 @@ export function SettingsDialog({ open, onOpenChange, user, darkMode, onDarkModeC
 
             <Separator />
 
-            {/* Notifications */}
-            <div className="space-y-4">
-              <div className="flex items-center gap-2">
-                <Bell className="w-5 h-5 text-slate-500 dark:text-slate-400" />
-                <h3 className="text-lg font-semibold">{t('settings.notifications.title')}</h3>
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label htmlFor="notifications">{t('settings.notifications.title')}</Label>
-                  <p className="text-sm text-slate-500 dark:text-slate-400">
-                    {t('settings.notifications.description')}
-                  </p>
-                </div>
-                <Switch id="notifications" checked={notifications} onCheckedChange={handleNotificationsChange} />
-              </div>
-            </div>
-
-            <Separator />
-
-            {/* Logout */}
             <div className="pt-2">
               <Button
                 variant="destructive"
                 className="w-full gap-2"
-                onClick={handleLogoutClick}
+                onClick={() => logoutModal.open()}
               >
                 <LogOut className="w-4 h-4" />
                 {t('settings.logout')}
@@ -172,9 +159,7 @@ export function SettingsDialog({ open, onOpenChange, user, darkMode, onDarkModeC
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>{t('settings.logout')}</AlertDialogTitle>
-            <AlertDialogDescription>
-              {t('settings.logoutConfirm')}
-            </AlertDialogDescription>
+            <AlertDialogDescription>{t('settings.logoutConfirm')}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel onClick={() => logoutModal.close()}>
@@ -189,4 +174,3 @@ export function SettingsDialog({ open, onOpenChange, user, darkMode, onDarkModeC
     </>
   );
 }
-

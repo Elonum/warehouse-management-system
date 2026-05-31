@@ -12,6 +12,8 @@ import (
 	"time"
 
 	"github.com/rs/zerolog/log"
+
+	"warehouse-backend/internal/auth"
 )
 
 var (
@@ -49,14 +51,16 @@ var (
 	uploadDir         = "./uploads/documents"
 )
 
-type UploadHandler struct{}
+type UploadHandler struct {
+	jwt *auth.JWTManager
+}
 
-func NewUploadHandler() *UploadHandler {
+func NewUploadHandler(jwt *auth.JWTManager) *UploadHandler {
 	// Create upload directory if it doesn't exist
 	if err := os.MkdirAll(uploadDir, 0755); err != nil {
 		log.Error().Err(err).Msg("Failed to create upload directory")
 	}
-	return &UploadHandler{}
+	return &UploadHandler{jwt: jwt}
 }
 
 func (h *UploadHandler) Upload(w http.ResponseWriter, r *http.Request) {
@@ -160,6 +164,12 @@ func (h *UploadHandler) ServeFile(w http.ResponseWriter, r *http.Request) {
 	// Normalize path - remove leading ./ if present
 	normalizedPath := strings.TrimPrefix(decodedPath, "./")
 
+	if !isPublicProductFilePath(normalizedPath) {
+		if !h.authorizeFileAccess(w, r) {
+			return
+		}
+	}
+
 	// Determine which upload directory to use based on path
 	var targetDir string
 	var filename string
@@ -241,4 +251,34 @@ func getContentType(ext string) string {
 		return ct
 	}
 	return "application/octet-stream"
+}
+
+func isPublicProductFilePath(normalizedPath string) bool {
+	if strings.HasPrefix(normalizedPath, "uploads/products/") {
+		return true
+	}
+	// Bare filename without uploads/ prefix is resolved to product images in ServeFile.
+	return !strings.HasPrefix(normalizedPath, "uploads/")
+}
+
+func (h *UploadHandler) authorizeFileAccess(w http.ResponseWriter, r *http.Request) bool {
+	if h.jwt == nil {
+		writeError(w, http.StatusUnauthorized, "UNAUTHORIZED", "authorization required")
+		return false
+	}
+	authHeader := r.Header.Get("Authorization")
+	if authHeader == "" {
+		writeError(w, http.StatusUnauthorized, "UNAUTHORIZED", "authorization required")
+		return false
+	}
+	parts := strings.Split(authHeader, " ")
+	if len(parts) != 2 || parts[0] != "Bearer" {
+		writeError(w, http.StatusUnauthorized, "UNAUTHORIZED", "invalid authorization header")
+		return false
+	}
+	if _, err := h.jwt.ValidateToken(parts[1]); err != nil {
+		writeError(w, http.StatusUnauthorized, "UNAUTHORIZED", "invalid or expired token")
+		return false
+	}
+	return true
 }

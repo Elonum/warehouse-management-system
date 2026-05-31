@@ -1,17 +1,10 @@
-import React, { useState, useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useSearchParams } from 'react-router-dom';
+import { format } from 'date-fns';
+import { Package, Warehouse, Filter, X, Calendar, Boxes } from 'lucide-react';
 import { api } from '@/api';
-import { 
-  ArrowLeftRight, 
-  ArrowDownRight, 
-  ArrowUpRight, 
-  RefreshCw,
-  Package, 
-  Warehouse, 
-  Filter, 
-  X,
-  Calendar
-} from 'lucide-react';
+import { useI18n } from '@/lib/i18n';
 import { Button } from '@/components/ui/button';
 import {
   Select,
@@ -24,283 +17,277 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import PageHeader from '@/components/ui/PageHeader';
 import DataTable from '@/components/ui/DataTable';
-import StatusBadge from '@/components/ui/StatusBadge';
-import { format } from 'date-fns';
+import { LoadingState } from '@/components/common/LoadingState';
+import { EmptyState } from '@/components/common/EmptyState';
+
+const SNAPSHOT_LIST_LIMIT = 500;
 
 export default function StockMovements() {
-  const urlParams = new URLSearchParams(window.location.search);
-  const initialProduct = urlParams.get('product') || 'all';
-  
+  const { t } = useI18n();
+  const [searchParams] = useSearchParams();
+  const initialProduct = searchParams.get('product') || 'all';
+
   const [productFilter, setProductFilter] = useState(initialProduct);
   const [warehouseFilter, setWarehouseFilter] = useState('all');
-  const [typeFilter, setTypeFilter] = useState('all');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
 
-  const { data: movements = [], isLoading } = useQuery({
-    queryKey: ['stock-movements'],
-    queryFn: () => api.entities.StockMovement.list('-movement_date', 500),
+  const { data: snapshots = [], isLoading: loadingSnapshots } = useQuery({
+    queryKey: ['stock-snapshots', SNAPSHOT_LIST_LIMIT],
+    queryFn: async () => {
+      const response = await api.stockSnapshots.list({ limit: SNAPSHOT_LIST_LIMIT, offset: 0 });
+      return Array.isArray(response) ? response : [];
+    },
   });
 
-  const { data: products = [] } = useQuery({
+  const { data: products = [], isLoading: loadingProducts } = useQuery({
     queryKey: ['products'],
-    queryFn: () => api.entities.Product.list(),
+    queryFn: async () => {
+      const response = await api.products.list({ limit: 1000, offset: 0 });
+      return Array.isArray(response) ? response : [];
+    },
   });
 
-  const { data: warehouses = [] } = useQuery({
+  const { data: warehouses = [], isLoading: loadingWarehouses } = useQuery({
     queryKey: ['warehouses'],
-    queryFn: () => api.entities.Warehouse.list(),
+    queryFn: async () => {
+      const response = await api.warehouses.list({ limit: 1000, offset: 0 });
+      return Array.isArray(response) ? response : [];
+    },
   });
 
-  const filteredMovements = useMemo(() => {
-    return movements.filter(item => {
-      const matchesProduct = productFilter === 'all' || item.product_id === productFilter;
-      const matchesWarehouse = warehouseFilter === 'all' || item.warehouse_id === warehouseFilter;
-      const matchesType = typeFilter === 'all' || item.movement_type === typeFilter;
-      
+  const ownWarehouses = useMemo(
+    () => warehouses.filter((w) => !w?.isMarketplace),
+    [warehouses],
+  );
+
+  const productsById = useMemo(() => {
+    const map = new Map();
+    products.forEach((p) => map.set(String(p.productId), p));
+    return map;
+  }, [products]);
+
+  const warehousesById = useMemo(() => {
+    const map = new Map();
+    ownWarehouses.forEach((w) => map.set(String(w.warehouseId), w));
+    return map;
+  }, [ownWarehouses]);
+
+  const enrichedSnapshots = useMemo(
+    () =>
+      snapshots.map((row) => {
+        const product = productsById.get(String(row.productId));
+        const warehouse = warehousesById.get(String(row.warehouseId));
+        return {
+          ...row,
+          productLabel: product?.article || t('stockMovements.unknownProduct', { id: row.productId }),
+          warehouseLabel: warehouse?.name || t('stockMovements.unknownWarehouse', { id: row.warehouseId }),
+        };
+      }),
+    [snapshots, productsById, warehousesById, t],
+  );
+
+  const filteredRows = useMemo(() => {
+    return enrichedSnapshots.filter((row) => {
+      const matchesProduct =
+        productFilter === 'all' || String(row.productId) === String(productFilter);
+      const matchesWarehouse =
+        warehouseFilter === 'all' || String(row.warehouseId) === String(warehouseFilter);
+
+      const snapshotDate = row.snapshotDate ? new Date(row.snapshotDate) : null;
       let matchesDate = true;
-      if (startDate && item.movement_date) {
-        matchesDate = new Date(item.movement_date) >= new Date(startDate);
+      if (startDate && snapshotDate) {
+        matchesDate = snapshotDate >= new Date(startDate);
       }
-      if (endDate && item.movement_date && matchesDate) {
-        matchesDate = new Date(item.movement_date) <= new Date(endDate + 'T23:59:59');
+      if (endDate && snapshotDate && matchesDate) {
+        matchesDate = snapshotDate <= new Date(`${endDate}T23:59:59`);
       }
-      
-      return matchesProduct && matchesWarehouse && matchesType && matchesDate;
+
+      return matchesProduct && matchesWarehouse && matchesDate;
     });
-  }, [movements, productFilter, warehouseFilter, typeFilter, startDate, endDate]);
+  }, [enrichedSnapshots, productFilter, warehouseFilter, startDate, endDate]);
 
   const clearFilters = () => {
     setProductFilter('all');
     setWarehouseFilter('all');
-    setTypeFilter('all');
     setStartDate('');
     setEndDate('');
   };
 
-  const hasActiveFilters = productFilter !== 'all' || warehouseFilter !== 'all' || typeFilter !== 'all' || startDate || endDate;
+  const hasActiveFilters =
+    productFilter !== 'all' || warehouseFilter !== 'all' || !!startDate || !!endDate;
 
-  const getMovementIcon = (type) => {
-    switch (type) {
-      case 'incoming':
-        return <ArrowDownRight className="h-4 w-4 text-emerald-600" />;
-      case 'outgoing':
-        return <ArrowUpRight className="h-4 w-4 text-rose-600" />;
-      case 'transfer':
-        return <ArrowLeftRight className="h-4 w-4 text-blue-600" />;
-      default:
-        return <RefreshCw className="h-4 w-4 text-amber-600" />;
-    }
-  };
+  const isLoading = loadingSnapshots || loadingProducts || loadingWarehouses;
 
-  const columns = [
-    {
-      accessorKey: 'movement_date',
-      header: 'Date',
-      cell: ({ row }) => (
-        <div>
-          <p className="font-medium text-slate-900 dark:text-slate-100">
-            {row.original.movement_date 
-              ? format(new Date(row.original.movement_date), 'MMM d, yyyy')
-              : '—'}
-          </p>
-          <p className="text-sm text-slate-500 dark:text-slate-400">
-            {row.original.movement_date 
-              ? format(new Date(row.original.movement_date), 'HH:mm')
-              : ''}
-          </p>
-        </div>
-      ),
-    },
-    {
-      accessorKey: 'movement_type',
-      header: 'Type',
-      cell: ({ row }) => (
-        <div className="flex items-center gap-2">
-          <div className={`p-1.5 rounded-lg ${
-            row.original.movement_type === 'incoming' 
-              ? 'bg-emerald-100 dark:bg-emerald-500/20' 
-              : row.original.movement_type === 'outgoing'
-                ? 'bg-rose-100 dark:bg-rose-500/20'
-                : row.original.movement_type === 'transfer'
-                  ? 'bg-blue-100 dark:bg-blue-500/20'
-                  : 'bg-amber-100 dark:bg-amber-500/20'
-          }`}>
-            {getMovementIcon(row.original.movement_type)}
+  const columns = useMemo(
+    () => [
+      {
+        accessorKey: 'snapshotDate',
+        header: t('stockMovements.table.date'),
+        cell: ({ row }) => {
+          const date = row.original.snapshotDate;
+          return (
+            <div>
+              <p className="font-medium text-slate-900 dark:text-slate-100">
+                {date ? format(new Date(date), 'dd.MM.yyyy') : '—'}
+              </p>
+              <p className="text-sm text-slate-500 dark:text-slate-400">
+                {date ? format(new Date(date), 'HH:mm') : ''}
+              </p>
+            </div>
+          );
+        },
+      },
+      {
+        accessorKey: 'productLabel',
+        header: t('stockMovements.table.product'),
+        cell: ({ row }) => (
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-100 dark:bg-slate-800">
+              <Package className="h-4 w-4 text-slate-500" />
+            </div>
+            <span className="font-medium text-slate-900 dark:text-slate-100">
+              {row.original.productLabel}
+            </span>
           </div>
-          <StatusBadge status={row.original.movement_type} />
-        </div>
-      ),
-    },
-    {
-      accessorKey: 'product_name',
-      header: 'Product',
-      cell: ({ row }) => (
-        <div className="flex items-center gap-3">
-          <div className="h-9 w-9 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
-            <Package className="h-4 w-4 text-slate-500" />
+        ),
+      },
+      {
+        accessorKey: 'warehouseLabel',
+        header: t('stockMovements.table.warehouse'),
+        cell: ({ row }) => (
+          <div className="flex items-center gap-2">
+            <Warehouse className="h-4 w-4 text-slate-400" />
+            <span className="text-slate-700 dark:text-slate-300">{row.original.warehouseLabel}</span>
           </div>
-          <span className="font-medium text-slate-900 dark:text-slate-100">
-            {row.original.product_name || 'Unknown Product'}
+        ),
+      },
+      {
+        accessorKey: 'quantity',
+        header: t('stockMovements.table.quantity'),
+        cell: ({ row }) => (
+          <span className="font-semibold text-slate-900 dark:text-slate-100">
+            {(row.original.quantity ?? 0).toLocaleString()} {t('common.units')}
           </span>
-        </div>
-      ),
-    },
-    {
-      accessorKey: 'warehouse_name',
-      header: 'Warehouse',
-      cell: ({ row }) => (
-        <div className="flex items-center gap-2">
-          <Warehouse className="h-4 w-4 text-slate-400" />
-          <span className="text-slate-700 dark:text-slate-300">
-            {row.original.warehouse_name || 'Unknown'}
-          </span>
-        </div>
-      ),
-    },
-    {
-      accessorKey: 'source_type',
-      header: 'Source',
-      cell: ({ row }) => (
-        <div>
-          <p className="text-sm text-slate-600 dark:text-slate-400 capitalize">
-            {row.original.source_type?.replace(/_/g, ' ') || '—'}
-          </p>
-          {row.original.source_number && (
-            <p className="text-sm font-medium text-slate-900 dark:text-slate-100">
-              {row.original.source_number}
-            </p>
-          )}
-        </div>
-      ),
-    },
-    {
-      accessorKey: 'quantity',
-      header: 'Quantity',
-      cell: ({ row }) => (
-        <span className={`font-semibold ${
-          row.original.quantity > 0 
-            ? 'text-emerald-600 dark:text-emerald-400' 
-            : 'text-rose-600 dark:text-rose-400'
-        }`}>
-          {row.original.quantity > 0 ? '+' : ''}{row.original.quantity?.toLocaleString() || 0}
-        </span>
-      ),
-    },
-    {
-      accessorKey: 'notes',
-      header: 'Notes',
-      cell: ({ row }) => (
-        <span className="text-sm text-slate-500 dark:text-slate-400 truncate max-w-xs block">
-          {row.original.notes || '—'}
-        </span>
-      ),
-    },
-  ];
+        ),
+      },
+    ],
+    [t],
+  );
 
   return (
     <div className="space-y-6">
-      <PageHeader 
-        title="Stock Movements" 
-        description="Track all inventory movements across warehouses"
+      <PageHeader
+        title={t('stockMovements.title')}
+        description={t('stockMovements.description')}
       />
 
-      {/* Filters */}
-      <Card className="dark:bg-slate-900 dark:border-slate-800">
-        <CardContent className="pt-6">
-          <div className="flex flex-wrap items-end gap-4">
-            <div className="flex items-center gap-2">
-              <Filter className="h-4 w-4 text-slate-400" />
-              <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Filters:</span>
-            </div>
-            
-            <div className="space-y-1">
-              <label className="text-xs text-slate-500">Product</label>
-              <Select value={productFilter} onValueChange={setProductFilter}>
-                <SelectTrigger className="w-48">
-                  <SelectValue placeholder="All Products" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Products</SelectItem>
-                  {products.map(product => (
-                    <SelectItem key={product.id} value={product.id}>
-                      {product.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-1">
-              <label className="text-xs text-slate-500">Warehouse</label>
-              <Select value={warehouseFilter} onValueChange={setWarehouseFilter}>
-                <SelectTrigger className="w-48">
-                  <SelectValue placeholder="All Warehouses" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Warehouses</SelectItem>
-                  {warehouses.map(warehouse => (
-                    <SelectItem key={warehouse.id} value={warehouse.id}>
-                      {warehouse.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-1">
-              <label className="text-xs text-slate-500">Type</label>
-              <Select value={typeFilter} onValueChange={setTypeFilter}>
-                <SelectTrigger className="w-40">
-                  <SelectValue placeholder="All Types" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Types</SelectItem>
-                  <SelectItem value="incoming">Incoming</SelectItem>
-                  <SelectItem value="outgoing">Outgoing</SelectItem>
-                  <SelectItem value="adjustment">Adjustment</SelectItem>
-                  <SelectItem value="transfer">Transfer</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-1">
-              <label className="text-xs text-slate-500">From Date</label>
-              <Input
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                className="w-40"
-              />
-            </div>
-
-            <div className="space-y-1">
-              <label className="text-xs text-slate-500">To Date</label>
-              <Input
-                type="date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                className="w-40"
-              />
-            </div>
-
-            {hasActiveFilters && (
-              <Button variant="ghost" size="sm" onClick={clearFilters} className="mb-0.5">
-                <X className="h-4 w-4 mr-1" />
-                Clear
-              </Button>
-            )}
-          </div>
+      <Card className="border-amber-200/80 dark:border-amber-500/25 dark:bg-slate-900">
+        <CardContent className="flex items-start gap-3 pt-6 text-sm text-slate-600 dark:text-slate-400">
+          <Boxes className="mt-0.5 h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" />
+          <p>{t('stockMovements.snapshotHint')}</p>
         </CardContent>
       </Card>
 
-      <DataTable
-        columns={columns}
-        data={filteredMovements}
-        searchPlaceholder="Search movements..."
-        emptyMessage="No stock movements found"
-        pageSize={25}
-      />
+      <Card className="dark:border-slate-800 dark:bg-slate-900">
+        <CardContent className="pt-6">
+          {isLoading ? (
+            <LoadingState />
+          ) : (
+            <div className="flex flex-wrap items-end gap-4">
+              <div className="flex items-center gap-2">
+                <Filter className="h-4 w-4 text-slate-400" />
+                <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                  {t('stockMovements.filters.title')}
+                </span>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs text-slate-500">{t('stockMovements.filters.product')}</label>
+                <Select value={productFilter} onValueChange={setProductFilter}>
+                  <SelectTrigger className="w-48">
+                    <SelectValue placeholder={t('stockMovements.filters.allProducts')} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">{t('stockMovements.filters.allProducts')}</SelectItem>
+                    {products.map((product) => (
+                      <SelectItem key={product.productId} value={String(product.productId)}>
+                        {product.article || `#${product.productId}`}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs text-slate-500">{t('stockMovements.filters.warehouse')}</label>
+                <Select value={warehouseFilter} onValueChange={setWarehouseFilter}>
+                  <SelectTrigger className="w-48">
+                    <SelectValue placeholder={t('stockMovements.filters.allWarehouses')} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">{t('stockMovements.filters.allWarehouses')}</SelectItem>
+                    {ownWarehouses.map((warehouse) => (
+                      <SelectItem key={warehouse.warehouseId} value={String(warehouse.warehouseId)}>
+                        {warehouse.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs text-slate-500">{t('stockMovements.filters.fromDate')}</label>
+                <Input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  className="w-40"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs text-slate-500">{t('stockMovements.filters.toDate')}</label>
+                <Input
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  className="w-40"
+                />
+              </div>
+
+              {hasActiveFilters && (
+                <Button variant="ghost" size="sm" onClick={clearFilters} className="mb-0.5">
+                  <X className="mr-1 h-4 w-4" />
+                  {t('stockMovements.filters.clear')}
+                </Button>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {isLoading ? (
+        <Card className="dark:border-slate-800 dark:bg-slate-900">
+          <CardContent className="pt-6">
+            <LoadingState />
+          </CardContent>
+        </Card>
+      ) : filteredRows.length === 0 ? (
+        <Card className="dark:border-slate-800 dark:bg-slate-900">
+          <CardContent className="pt-6">
+            <EmptyState message={t('stockMovements.emptyMessage')} />
+          </CardContent>
+        </Card>
+      ) : (
+        <DataTable
+          columns={columns}
+          data={filteredRows}
+          searchPlaceholder={t('stockMovements.searchPlaceholder')}
+          emptyMessage={t('stockMovements.emptyMessage')}
+          pageSize={25}
+        />
+      )}
     </div>
   );
 }

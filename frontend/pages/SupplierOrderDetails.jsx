@@ -1514,10 +1514,17 @@ export default function SupplierOrderDetails() {
                     <div className="flex items-center gap-2">
                       {doc.filePath && (
                         <>
-                          <Button variant="ghost" size="icon" asChild>
-                            <a href={api.upload.getFileUrl(doc.filePath) || '#'} target="_blank" rel="noopener noreferrer">
-                              <ExternalLink className="w-4 h-4" />
-                            </a>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => {
+                              api.upload.openFile(doc.filePath).catch(() => {
+                                setDeleteDocumentError(t('supplierOrderDetails.errors.documentOpenFailed'));
+                                setDeleteDocumentErrorDialogOpen(true);
+                              });
+                            }}
+                          >
+                            <ExternalLink className="w-4 h-4" />
                           </Button>
                           <Button 
                             variant="ghost" 

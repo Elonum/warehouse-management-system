@@ -901,8 +901,27 @@ const api = {
 
     getFileUrl: (filePath) => {
       if (!filePath) return null;
-      const fileName = filePath.split('/').pop();
-      return `${API_BASE_URL}/files?path=${encodeURIComponent(fileName)}`;
+      const normalized = String(filePath).replace(/\\/g, '/');
+      return `${API_BASE_URL}/files?path=${encodeURIComponent(normalized)}`;
+    },
+
+    /** Opens a file in a new tab using Authorization (required for documents). */
+    openFile: async (filePath) => {
+      const url = api.upload.getFileUrl(filePath);
+      if (!url) {
+        throw new ApiError('INVALID_FILE', 'File path is missing', 400);
+      }
+      const token = localStorage.getItem('token');
+      const response = await fetch(url, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!response.ok) {
+        throw new ApiError('FILE_OPEN_FAILED', 'Failed to open file', response.status);
+      }
+      const blob = await response.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      window.open(blobUrl, '_blank', 'noopener,noreferrer');
+      window.setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000);
     },
   },
 };

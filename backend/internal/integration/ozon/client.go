@@ -9,6 +9,8 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	"warehouse-backend/internal/integration/integrationlog"
 )
 
 const defaultHTTPTimeout = 120 * time.Second
@@ -66,7 +68,8 @@ func (c *Client) postJSON(ctx context.Context, path string, body any, maxBody in
 		return nil, resp.StatusCode, err
 	}
 	if resp.StatusCode != http.StatusOK {
-		return raw, resp.StatusCode, fmt.Errorf("ozon POST %s: status %d: %s", path, resp.StatusCode, strings.TrimSpace(string(raw)))
+		safeBody := integrationlog.Truncate(strings.TrimSpace(string(raw)), 240)
+		return raw, resp.StatusCode, fmt.Errorf("ozon POST %s: status %d: %s", path, resp.StatusCode, safeBody)
 	}
 	return raw, resp.StatusCode, nil
 }

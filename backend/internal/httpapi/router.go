@@ -121,7 +121,7 @@ func NewRouter(pg *db.Postgres, cfg config.Config) *chi.Mux {
 	inventoryItemHandler := handlers.NewInventoryItemHandler(inventoryItemService)
 	productCostHandler := handlers.NewProductCostHandler(productCostService)
 	stockSnapshotHandler := handlers.NewStockSnapshotHandler(stockSnapshotService)
-	uploadHandler := handlers.NewUploadHandler()
+	uploadHandler := handlers.NewUploadHandler(jwtManager)
 
 	// Rate limiters for auth endpoints
 	loginLimiter, registerLimiter, passwordResetLimiter := buildAuthRateLimiters()
@@ -139,7 +139,7 @@ func NewRouter(pg *db.Postgres, cfg config.Config) *chi.Mux {
 		r.With(middleware.RateLimitMiddleware(passwordResetLimiter)).Post("/auth/password-reset/request", authHandler.RequestPasswordReset)
 		r.With(middleware.RateLimitMiddleware(passwordResetLimiter)).Post("/auth/password-reset/confirm", authHandler.ResetPassword)
 
-		// File serving endpoint - public (but secured by path validation in handler)
+		// Product images are public; documents require auth (enforced in ServeFile).
 		r.Get("/files", uploadHandler.ServeFile)
 
 		r.Group(func(r chi.Router) {

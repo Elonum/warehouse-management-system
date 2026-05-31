@@ -1,12 +1,15 @@
 package config
 
 import (
+	"fmt"
 	"os"
 	"strings"
 
 	"github.com/joho/godotenv"
 	"github.com/rs/zerolog/log"
 )
+
+const defaultJWTSecret = "your-secret-key-change-in-production"
 
 type Config struct {
 	Port string
@@ -61,7 +64,7 @@ func Load() Config {
 		DBPassword: getEnv("DB_PASSWORD", ""),
 		DBName:     getEnv("DB_NAME", "warehouse"),
 
-		JWTSecret:   getEnv("JWT_SECRET", "your-secret-key-change-in-production"),
+		JWTSecret:   getEnv("JWT_SECRET", defaultJWTSecret),
 		BaseURL:     getEnv("BASE_URL", "http://localhost:"+port),
 		FrontendURL: getEnv("FRONTEND_URL", "http://localhost:5173"), // Default to Vite dev server
 
@@ -82,6 +85,17 @@ func Load() Config {
 	}
 
 	return cfg
+}
+
+// Validate rejects unsafe production configuration.
+func (c Config) Validate() error {
+	if c.Env != "production" {
+		return nil
+	}
+	if strings.TrimSpace(c.JWTSecret) == "" || c.JWTSecret == defaultJWTSecret {
+		return fmt.Errorf("JWT_SECRET must be set to a strong unique value when ENV=production")
+	}
+	return nil
 }
 
 func getEnv(key, defaultValue string) string {

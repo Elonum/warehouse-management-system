@@ -18,6 +18,9 @@ import (
 
 func main() {
 	cfg := config.Load()
+	if err := cfg.Validate(); err != nil {
+		log.Fatal().Err(err).Msg("Invalid configuration")
+	}
 
 	logger.Init(cfg.Env)
 	log.Info().Str("env", cfg.Env).Msg("Starting warehouse management system")

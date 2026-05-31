@@ -31,6 +31,7 @@ func NewRouter(pg *db.Postgres, cfg config.Config) *chi.Mux {
 	jwtManager := auth.NewJWTManager(cfg.JWTSecret)
 
 	stockRepo := repository.NewStockRepository(pg.Pool)
+	stockMovementRepo := repository.NewStockMovementRepository(pg.Pool)
 	userRepo := repository.NewUserRepository(pg.Pool)
 	roleRepo := repository.NewRoleRepository(pg.Pool)
 	productRepo := repository.NewProductRepository(pg.Pool)
@@ -51,6 +52,7 @@ func NewRouter(pg *db.Postgres, cfg config.Config) *chi.Mux {
 	stockSnapshotRepo := repository.NewStockSnapshotRepository(pg.Pool)
 
 	stockService := service.NewStockService(stockRepo)
+	stockMovementService := service.NewStockMovementService(stockMovementRepo)
 
 	// Password reset and email services
 	passwordResetRepo := repository.NewPasswordResetRepository(pg.Pool)
@@ -98,6 +100,7 @@ func NewRouter(pg *db.Postgres, cfg config.Config) *chi.Mux {
 	roleService := service.NewRoleService(roleRepo)
 
 	stockHandler := handlers.NewStockHandler(stockService)
+	stockMovementHandler := handlers.NewStockMovementHandler(stockMovementService)
 	healthHandler := handlers.NewHealthHandler(pg)
 	authHandler := handlers.NewAuthHandler(authService)
 	userHandler := handlers.NewUserHandler(userService)
@@ -147,6 +150,7 @@ func NewRouter(pg *db.Postgres, cfg config.Config) *chi.Mux {
 
 			r.Get("/auth/me", authHandler.GetMe)
 			r.Get("/stock/current", stockHandler.GetCurrentStock)
+			r.Get("/stock/movements", stockMovementHandler.List)
 
 			// File upload endpoints (require auth)
 			r.Post("/upload", uploadHandler.Upload)

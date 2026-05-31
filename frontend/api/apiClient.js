@@ -793,6 +793,40 @@ const api = {
         },
       };
     },
+
+    listMovements: async (params = {}) => {
+      const queryParams = new URLSearchParams();
+      if (params.warehouseId) queryParams.append('warehouseId', params.warehouseId);
+      if (params.productId) queryParams.append('productId', params.productId);
+      if (params.movementType) queryParams.append('movementType', params.movementType);
+      if (params.q) queryParams.append('q', params.q);
+      if (params.fromDate) queryParams.append('fromDate', params.fromDate);
+      if (params.toDate) queryParams.append('toDate', params.toDate);
+      if (params.ownWarehousesOnly != null) {
+        queryParams.append('ownWarehousesOnly', String(params.ownWarehousesOnly));
+      }
+      if (params.limit != null) queryParams.append('limit', String(params.limit));
+      if (params.offset != null) queryParams.append('offset', String(params.offset));
+      const query = queryParams.toString();
+      const raw = await request(`/stock/movements${query ? `?${query}` : ''}`, { envelope: true });
+      const data = raw.data || {};
+      const items = Array.isArray(data.items) ? data.items : [];
+      const summary = data.summary || { totalRows: 0, totalIn: 0, totalOut: 0 };
+      const m = raw.meta || {};
+      return {
+        items,
+        summary: {
+          totalRows: Number(summary.totalRows) || 0,
+          totalIn: Number(summary.totalIn) || 0,
+          totalOut: Number(summary.totalOut) || 0,
+        },
+        meta: {
+          limit: Number(m.limit) || 50,
+          offset: Number(m.offset) || 0,
+          total: Number(m.total) || summary.totalRows || 0,
+        },
+      };
+    },
   },
 
   users: {

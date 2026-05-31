@@ -138,15 +138,16 @@ export default function Dashboard() {
     },
   });
 
-  // В проекте пока нет полноценного "журнала движений" (incoming/outgoing/transfer).
-  // Для дашборда используем последние "снимки остатков" как историю изменений остатков.
-  const { data: stockSnapshots = [], isLoading: loadingMovements } = useQuery({
-    queryKey: ['stockSnapshots'],
-    queryFn: async () => {
-      const response = await api.stockSnapshots.list({ limit: 10, offset: 0 });
-      return Array.isArray(response) ? response : [];
-    },
+  const { data: recentMovementsPayload, isLoading: loadingMovements } = useQuery({
+    queryKey: ['stock-movements-dashboard'],
+    queryFn: async () =>
+      api.stock.listMovements({
+        limit: 5,
+        offset: 0,
+        ownWarehousesOnly: 'true',
+      }),
   });
+  const recentMovements = recentMovementsPayload?.items ?? [];
 
   const isLoading =
     loadingProducts ||
@@ -672,43 +673,44 @@ export default function Dashboard() {
               <div className="space-y-3">
                 {[1,2,3,4,5].map(i => <Skeleton key={i} className="h-12" />)}
               </div>
-            ) : stockSnapshots.length > 0 ? (
+            ) : recentMovements.length > 0 ? (
               <div className="space-y-3">
-                {stockSnapshots.slice(0, 5).map(snapshot => {
-                  const product = products.find(p => p.productId === snapshot.productId);
-                  const warehouse = warehouses.find(w => w.warehouseId === snapshot.warehouseId);
-                  return (
-                  <div 
-                    key={snapshot.snapshotId}
-                    className="flex items-center justify-between p-3 rounded-lg bg-slate-50 dark:bg-slate-800/50"
+                {recentMovements.map((movement, index) => (
+                  <div
+                    key={`${movement.documentId}-${movement.productId}-${movement.movementDate}-${index}`}
+                    className="flex items-center justify-between rounded-lg bg-slate-50 p-3 dark:bg-slate-800/50"
                   >
-                    <div className="flex items-center gap-3">
-                      <div className={`p-2 rounded-lg ${
-                        'bg-amber-100 dark:bg-amber-500/20'
-                      }`}>
-                        <Boxes className="w-4 h-4 text-amber-600 dark:text-amber-400" />
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium text-slate-900 dark:text-slate-100">
-                          {product?.article || `${t('dashboard.product')} #${snapshot.productId}`}
-                        </p>
-                        <p className="text-xs text-slate-500 dark:text-slate-400">
-                          {warehouse?.name || `${t('dashboard.warehouse')} #${snapshot.warehouseId}`}
-                        </p>
-                      </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium text-slate-900 dark:text-slate-100">
+                        {movement.productArticle ||
+                          `${t('dashboard.product')} #${movement.productId}`}
+                      </p>
+                      <p className="truncate text-xs text-slate-500 dark:text-slate-400">
+                        {t(`stockMovements.types.${movement.movementType}`)}
+                        {movement.warehouseName ? ` · ${movement.warehouseName}` : ''}
+                      </p>
                     </div>
-                    <div className="text-right">
-                      <p className={`text-sm font-semibold ${
-                        'text-slate-900 dark:text-slate-100'
-                      }`}>
-                        {snapshot.quantity?.toLocaleString() || 0} {t('common.units')}
+                    <div className="shrink-0 pl-3 text-right">
+                      <p
+                        className={`text-sm font-semibold ${
+                          movement.quantity > 0
+                            ? 'text-emerald-600 dark:text-emerald-400'
+                            : movement.quantity < 0
+                              ? 'text-rose-600 dark:text-rose-400'
+                              : 'text-slate-900 dark:text-slate-100'
+                        }`}
+                      >
+                        {movement.quantity > 0 ? '+' : ''}
+                        {movement.quantity?.toLocaleString() || 0} {t('common.units')}
                       </p>
                       <p className="text-xs text-slate-500 dark:text-slate-400">
-                        {snapshot.snapshotDate ? format(new Date(snapshot.snapshotDate), 'dd.MM') : ''}
+                        {movement.movementDate
+                          ? format(new Date(movement.movementDate), 'dd.MM.yyyy')
+                          : ''}
                       </p>
                     </div>
                   </div>
-                )})}
+                ))}
               </div>
             ) : (
               <EmptyState className="h-32" message={t('dashboard.movements')} />

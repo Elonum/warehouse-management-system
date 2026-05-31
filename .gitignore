@@ -91,3 +91,25 @@ temp/
 *.seed
 *.pid
 *.pid.lock
+
+# Secrets & local env (never commit)
+.env
+.env.*
+!.env.example
+backend/.env
+backend/internal/config/.env
+*.pem
+*.key
+*.p12
+credentials.json
+secrets.json
+serviceAccount*.json
+
+# User uploads (keep directory structure via backend/uploads/.gitignore)
+backend/uploads/*
+!backend/uploads/.gitkeep
+!backend/uploads/.gitignore
+
+# Test / coverage
+coverage/
+*.coverprofile

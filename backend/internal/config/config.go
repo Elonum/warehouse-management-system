@@ -25,10 +25,6 @@ type Config struct {
 	BaseURL     string // Base URL for serving files (e.g., "http://localhost:8080")
 	FrontendURL string // Frontend URL for password reset links (e.g., "http://localhost:5173")
 
-	// Wildberries FBW Supplies API (category «Поставки» in seller token settings)
-	WbSuppliesToken   string
-	WbSuppliesBaseURL string
-
 	// Wildberries Statistics API — остатки GET /api/v1/supplier/stocks (категория «Статистика»; для песочницы — тестовый контур и WB_STATISTICS_BASE_URL).
 	WbStatisticsToken   string
 	WbStatisticsBaseURL string
@@ -67,9 +63,6 @@ func Load() Config {
 		JWTSecret:   getEnv("JWT_SECRET", defaultJWTSecret),
 		BaseURL:     getEnv("BASE_URL", "http://localhost:"+port),
 		FrontendURL: getEnv("FRONTEND_URL", "http://localhost:5173"), // Default to Vite dev server
-
-		WbSuppliesToken:   getEnv("WB_SUPPLIES_TOKEN", ""),
-		WbSuppliesBaseURL: getEnv("WB_SUPPLIES_BASE_URL", "https://supplies-api.wildberries.ru"),
 
 		WbStatisticsToken:   getEnv("WB_STATISTICS_TOKEN", ""),
 		WbStatisticsBaseURL: getEnv("WB_STATISTICS_BASE_URL", "https://statistics-api.wildberries.ru"),

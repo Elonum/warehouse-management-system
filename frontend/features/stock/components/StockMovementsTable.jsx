@@ -1,5 +1,4 @@
 import React, { useMemo } from 'react';
-import { format } from 'date-fns';
 import { Link } from 'react-router-dom';
 import {
   ArrowDownRight,
@@ -12,6 +11,7 @@ import {
 import DataTable from '@/components/ui/DataTable';
 import { Button } from '@/components/ui/button';
 import { movementDocumentPath } from '@/features/stock/stockMovementConstants';
+import { useI18n } from '@/lib/i18n';
 
 function MovementTypeIcon({ type }) {
   switch (type) {
@@ -35,19 +35,17 @@ export default function StockMovementsTable({
   serverPagination,
   showWarehouseColumn = true,
 }) {
+  const { formatDate } = useI18n();
   const columns = useMemo(() => {
     const cols = [
       {
         accessorKey: 'movementDate',
         header: t('stockMovements.table.date'),
-        cell: ({ row }) => {
-          const date = row.original.movementDate;
-          return (
-            <p className="font-medium text-slate-900 dark:text-slate-100">
-              {date ? format(new Date(date), 'dd.MM.yyyy') : '—'}
-            </p>
-          );
-        },
+        cell: ({ row }) => (
+          <p className="font-medium text-slate-900 dark:text-slate-100">
+            {formatDate(row.original.movementDate)}
+          </p>
+        ),
       },
       {
         accessorKey: 'documentNumber',
@@ -153,7 +151,7 @@ export default function StockMovementsTable({
     });
 
     return cols;
-  }, [t, showWarehouseColumn]);
+  }, [t, showWarehouseColumn, formatDate]);
 
   return (
     <DataTable

@@ -595,7 +595,7 @@ export default function Dashboard() {
           </div>
           <Link
             to={stockLowLink}
-            className="flex shrink-0 items-center gap-1 text-sm text-indigo-600 hover:text-indigo-700 dark:text-indigo-400"
+              className="link-primary flex shrink-0 items-center gap-1 text-sm"
           >
             {t('dashboard.lowStock.openStock')}
             <ArrowUpRight className="w-4 h-4" />
@@ -662,7 +662,7 @@ export default function Dashboard() {
             </CardTitle>
             <Link 
               to={createPageUrl('StockMovements')}
-              className="flex items-center gap-1 text-sm text-indigo-600 hover:text-indigo-700 dark:text-indigo-400"
+              className="link-primary flex items-center gap-1 text-sm"
             >
               {t('common.all')}
               <ArrowUpRight className="w-4 h-4" />
@@ -727,7 +727,7 @@ export default function Dashboard() {
             </CardTitle>
             <Link 
               to={createPageUrl('SupplierOrders')}
-              className="flex items-center gap-1 text-sm text-indigo-600 hover:text-indigo-700 dark:text-indigo-400"
+              className="link-primary flex items-center gap-1 text-sm"
             >
               {t('common.all')}
               <ArrowUpRight className="w-4 h-4" />

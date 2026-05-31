@@ -452,20 +452,6 @@ const api = {
     getItems: async (shipmentId) => {
       return await request(`/mp-shipments/${shipmentId}/items`);
     },
-
-    wildberriesPreview: async (shipmentId, body) => {
-      return await request(`/mp-shipments/${shipmentId}/import/wildberries/preview`, {
-        method: 'POST',
-        body,
-      });
-    },
-
-    wildberriesApply: async (shipmentId, body) => {
-      return await request(`/mp-shipments/${shipmentId}/import/wildberries/apply`, {
-        method: 'POST',
-        body,
-      });
-    },
   },
 
   mpShipmentItems: {
@@ -497,13 +483,6 @@ const api = {
 
   integrations: {
     wildberries: {
-      /** @param {{ limit?: number, offset?: number, statusIds?: number[], dates?: { from: string, till: string, type: string }[] }} body */
-      listSupplies: async (body = {}) => {
-        return await request('/integrations/wildberries/supplies/list', {
-          method: 'POST',
-          body,
-        });
-      },
       /** @param {{ dateFrom?: string }} body — RFC3339 или YYYY-MM-DD; пусто = дефолт WB (с 2020-11-15). */
       listStocks: async (body = {}) => {
         return await request('/integrations/wildberries/stocks/list', {

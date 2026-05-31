@@ -1,4 +1,8 @@
-import { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
+import { format } from 'date-fns';
+import { ru, enUS } from 'date-fns/locale';
+
+const dateLocales = { ru, en: enUS };
 
 const translations = {
   ru: {
@@ -55,6 +59,70 @@ const translations = {
       appName: 'WareFlow',
       appDescription: 'Управление складом',
       settings: 'Настройки',
+    },
+    auth: {
+      login: {
+        subtitle: 'Вход в систему управления складом',
+        email: 'Email',
+        password: 'Пароль',
+        submit: 'Войти',
+        submitting: 'Вход...',
+        forgotPassword: 'Забыли пароль?',
+        errors: {
+          invalidCredentials: 'Неверный email или пароль',
+          rateLimited: 'Превышено количество попыток входа',
+          loginFailed: 'Ошибка входа',
+          network: 'Ошибка подключения к серверу',
+          fillAllFields: 'Заполните все поля',
+        },
+        attemptsLeft: 'Осталось попыток входа: {remaining} из {limit}',
+        retryInMinutes: 'Попробуйте снова через {minutes} мин{secondsPart}.',
+        retryInSeconds: 'Попробуйте снова через {seconds} сек.',
+        retrySecondsPart: ' {seconds} сек',
+      },
+      forgotPassword: {
+        title: 'Сброс пароля',
+        description: 'Введите email, указанный при регистрации, и мы отправим инструкцию по сбросу пароля',
+        submit: 'Отправить инструкцию',
+        submitting: 'Отправка...',
+        backToLogin: 'Вернуться к входу',
+        successTitle: 'Запрос отправлен',
+        successDescription: 'Если указанный email существует в системе, на него отправлена инструкция по сбросу пароля',
+        successHint: 'Проверьте почту и следуйте инструкциям в письме.',
+        successSpamHint: 'Если письмо не пришло, проверьте папку «Спам» или попробуйте запросить сброс пароля снова через несколько минут.',
+        errors: {
+          emailRequired: 'Введите email',
+          emailInvalid: 'Введите корректный email адрес',
+          requestFailed: 'Ошибка при запросе сброса пароля',
+          network: 'Ошибка подключения к серверу',
+        },
+      },
+      resetPassword: {
+        title: 'Новый пароль',
+        description: 'Введите новый пароль для вашего аккаунта',
+        newPassword: 'Новый пароль',
+        confirmPassword: 'Подтвердите пароль',
+        submit: 'Изменить пароль',
+        submitting: 'Сброс пароля...',
+        backToLogin: 'Вернуться к входу',
+        successTitle: 'Пароль успешно изменён',
+        successDescription: 'Вы будете перенаправлены на страницу входа через несколько секунд',
+        goToLogin: 'Перейти к входу',
+        passwordsMismatch: 'Пароли не совпадают',
+        errors: {
+          tokenMissing: 'Токен сброса пароля отсутствует. Пожалуйста, запросите сброс пароля заново.',
+          tokenMissingShort: 'Токен сброса пароля отсутствует',
+          invalidToken: 'Токен сброса пароля недействителен или истёк. Пожалуйста, запросите новый.',
+          tokenExpired: 'Срок действия токена истёк. Пожалуйста, запросите новый.',
+          tokenUsed: 'Этот токен уже был использован. Пожалуйста, запросите новый.',
+          weakPassword: 'Пароль не соответствует требованиям безопасности. Используйте более сложный пароль.',
+          resetFailed: 'Ошибка при сбросе пароля',
+          network: 'Ошибка подключения к серверу',
+          fillAllFields: 'Заполните все поля',
+          tooShort: 'Пароль должен содержать минимум 8 символов',
+          tooWeak: 'Пароль слишком слабый. Используйте более сложный пароль.',
+        },
+      },
     },
     nav: {
       dashboard: 'Панель управления',
@@ -631,6 +699,7 @@ const translations = {
         acceptanceCost: 'Стоимость приёмки (₽)',
       },
       filters: {
+        title: 'Фильтры:',
         statusesLabel: 'Статусы отгрузок',
         allStatuses: 'Все статусы',
       },
@@ -662,84 +731,6 @@ const translations = {
         marketplaceWarehouseRequired: 'Склад МП обязателен',
         mainWarehouseInvalid: 'Выберите основной склад (не склад маркетплейса)',
         marketplaceWarehouseInvalid: 'Выберите склад с признаком маркетплейса',
-      },
-      import: {
-        menuLabel: 'Импорт из МП',
-        wildberries: 'Wildberries',
-        ozon: 'Ozon',
-        backToShipments: 'К списку отгрузок',
-        mockNotice: 'Макет страницы: дальше — загрузка файла, сопоставление с отгрузкой и перенос в принятые количества.',
-        wildberriesPageTitle: 'Импорт отгрузок — Wildberries',
-        wildberriesPageDescription:
-          'Подставьте фактически принятые количества из кабинета Wildberries в выбранную отгрузку.',
-        wbFieldShipment: 'Отгрузка',
-        wbShipmentPlaceholder: 'Выберите отгрузку',
-        wbFieldSupplyId: 'Номер поставки',
-        wbFieldMatchBy: 'Как сопоставлять товары',
-        wbMatchBarcode: 'По штрихкоду',
-        wbMatchVendorCode: 'По артикулу',
-        wbIsPreorderID: 'Номер относится к заказу (предзаказу), а не к поставке',
-        wbPreview: 'Показать предпросмотр',
-        wbApply: 'Применить к отгрузке',
-        wbSupplySummary: 'Данные поставки в Wildberries',
-        wbStatus: 'Статус',
-        wbWarehouse: 'Склад',
-        wbAcceptedTotal: 'Принято всего',
-        wbWarnings: 'Обратите внимание',
-        wbLinesTitle: 'Позиции: что будет записано в «Принято»',
-        wbColArticle: 'Артикул',
-        wbColBarcode: 'Штрихкод',
-        wbColSent: 'Отправлено',
-        wbColCurrentAccepted: 'Сейчас принято',
-        wbColImportAccepted: 'Будет принято',
-        wbColMatched: 'Есть в данных WB',
-        wbUnmatchedTitle: 'Строки Wildberries без совпадения с вашей отгрузкой',
-        wbColVendor: 'Артикул WB',
-        wbColAccepted: 'Принято (WB)',
-        wbColNmId: 'Код WB',
-        wbWarningSurplus:
-          'По данным Wildberries принято на {extra} ед. больше, чем сумма «отправлено» по артикулу {article}; лишнее не распределено по строкам отгрузки.',
-        wbListTitle: 'Поставки Wildberries',
-        wbListHint:
-          'Загрузите список и нажмите «Выбрать» у нужной строки — номер подставится ниже. Можно указать период: по умолчанию показываются поставки на приёмке и уже принятые.',
-        wbListLoad: 'Загрузить список',
-        wbListEmpty: 'За выбранный период поставок не найдено. Измените даты или введите номер поставки вручную.',
-        wbDateFrom: 'С даты',
-        wbDateTill: 'По дату',
-        wbDateType: 'Какую дату использовать',
-        wbDateTypeFact: 'Факт приёмки',
-        wbDateTypeSupply: 'Дата поставки',
-        wbDateTypeCreate: 'Дата создания',
-        wbListColImportId: 'Номер',
-        wbListColKind: 'Тип',
-        wbListKindSupply: 'Поставка',
-        wbListKindPreorder: 'Предзаказ',
-        wbListColSupplyDate: 'Дата поставки',
-        wbListColFactDate: 'Факт приёмки',
-        wbListUse: 'Выбрать',
-        errors: {
-          generic: 'Не удалось выполнить операцию. Попробуйте ещё раз.',
-          wbUnavailable: 'Сервис Wildberries временно недоступен. Попробуйте позже.',
-          serviceUnavailable: 'Импорт сейчас недоступен. Обратитесь к администратору.',
-          invalidData: 'Проверьте введённые данные и настройки сопоставления.',
-          shipmentNotFound: 'Отгрузка не найдена.',
-          network: 'Нет соединения с сервером. Проверьте интернет и попробуйте снова.',
-          dateRangeIncomplete: 'Укажите обе даты периода или оставьте поля пустыми.',
-          dateRangeOrder: 'Дата «с» не может быть позже даты «по».',
-        },
-        ozonPageTitle: 'Импорт отгрузок — Ozon',
-        ozonPageDescription:
-          'Загрузка данных Ozon (отчёты о приёмке и т.п.) для автозаполнения принятых количеств.',
-        sectionUpload: '1. Файл или источник',
-        sectionUploadHint: 'Перетащите файл сюда или выберите на диске (формат уточним после выбора API/шаблона).',
-        sectionPreview: '2. Предпросмотр',
-        sectionPreviewHint: 'Здесь появится таблица распознанных строк до сохранения.',
-        sectionMapping: '3. Сопоставление',
-        sectionMappingHint:
-          'Выбор целевой отгрузки в системе, сопоставление артикулов с товарами склада — на следующем этапе.',
-        chooseFile: 'Выбрать файл',
-        integrationsNote:
-          'Подключение API-ключей маркетплейсов при необходимости вынесем в настройки или отдельный блок — обсудим отдельно.',
       },
     },
     shipmentDetails: {
@@ -832,6 +823,7 @@ const translations = {
         cannotDeleteCompleted: 'Завершённую инвентаризацию нельзя удалить, так как она уже применена к остаткам склада',
       },
       filters: {
+        title: 'Фильтры:',
         status: 'Статус инвентаризации',
         all: 'Все инвентаризации',
         final: 'Только завершённые',
@@ -1056,7 +1048,7 @@ const translations = {
         total: 'Записей',
         incoming: 'Приход',
         outgoing: 'Расход',
-        net: 'Итого изменение',
+        net: 'Итого',
       },
       types: {
         SUPPLIER_RECEIPT: 'Приход от поставщика',
@@ -1208,6 +1200,70 @@ const translations = {
       appName: 'WareFlow',
       appDescription: 'Warehouse Management',
       settings: 'Settings',
+    },
+    auth: {
+      login: {
+        subtitle: 'Sign in to your warehouse account',
+        email: 'Email',
+        password: 'Password',
+        submit: 'Sign in',
+        submitting: 'Signing in...',
+        forgotPassword: 'Forgot password?',
+        errors: {
+          invalidCredentials: 'Invalid email or password',
+          rateLimited: 'Too many login attempts',
+          loginFailed: 'Sign-in failed',
+          network: 'Cannot connect to the server',
+          fillAllFields: 'Please fill in all fields',
+        },
+        attemptsLeft: 'Login attempts left: {remaining} of {limit}',
+        retryInMinutes: 'Try again in {minutes} min{secondsPart}.',
+        retryInSeconds: 'Try again in {seconds} sec.',
+        retrySecondsPart: ' {seconds} sec',
+      },
+      forgotPassword: {
+        title: 'Reset password',
+        description: 'Enter the email you used to register and we will send reset instructions',
+        submit: 'Send instructions',
+        submitting: 'Sending...',
+        backToLogin: 'Back to sign in',
+        successTitle: 'Request sent',
+        successDescription: 'If the email exists in our system, reset instructions have been sent',
+        successHint: 'Check your inbox and follow the instructions in the email.',
+        successSpamHint: 'If you do not see the email, check spam or try again in a few minutes.',
+        errors: {
+          emailRequired: 'Enter your email',
+          emailInvalid: 'Enter a valid email address',
+          requestFailed: 'Password reset request failed',
+          network: 'Cannot connect to the server',
+        },
+      },
+      resetPassword: {
+        title: 'New password',
+        description: 'Enter a new password for your account',
+        newPassword: 'New password',
+        confirmPassword: 'Confirm password',
+        submit: 'Change password',
+        submitting: 'Resetting password...',
+        backToLogin: 'Back to sign in',
+        successTitle: 'Password changed successfully',
+        successDescription: 'You will be redirected to sign in in a few seconds',
+        goToLogin: 'Go to sign in',
+        passwordsMismatch: 'Passwords do not match',
+        errors: {
+          tokenMissing: 'Reset token is missing. Please request a new password reset.',
+          tokenMissingShort: 'Reset token is missing',
+          invalidToken: 'Reset token is invalid or expired. Please request a new one.',
+          tokenExpired: 'Reset token has expired. Please request a new one.',
+          tokenUsed: 'This token has already been used. Please request a new one.',
+          weakPassword: 'Password does not meet security requirements. Choose a stronger password.',
+          resetFailed: 'Password reset failed',
+          network: 'Cannot connect to the server',
+          fillAllFields: 'Please fill in all fields',
+          tooShort: 'Password must be at least 8 characters',
+          tooWeak: 'Password is too weak. Choose a stronger password.',
+        },
+      },
     },
     nav: {
       dashboard: 'Dashboard',
@@ -1783,6 +1839,7 @@ const translations = {
         acceptanceCost: 'Acceptance cost (₽)',
       },
       filters: {
+        title: 'Filters:',
         statusesLabel: 'Shipment statuses',
         allStatuses: 'All statuses',
       },
@@ -1814,84 +1871,6 @@ const translations = {
         marketplaceWarehouseRequired: 'Marketplace warehouse is required',
         mainWarehouseInvalid: 'Please select a main (non-marketplace) warehouse',
         marketplaceWarehouseInvalid: 'Please select a warehouse marked as marketplace',
-      },
-      import: {
-        menuLabel: 'Marketplace import',
-        wildberries: 'Wildberries',
-        ozon: 'Ozon',
-        backToShipments: 'Back to shipments',
-        mockNotice: 'Page mockup next: file upload, mapping to a shipment, and updating accepted quantities.',
-        wildberriesPageTitle: 'Import shipments — Wildberries',
-        wildberriesPageDescription:
-          'Fill accepted quantities from your Wildberries seller account into the selected shipment.',
-        wbFieldShipment: 'Shipment',
-        wbShipmentPlaceholder: 'Choose shipment',
-        wbFieldSupplyId: 'Supply number',
-        wbFieldMatchBy: 'Match products by',
-        wbMatchBarcode: 'Barcode',
-        wbMatchVendorCode: 'Article (SKU)',
-        wbIsPreorderID: 'This number is an order (preorder), not a supply',
-        wbPreview: 'Preview',
-        wbApply: 'Apply to shipment',
-        wbSupplySummary: 'Wildberries supply details',
-        wbStatus: 'Status',
-        wbWarehouse: 'Warehouse',
-        wbAcceptedTotal: 'Total accepted',
-        wbWarnings: 'Please note',
-        wbLinesTitle: 'Lines: values to save as “Accepted”',
-        wbColArticle: 'Article',
-        wbColBarcode: 'Barcode',
-        wbColSent: 'Sent',
-        wbColCurrentAccepted: 'Currently accepted',
-        wbColImportAccepted: 'Will be accepted',
-        wbColMatched: 'Found in Wildberries data',
-        wbUnmatchedTitle: 'Wildberries lines with no match in your shipment',
-        wbColVendor: 'WB vendor code',
-        wbColAccepted: 'Accepted (WB)',
-        wbColNmId: 'WB ID',
-        wbWarningSurplus:
-          'Wildberries shows {extra} more units than total “sent” for article {article}; the surplus was not distributed across shipment lines.',
-        wbListTitle: 'Wildberries supplies',
-        wbListHint:
-          'Load the list and click “Use” on a row to fill in the number below. Optionally set a date range; by default, supplies in acceptance or already accepted are shown.',
-        wbListLoad: 'Load list',
-        wbListEmpty: 'No supplies for this period. Change the dates or enter a supply number manually.',
-        wbDateFrom: 'From',
-        wbDateTill: 'To',
-        wbDateType: 'Which date to use',
-        wbDateTypeFact: 'Acceptance fact',
-        wbDateTypeSupply: 'Supply date',
-        wbDateTypeCreate: 'Created at',
-        wbListColImportId: 'Number',
-        wbListColKind: 'Type',
-        wbListKindSupply: 'Supply',
-        wbListKindPreorder: 'Preorder',
-        wbListColSupplyDate: 'Supply date',
-        wbListColFactDate: 'Accepted on',
-        wbListUse: 'Use',
-        errors: {
-          generic: 'Something went wrong. Please try again.',
-          wbUnavailable: 'Wildberries is temporarily unavailable. Please try again later.',
-          serviceUnavailable: 'Import is not available right now. Please contact your administrator.',
-          invalidData: 'Check the entered values and matching settings.',
-          shipmentNotFound: 'Shipment was not found.',
-          network: 'Cannot reach the server. Check your connection and try again.',
-          dateRangeIncomplete: 'Enter both start and end dates, or leave both empty.',
-          dateRangeOrder: 'The start date cannot be after the end date.',
-        },
-        ozonPageTitle: 'Import shipments — Ozon',
-        ozonPageDescription:
-          'Upload Ozon data (acceptance reports, etc.) to auto-fill accepted quantities.',
-        sectionUpload: '1. File or source',
-        sectionUploadHint: 'Drag a file here or choose from disk (format TBD once API/template is chosen).',
-        sectionPreview: '2. Preview',
-        sectionPreviewHint: 'Parsed rows will appear here before saving.',
-        sectionMapping: '3. Mapping',
-        sectionMappingHint:
-          'Target shipment in the system and SKU-to-product mapping will follow in the next iteration.',
-        chooseFile: 'Choose file',
-        integrationsNote:
-          'If needed, marketplace API keys will live in settings or a dedicated section — to be decided.',
       },
     },
     shipmentDetails: {
@@ -1984,6 +1963,7 @@ const translations = {
         cannotDeleteCompleted: 'Cannot delete a completed adjustment because it has already been applied to stock levels',
       },
       filters: {
+        title: 'Filters:',
         status: 'Inventory status',
         all: 'All adjustments',
         final: 'Completed only',
@@ -2310,6 +2290,7 @@ const I18nContext = createContext({
   language: 'ru',
   setLanguage: () => {},
   t: (key) => key,
+  formatDate: () => '',
 });
 
 export function I18nProvider({ children }) {
@@ -2319,6 +2300,7 @@ export function I18nProvider({ children }) {
 
   useEffect(() => {
     localStorage.setItem('language', language);
+    document.documentElement.lang = language;
   }, [language]);
 
   const setLanguage = (lang) => {
@@ -2344,8 +2326,23 @@ export function I18nProvider({ children }) {
     return value || key;
   };
 
+  const formatDate = useCallback(
+    (value, pattern = 'dd.MM.yyyy') => {
+      if (!value) return '—';
+      const date = value instanceof Date ? value : new Date(value);
+      if (Number.isNaN(date.getTime())) return '—';
+      return format(date, pattern, { locale: dateLocales[language] || ru });
+    },
+    [language],
+  );
+
+  const contextValue = useMemo(
+    () => ({ language, setLanguage, t, formatDate }),
+    [language, t, formatDate],
+  );
+
   return (
-    <I18nContext.Provider value={{ language, setLanguage, t }}>
+    <I18nContext.Provider value={contextValue}>
       {children}
     </I18nContext.Provider>
   );

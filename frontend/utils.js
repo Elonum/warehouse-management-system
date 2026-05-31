@@ -18,8 +18,6 @@ export function createPageUrl(pageName) {
     SupplierOrderDetails: '/supplier-orders/details',
     Shipments: '/shipments',
     ShipmentDetails: '/shipments/details',
-    ShipmentImportWildberries: '/shipments/import/wildberries',
-    ShipmentImportOzon: '/shipments/import/ozon',
     InventoryAdjustments: '/inventory-adjustments',
     InventoryAdjustmentDetails: '/inventory-adjustments/details',
     ProductCosts: '/product-costs',

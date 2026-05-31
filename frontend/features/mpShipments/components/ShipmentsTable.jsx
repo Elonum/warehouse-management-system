@@ -8,8 +8,7 @@ import {
   Eye,
   Edit2,
   Trash2,
-  Upload,
-  ChevronDown,
+  Filter,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -26,13 +25,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Card, CardContent } from '@/components/ui/card';
 import PageHeader from '@/components/ui/PageHeader';
 import DataTable from '@/components/ui/DataTable';
 import StatusBadge from '@/components/ui/StatusBadge';
-import { format } from 'date-fns';
-import { ru } from 'date-fns/locale';
 import { Link, useNavigate } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
+import { useI18n } from '@/lib/i18n';
 import { FINAL_STATUS_BADGE_CLASS } from '@/features/mpShipments/utils/badge';
 
 function ShipmentsTable({
@@ -45,6 +44,7 @@ function ShipmentsTable({
   shipmentStatuses = [],
 }) {
   const navigate = useNavigate();
+  const { formatDate } = useI18n();
   const [statusFilter, setStatusFilter] = useState('all');
 
   const getStatusFilterLabel = () => {
@@ -131,11 +131,7 @@ function ShipmentsTable({
         header: t('shipments.table.shipmentDate'),
         cell: ({ row }) => (
           <span className="text-slate-600 dark:text-slate-400">
-            {row.original.shipmentDate
-              ? format(new Date(row.original.shipmentDate), 'dd.MM.yyyy', {
-                  locale: ru,
-                })
-              : '—'}
+            {formatDate(row.original.shipmentDate)}
           </span>
         ),
       },
@@ -144,11 +140,7 @@ function ShipmentsTable({
         header: t('shipments.table.acceptanceDate'),
         cell: ({ row }) => (
           <span className="text-slate-600 dark:text-slate-400">
-            {row.original.acceptanceDate
-              ? format(new Date(row.original.acceptanceDate), 'dd.MM.yyyy', {
-                  locale: ru,
-                })
-              : '—'}
+            {formatDate(row.original.acceptanceDate)}
           </span>
         ),
       },
@@ -245,7 +237,7 @@ function ShipmentsTable({
         ),
       },
     ],
-    [t, onEditShipment, onRequestDelete],
+    [t, onEditShipment, onRequestDelete, formatDate],
   );
 
   return (
@@ -254,54 +246,40 @@ function ShipmentsTable({
         title={t('shipments.title')}
         description={t('shipments.description')}
       >
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button type="button" variant="outline">
-              <Upload className="h-4 w-4 mr-2" />
-              {t('shipments.import.menuLabel')}
-              <ChevronDown className="ml-1 h-4 w-4 opacity-60" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem asChild>
-              <Link to={createPageUrl('ShipmentImportWildberries')}>
-                {t('shipments.import.wildberries')}
-              </Link>
-            </DropdownMenuItem>
-            <DropdownMenuItem asChild>
-              <Link to={createPageUrl('ShipmentImportOzon')}>{t('shipments.import.ozon')}</Link>
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
         <Button onClick={onCreateShipment}>
           <Plus className="w-4 h-4 mr-2" />
           {t('shipments.addShipment')}
         </Button>
       </PageHeader>
 
-      <div className="space-y-3">
-        <div className="flex items-center gap-3 text-sm text-slate-700 dark:text-slate-300">
-          <span>{t('shipments.filters.statusesLabel')}</span>
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-56 h-8">
-              <SelectValue>{getStatusFilterLabel()}</SelectValue>
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">
-                {t('shipments.filters.allStatuses')}
-              </SelectItem>
-              {shipmentStatuses.map((status) => (
-                <SelectItem
-                  key={status.shipmentStatusId}
-                  value={status.shipmentStatusId.toString()}
-                >
-                  {status.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
+      <Card className="dark:border-slate-800 dark:bg-slate-900">
+        <CardContent className="pt-6">
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="flex items-center gap-2">
+              <Filter className="h-4 w-4 text-slate-400" />
+              <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                {t('shipments.filters.title')}
+              </span>
+            </div>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-56" aria-label={t('shipments.filters.statusesLabel')}>
+                <SelectValue>{getStatusFilterLabel()}</SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{t('shipments.filters.allStatuses')}</SelectItem>
+                {shipmentStatuses.map((status) => (
+                  <SelectItem
+                    key={status.shipmentStatusId}
+                    value={status.shipmentStatusId.toString()}
+                  >
+                    {status.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </CardContent>
+      </Card>
 
       <DataTable
         columns={columns}

@@ -8,6 +8,7 @@ import {
   MoreHorizontal,
   Eye,
   HelpCircle,
+  Filter,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -20,8 +21,6 @@ import {
 import PageHeader from '@/components/ui/PageHeader';
 import DataTable from '@/components/ui/DataTable';
 import StatusBadge from '@/components/ui/StatusBadge';
-import { format } from 'date-fns';
-import { ru } from 'date-fns/locale';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -29,7 +28,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { Card, CardContent } from '@/components/ui/card';
 import { createPageUrl } from '@/utils';
+import { useI18n } from '@/lib/i18n';
 
 function InventoryAdjustmentsTable({
   t,
@@ -42,6 +43,7 @@ function InventoryAdjustmentsTable({
   onRequestDelete,
 }) {
   const navigate = useNavigate();
+  const { formatDate } = useI18n();
 
   const filteredInventories = useMemo(() => {
     if (statusFilter === 'final') {
@@ -73,11 +75,7 @@ function InventoryAdjustmentsTable({
       header: t('inventoryAdjustments.table.adjustmentDate'),
       cell: ({ row }) => (
         <span className="text-slate-600 dark:text-slate-400">
-          {row.original.adjustmentDate
-            ? format(new Date(row.original.adjustmentDate), 'dd.MM.yyyy', {
-                locale: ru,
-              })
-            : '—'}
+          {formatDate(row.original.adjustmentDate)}
         </span>
       ),
     },
@@ -149,25 +147,21 @@ function InventoryAdjustmentsTable({
           title={[
             t('inventoryAdjustments.meta.createdByAt', {
               user: row.original.createdByName || t('common.notSpecified'),
-              datetime: format(new Date(row.original.createdAt), 'dd.MM.yyyy HH:mm', {
-                locale: ru,
-              }),
+              datetime: formatDate(row.original.createdAt, 'dd.MM.yyyy HH:mm'),
             }),
             row.original.statusIsFinal &&
             row.original.completedByName &&
             row.original.completedAt
               ? t('inventoryAdjustments.meta.completedByAt', {
                   user: row.original.completedByName,
-                  datetime: format(new Date(row.original.completedAt), 'dd.MM.yyyy HH:mm', {
-                    locale: ru,
-                  }),
+                  datetime: formatDate(row.original.completedAt, 'dd.MM.yyyy HH:mm'),
                 })
               : null,
           ]
             .filter(Boolean)
             .join('\n')}
         >
-          {format(new Date(row.original.createdAt), 'dd.MM.yyyy HH:mm', { locale: ru })}
+          {formatDate(row.original.createdAt, 'dd.MM.yyyy HH:mm')}
         </span>
       ),
     },
@@ -221,27 +215,36 @@ function InventoryAdjustmentsTable({
         </Button>
       </PageHeader>
 
-      <div className="flex items-center gap-3 text-sm text-slate-700 dark:text-slate-300">
-        <span>{t('inventoryAdjustments.filters.status')}</span>
-        <Select value={statusFilter} onValueChange={onStatusFilterChange}>
-          <SelectTrigger className="w-56">
-            <SelectValue>
-              {statusFilter === 'all'
-                ? t('inventoryAdjustments.filters.all')
-                : statusFilter === 'final'
-                ? t('inventoryAdjustments.filters.final')
-                : t('inventoryAdjustments.filters.nonFinal')}
-            </SelectValue>
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">{t('inventoryAdjustments.filters.all')}</SelectItem>
-            <SelectItem value="final">{t('inventoryAdjustments.filters.final')}</SelectItem>
-            <SelectItem value="nonFinal">
-              {t('inventoryAdjustments.filters.nonFinal')}
-            </SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+      <Card className="dark:border-slate-800 dark:bg-slate-900">
+        <CardContent className="pt-6">
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="flex items-center gap-2">
+              <Filter className="h-4 w-4 text-slate-400" />
+              <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                {t('inventoryAdjustments.filters.title')}
+              </span>
+            </div>
+            <Select value={statusFilter} onValueChange={onStatusFilterChange}>
+              <SelectTrigger className="w-56" aria-label={t('inventoryAdjustments.filters.status')}>
+                <SelectValue>
+                  {statusFilter === 'all'
+                    ? t('inventoryAdjustments.filters.all')
+                    : statusFilter === 'final'
+                      ? t('inventoryAdjustments.filters.final')
+                      : t('inventoryAdjustments.filters.nonFinal')}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{t('inventoryAdjustments.filters.all')}</SelectItem>
+                <SelectItem value="final">{t('inventoryAdjustments.filters.final')}</SelectItem>
+                <SelectItem value="nonFinal">
+                  {t('inventoryAdjustments.filters.nonFinal')}
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </CardContent>
+      </Card>
 
       <DataTable
         columns={columns}

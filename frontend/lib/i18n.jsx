@@ -59,6 +59,8 @@ const translations = {
       appName: 'WareFlow',
       appDescription: 'Управление складом',
       settings: 'Настройки',
+      sidebarCollapse: 'Свернуть меню',
+      sidebarExpand: 'Развернуть меню',
     },
     auth: {
       login: {
@@ -655,6 +657,7 @@ const translations = {
           hasSubOrders: 'Невозможно удалить заказ, у которого есть подзаказы. Сначала удалите все подзаказы',
       },
       filters: {
+        title: 'Фильтры:',
         statusesLabel: 'Статусы заказов',
         allStatuses: 'Все статусы',
       },
@@ -1200,6 +1203,8 @@ const translations = {
       appName: 'WareFlow',
       appDescription: 'Warehouse Management',
       settings: 'Settings',
+      sidebarCollapse: 'Collapse menu',
+      sidebarExpand: 'Expand menu',
     },
     auth: {
       login: {
@@ -1795,6 +1800,7 @@ const translations = {
         hasSubOrders: 'Cannot delete order that has sub-orders. Delete all sub-orders first',
       },
       filters: {
+        title: 'Filters:',
         statusesLabel: 'Order statuses',
         allStatuses: 'All statuses',
       },

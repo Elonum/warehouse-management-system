@@ -10,6 +10,7 @@ import {
   Warehouse,
   BookOpen,
   ChevronRight,
+  ArrowLeft,
   Plus,
   Edit2,
   Trash2,
@@ -1159,10 +1160,12 @@ export default function ReferenceData() {
           <div className="flex items-center gap-4 flex-1">
             <Button
               variant="ghost"
+              size="icon"
               onClick={() => setSelectedSection(null)}
+              aria-label={t('common.back')}
+              title={t('common.back')}
             >
-              <ChevronRight className="w-4 h-4 mr-2 rotate-180" />
-              {t('common.back')}
+              <ArrowLeft className="w-5 h-5" />
             </Button>
             <div>
               <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
@@ -1284,10 +1287,12 @@ export default function ReferenceData() {
           <div className="flex items-center gap-4 flex-1">
             <Button
               variant="ghost"
+              size="icon"
               onClick={() => setSelectedSection(null)}
+              aria-label={t('common.back')}
+              title={t('common.back')}
             >
-              <ChevronRight className="w-4 h-4 mr-2 rotate-180" />
-              {t('common.back')}
+              <ArrowLeft className="w-5 h-5" />
             </Button>
             <div>
               <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
@@ -1426,10 +1431,12 @@ export default function ReferenceData() {
           <div className="flex items-center gap-4 flex-1">
             <Button
               variant="ghost"
+              size="icon"
               onClick={() => setSelectedSection(null)}
+              aria-label={t('common.back')}
+              title={t('common.back')}
             >
-              <ChevronRight className="w-4 h-4 mr-2 rotate-180" />
-              {t('common.back')}
+              <ArrowLeft className="w-5 h-5" />
             </Button>
             <div>
               <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
@@ -1568,10 +1575,12 @@ export default function ReferenceData() {
           <div className="flex items-center gap-4 flex-1">
             <Button
               variant="ghost"
+              size="icon"
               onClick={() => setSelectedSection(null)}
+              aria-label={t('common.back')}
+              title={t('common.back')}
             >
-              <ChevronRight className="w-4 h-4 mr-2 rotate-180" />
-              {t('common.back')}
+              <ArrowLeft className="w-5 h-5" />
             </Button>
             <div>
               <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100">

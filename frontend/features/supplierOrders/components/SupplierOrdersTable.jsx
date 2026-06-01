@@ -12,6 +12,7 @@ import {
   Eye,
   Edit2,
   Trash2,
+  Filter,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -29,6 +30,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
+import { Card, CardContent } from '@/components/ui/card';
 import PageHeader from '@/components/ui/PageHeader';
 import StatusBadge from '@/components/ui/StatusBadge';
 import { format } from 'date-fns';
@@ -233,7 +235,7 @@ function SupplierOrdersTable({
           }`}
           onDoubleClick={handleRowDoubleClick}
         >
-          <td className="px-4 py-3">
+          <td className="px-4 py-3 text-sm">
             <div className="flex items-center gap-2">
               {hasChildren && (
                 <Button
@@ -268,20 +270,22 @@ function SupplierOrdersTable({
                   />
                 </div>
                 <div>
-                  <p className="font-medium text-slate-900 dark:text-slate-100">
+                  <p className="text-sm font-medium text-slate-900 dark:text-slate-100">
                     {order.orderNumber}
                   </p>
                   {isChild && (
-                    <p className="text-xs text-slate-500">Подзаказ</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      {t('supplierOrders.subOrder')}
+                    </p>
                   )}
                 </div>
               </div>
             </div>
           </td>
-          <td className="px-4 py-3 text-slate-700 dark:text-slate-300">
+          <td className="px-4 py-3 text-sm text-slate-600 dark:text-slate-400">
             {order.buyer || '—'}
           </td>
-          <td className="px-4 py-3">
+          <td className="px-4 py-3 text-sm">
             <StatusBadge
               status={getOrderStatusName(order.statusId)}
               className={
@@ -291,23 +295,23 @@ function SupplierOrdersTable({
               }
             />
           </td>
-          <td className="px-4 py-3 text-slate-600 dark:text-slate-400">
+          <td className="px-4 py-3 text-sm text-slate-600 dark:text-slate-400">
             {order.purchaseDate
               ? format(new Date(order.purchaseDate), 'dd.MM.yyyy')
               : '—'}
           </td>
-          <td className="px-4 py-3 text-slate-600 dark:text-slate-400">
+          <td className="px-4 py-3 text-sm text-slate-600 dark:text-slate-400">
             {order.plannedReceiptDate
               ? format(new Date(order.plannedReceiptDate), 'dd.MM.yyyy')
               : '—'}
           </td>
-          <td className="px-4 py-3 text-slate-600 dark:text-slate-400">
+          <td className="px-4 py-3 text-sm text-slate-600 dark:text-slate-400">
             {order.actualReceiptDate
               ? format(new Date(order.actualReceiptDate), 'dd.MM.yyyy')
               : '—'}
           </td>
-          <td className="px-4 py-3">
-            <div className="flex flex-col gap-1 text-sm text-slate-700 dark:text-slate-300">
+          <td className="px-4 py-3 text-sm text-slate-600 dark:text-slate-400">
+            <div className="flex flex-col gap-1">
               <span>
                 {t('supplierOrders.form.logisticsChinaMsk')}:{' '}
                 {formatMoney(order.logisticsChinaMsk)
@@ -326,7 +330,7 @@ function SupplierOrdersTable({
                   ? `${formatMoney(order.logisticsAdditional)} ₽`
                   : '—'}
               </span>
-              <span className="font-semibold">
+              <span className="font-medium text-slate-700 dark:text-slate-300">
                 {t('supplierOrders.form.logisticsTotal')}:{' '}
                 {formatMoney(order.logisticsTotal)
                   ? `${formatMoney(order.logisticsTotal)} ₽`
@@ -334,17 +338,17 @@ function SupplierOrdersTable({
               </span>
             </div>
           </td>
-          <td className="px-4 py-3">
-            <div className="flex flex-col gap-1 text-sm">
-              <span className="font-semibold">
+          <td className="px-4 py-3 text-sm text-slate-600 dark:text-slate-400">
+            <div className="flex flex-col gap-1">
+              <span className="font-medium text-slate-700 dark:text-slate-300">
                 {t('supplierOrders.summary.positionsLabel')}:{' '}
                 {order.positionsQty ?? 0}
               </span>
-              <span className="text-slate-500">
+              <span>
                 {t('supplierOrders.summary.quantityLabel')}:{' '}
                 {order.totalQty ?? 0} {t('supplierOrders.summary.units')}
               </span>
-              <span className="text-slate-500">
+              <span>
                 {t('supplierOrders.summary.weightLabel')}:{' '}
                 {order.orderItemWeight
                   ? `${order.orderItemWeight.toFixed(2)} ${weightUnit}`
@@ -352,8 +356,8 @@ function SupplierOrdersTable({
               </span>
             </div>
           </td>
-          <td className="px-4 py-3">
-            <div className="flex flex-col gap-1 text-sm text-slate-700 dark:text-slate-300">
+          <td className="px-4 py-3 text-sm text-slate-600 dark:text-slate-400">
+            <div className="flex flex-col gap-1">
               {(() => {
                 const logisticsTotal = Number(order.logisticsTotal) || 0;
                 const itemsCost = Number(order.orderItemCost) || 0;
@@ -371,7 +375,7 @@ function SupplierOrdersTable({
                       {t('supplierOrders.summary.items')}:{' '}
                       {itemsText ? `${itemsText} ₽` : '—'}
                     </span>
-                    <span className="font-semibold">
+                    <span className="font-medium text-slate-700 dark:text-slate-300">
                       {t('supplierOrders.summary.total')}:{' '}
                       {totalText ? `${totalText} ₽` : '—'}
                     </span>
@@ -380,7 +384,7 @@ function SupplierOrdersTable({
               })()}
             </div>
           </td>
-          <td className="px-4 py-3">
+          <td className="px-4 py-3 text-sm">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon" className="w-8 h-8">
@@ -443,30 +447,43 @@ function SupplierOrdersTable({
         </Button>
       </PageHeader>
 
-      <div className="space-y-3">
-        <div className="flex items-center gap-3 text-sm text-slate-700 dark:text-slate-300">
-          <span>{t('supplierOrders.filters.statusesLabel')}</span>
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-56 h-8">
-              <SelectValue>{getStatusFilterLabel()}</SelectValue>
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">
-                {t('supplierOrders.filters.allStatuses')}
-              </SelectItem>
-              {orderStatuses.map((status) => (
-                <SelectItem
-                  key={status.orderStatusId}
-                  value={status.orderStatusId.toString()}
-                >
-                  {status.name}
+      <Card className="dark:border-slate-800 dark:bg-slate-900">
+        <CardContent className="pt-6">
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="flex items-center gap-2">
+              <Filter className="h-4 w-4 text-slate-400" />
+              <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                {t('supplierOrders.filters.title')}
+              </span>
+            </div>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger
+                className="w-56"
+                aria-label={t('supplierOrders.filters.statusesLabel')}
+              >
+                <SelectValue>{getStatusFilterLabel()}</SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">
+                  {t('supplierOrders.filters.allStatuses')}
                 </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="flex items-center justify-between gap-4">
-          <div className="relative max-w-sm flex-1">
+                {orderStatuses.map((status) => (
+                  <SelectItem
+                    key={status.orderStatusId}
+                    value={status.orderStatusId.toString()}
+                  >
+                    {status.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="space-y-4">
+        <div className="flex items-center gap-4">
+          <div className="relative flex-1 max-w-sm">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <Input
               placeholder={t('supplierOrders.searchPlaceholder')}
@@ -487,14 +504,13 @@ function SupplierOrdersTable({
             )}
           </div>
         </div>
-      </div>
 
       <div className="overflow-hidden bg-white border rounded-lg dark:bg-slate-900 dark:border-slate-800">
         {isLoading ? (
           <LoadingState className="px-4 py-12" />
         ) : (
           <>
-          <table className="w-full">
+          <table className="w-full text-sm">
             <thead>
               <tr className="border-b bg-slate-50 dark:bg-slate-800/50 dark:border-slate-800">
                 <th
@@ -659,6 +675,7 @@ function SupplierOrdersTable({
           ) : null}
           </>
         )}
+      </div>
       </div>
     </div>
   );

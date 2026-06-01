@@ -1,5 +1,15 @@
 import React, { useMemo } from 'react';
-import { Package, Eye, MoreHorizontal, Image as ImageIcon, ChevronLeft, ChevronRight, Pencil, Trash2 } from 'lucide-react';
+import {
+  Package,
+  Eye,
+  MoreHorizontal,
+  Image as ImageIcon,
+  ChevronLeft,
+  ChevronRight,
+  Pencil,
+  Trash2,
+  DollarSign,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import DataTable from '@/components/ui/DataTable';
 import { Link } from 'react-router-dom';
@@ -208,6 +218,14 @@ function ProductsTable({
                 <Link to={`${createPageUrl('Stock')}?product=${row.original.productId}`}>
                   <Eye className="w-4 h-4 mr-2" />
                   {t('products.table.stock')}
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link
+                  to={`${createPageUrl('ProductCosts')}?product=${row.original.productId}&view=active`}
+                >
+                  <DollarSign className="w-4 h-4 mr-2" />
+                  {t('productCosts.linkFromProducts')}
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuSeparator />

@@ -23,6 +23,13 @@
 
 ---
 
+### `migrations/002_product_costs_period_end_nullable.sql`
+Делает `product_costs.period_end` nullable (открытый период без даты окончания).
+
+**После обновления схемы выполните:** `psql ... -f database/migrations/002_product_costs_period_end_nullable.sql`
+
+---
+
 ### `vw_stock_movements.sql`
 Представление всех движений товара.
 

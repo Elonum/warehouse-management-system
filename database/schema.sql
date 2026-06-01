@@ -255,7 +255,7 @@ CREATE TABLE IF NOT EXISTS product_costs (
     cost_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     product_id UUID NOT NULL REFERENCES products(product_id),
     period_start DATE NOT NULL,
-    period_end DATE NOT NULL,
+    period_end DATE,
     unit_cost_to_warehouse DECIMAL(10,2) NOT NULL,
     notes VARCHAR(255),
     created_by UUID REFERENCES users(user_id),

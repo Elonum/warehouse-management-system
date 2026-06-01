@@ -51,50 +51,6 @@ func (h *ProductCostHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(response)
 }
 
-func (h *ProductCostHandler) List(w http.ResponseWriter, r *http.Request) {
-	limit := parseInt(r.URL.Query().Get("limit"), 50)
-	offset := parseInt(r.URL.Query().Get("offset"), 0)
-
-	var productID *uuid.UUID
-	if v := r.URL.Query().Get("productId"); v != "" {
-		id, err := parseUUID(v)
-		if err != nil {
-			writeError(w, http.StatusBadRequest, "INVALID_PRODUCT_ID", "invalid productId")
-			return
-		}
-		productID = &id
-	}
-
-	if limit < 1 || limit > 1000 {
-		writeError(w, http.StatusBadRequest, "INVALID_LIMIT", "limit must be between 1 and 1000")
-		return
-	}
-	if offset < 0 {
-		writeError(w, http.StatusBadRequest, "INVALID_OFFSET", "offset must be non-negative")
-		return
-	}
-
-	costs, err := h.service.List(r.Context(), limit, offset, productID)
-	if err != nil {
-		log.Error().Err(err).Int("limit", limit).Int("offset", offset).
-			Interface("productId", productID).Msg("Failed to load product costs")
-		writeError(w, http.StatusInternalServerError, "COSTS_LOAD_FAILED", "failed to load product costs")
-		return
-	}
-
-	response := dto.APIResponse[[]dto.ProductCostResponse]{
-		Data: costs,
-		Meta: &dto.Meta{
-			Limit:  limit,
-			Offset: offset,
-		},
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(response)
-}
-
 func (h *ProductCostHandler) Create(w http.ResponseWriter, r *http.Request) {
 	userID := auth.GetUserID(r.Context())
 	if userID == uuid.Nil {
@@ -124,13 +80,17 @@ func (h *ProductCostHandler) Create(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusConflict, "COST_EXISTS", "product cost already exists")
 			return
 		}
+		if err == repository.ErrPeriodOverlap {
+			writeError(w, http.StatusConflict, "PERIOD_OVERLAP", "cost period overlaps an existing period for this product")
+			return
+		}
 		if err == repository.ErrProductNotFound {
 			log.Warn().Str("productId", req.ProductID).Msg("Product not found")
 			writeError(w, http.StatusBadRequest, "PRODUCT_NOT_FOUND", "specified product does not exist")
 			return
 		}
 		if err == repository.ErrInvalidDateRange {
-			log.Warn().Time("periodStart", req.PeriodStart).Time("periodEnd", req.PeriodEnd).Msg("Invalid date range")
+			log.Warn().Time("periodStart", req.PeriodStart).Msg("Invalid date range for product cost create")
 			writeError(w, http.StatusBadRequest, "INVALID_DATE_RANGE", "period end must be after period start")
 			return
 		}
@@ -194,13 +154,17 @@ func (h *ProductCostHandler) Update(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusConflict, "COST_EXISTS", "product cost already exists")
 			return
 		}
+		if err == repository.ErrPeriodOverlap {
+			writeError(w, http.StatusConflict, "PERIOD_OVERLAP", "cost period overlaps an existing period for this product")
+			return
+		}
 		if err == repository.ErrProductNotFound {
 			log.Warn().Str("productId", req.ProductID).Msg("Product not found")
 			writeError(w, http.StatusBadRequest, "PRODUCT_NOT_FOUND", "specified product does not exist")
 			return
 		}
 		if err == repository.ErrInvalidDateRange {
-			log.Warn().Time("periodStart", req.PeriodStart).Time("periodEnd", req.PeriodEnd).Msg("Invalid date range")
+			log.Warn().Time("periodStart", req.PeriodStart).Msg("Invalid date range for product cost update")
 			writeError(w, http.StatusBadRequest, "INVALID_DATE_RANGE", "period end must be after period start")
 			return
 		}

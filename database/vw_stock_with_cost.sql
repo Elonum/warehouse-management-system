@@ -8,4 +8,5 @@ SELECT
 FROM vw_current_stock cs
 JOIN product_costs pc
     ON pc.product_id = cs.product_id
-   AND CURRENT_DATE BETWEEN pc.period_start AND pc.period_end;
+   AND CURRENT_DATE >= pc.period_start
+   AND (pc.period_end IS NULL OR CURRENT_DATE <= pc.period_end);

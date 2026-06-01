@@ -2,6 +2,9 @@ package service
 
 import (
 	"context"
+	"math"
+	"sync"
+	"time"
 
 	"github.com/google/uuid"
 	"warehouse-backend/internal/dto"
@@ -48,35 +51,88 @@ func (s *StockSnapshotService) GetByID(ctx context.Context, snapshotID uuid.UUID
 	}, nil
 }
 
-func (s *StockSnapshotService) List(ctx context.Context, limit, offset int, warehouseID, productID *uuid.UUID) ([]dto.StockSnapshotResponse, error) {
-	snapshots, err := s.repo.List(ctx, limit, offset, warehouseID, productID)
-	if err != nil {
-		log.Error().Err(err).Int("limit", limit).Int("offset", offset).
-			Interface("warehouseId", warehouseID).Interface("productId", productID).
-			Msg("Failed to list stock snapshots")
-		return nil, err
+func (s *StockSnapshotService) ListPage(
+	ctx context.Context,
+	warehouseID *uuid.UUID,
+	productID *uuid.UUID,
+	q *string,
+	dateFrom *time.Time,
+	dateTo *time.Time,
+	ownWarehousesOnly bool,
+	latestOnly bool,
+	limit int,
+	offset int,
+) (*dto.StockSnapshotListResponse, error) {
+	var rows []repository.StockSnapshotListRow
+	var summary repository.StockSnapshotSummary
+	var listErr, summaryErr error
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		rows, listErr = s.repo.ListFiltered(
+			ctx, warehouseID, productID, q, dateFrom, dateTo, ownWarehousesOnly, latestOnly, limit, offset,
+		)
+	}()
+	go func() {
+		defer wg.Done()
+		summary, summaryErr = s.repo.SummarizeList(
+			ctx, warehouseID, productID, q, dateFrom, dateTo, ownWarehousesOnly, latestOnly,
+		)
+	}()
+	wg.Wait()
+
+	if listErr != nil {
+		log.Error().Err(listErr).Msg("failed to list stock snapshots")
+		return nil, listErr
+	}
+	if summaryErr != nil {
+		log.Error().Err(summaryErr).Msg("failed to summarize stock snapshots")
+		return nil, summaryErr
 	}
 
-	result := make([]dto.StockSnapshotResponse, 0, len(snapshots))
-	for _, snapshot := range snapshots {
+	items := make([]dto.StockSnapshotListItemResponse, 0, len(rows))
+	for _, row := range rows {
 		var createdByStr *string
-		if snapshot.CreatedBy != nil {
-			str := snapshot.CreatedBy.String()
+		if row.CreatedBy != nil {
+			str := row.CreatedBy.String()
 			createdByStr = &str
 		}
-
-		result = append(result, dto.StockSnapshotResponse{
-			SnapshotID:   snapshot.SnapshotID.String(),
-			ProductID:    snapshot.ProductID.String(),
-			WarehouseID:  snapshot.WarehouseID.String(),
-			SnapshotDate: snapshot.SnapshotDate,
-			Quantity:     snapshot.Quantity,
-			CreatedBy:    createdByStr,
-			CreatedAt:    snapshot.CreatedAt,
+		items = append(items, dto.StockSnapshotListItemResponse{
+			SnapshotID:      row.SnapshotID.String(),
+			ProductID:       row.ProductID.String(),
+			ProductArticle:  row.ProductArticle,
+			ProductBarcode:  row.ProductBarcode,
+			WarehouseID:     row.WarehouseID.String(),
+			WarehouseName:   row.WarehouseName,
+			IsMarketplaceWH: row.IsMarketplaceWH,
+			SnapshotDate:    row.SnapshotDate,
+			Quantity:        row.Quantity,
+			IsLatestForPair: row.IsLatestForPair,
+			CreatedBy:       createdByStr,
+			CreatedAt:       row.CreatedAt,
 		})
 	}
 
-	return result, nil
+	return &dto.StockSnapshotListResponse{
+		Items: items,
+		Summary: dto.StockSnapshotSummaryResponse{
+			TotalRows:    clampSnapshotInt64(summary.TotalRows),
+			UniquePairs:  clampSnapshotInt64(summary.UniquePairs),
+			EarliestDate: summary.EarliestDate,
+			LatestDate:   summary.LatestDate,
+		},
+	}, nil
+}
+
+func clampSnapshotInt64(v int64) int {
+	if v > math.MaxInt {
+		return math.MaxInt
+	}
+	if v < 0 {
+		return 0
+	}
+	return int(v)
 }
 
 func (s *StockSnapshotService) Create(ctx context.Context, userID uuid.UUID, req dto.StockSnapshotCreateRequest) (*dto.StockSnapshotResponse, error) {

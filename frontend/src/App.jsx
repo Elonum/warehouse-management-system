@@ -10,6 +10,7 @@ import Dashboard from '../pages/Dashboard'
 import Products from '../pages/Products'
 import Warehouses from '../pages/Warehouses'
 import Stock from '../pages/Stock'
+import StockSnapshots from '../pages/StockSnapshots'
 import StockMovements from '../pages/StockMovements'
 import SupplierOrders from '../pages/SupplierOrders'
 import SupplierOrderDetails from '../pages/SupplierOrderDetails'
@@ -27,6 +28,7 @@ const pageNameMap = {
   '/products': 'Products',
   '/warehouses': 'Warehouses',
   '/stock': 'Stock',
+  '/stock-snapshots': 'StockSnapshots',
   '/stock-movements': 'StockMovements',
   '/supplier-orders': 'SupplierOrders',
   '/supplier-orders/details': 'SupplierOrderDetails',
@@ -95,6 +97,7 @@ function App() {
                   <Route path="/warehouses" element={<Warehouses />} />
                   <Route path="/warehouses/details" element={<Warehouses />} />
                   <Route path="/stock" element={<Stock />} />
+                  <Route path="/stock-snapshots" element={<StockSnapshots />} />
                   <Route path="/stock-movements" element={<StockMovements />} />
                   <Route path="/supplier-orders" element={<SupplierOrders />} />
                   <Route path="/supplier-orders/details" element={<SupplierOrderDetails />} />

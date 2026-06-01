@@ -4,7 +4,9 @@ import { useSearchParams } from 'react-router-dom';
 import { api, ApiError } from '@/api';
 import { useServerOffsetPagination } from '@/hooks/useServerOffsetPagination';
 import { useI18n } from '@/lib/i18n';
-import { Filter, X } from 'lucide-react';
+import { Filter, X, Database } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { createPageUrl } from '@/utils';
 import { Button } from '@/components/ui/button';
 import {
   Select,
@@ -353,7 +355,16 @@ function StockPageContainer() {
                     : t('stock.sources.ozon'),
                 })
         }
-      />
+      >
+        {isOwnStockMode ? (
+          <Button variant="outline" asChild>
+            <Link to={createPageUrl('StockSnapshots')}>
+              <Database className="mr-2 h-4 w-4" />
+              {t('stockSnapshots.title')}
+            </Link>
+          </Button>
+        ) : null}
+      </PageHeader>
 
       <div className="flex flex-wrap gap-2">
         <Button

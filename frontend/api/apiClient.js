@@ -713,12 +713,37 @@ const api = {
   stockSnapshots: {
     list: async (params = {}) => {
       const queryParams = new URLSearchParams();
-      if (params.limit) queryParams.append('limit', params.limit);
-      if (params.offset) queryParams.append('offset', params.offset);
       if (params.warehouseId) queryParams.append('warehouseId', params.warehouseId);
       if (params.productId) queryParams.append('productId', params.productId);
+      if (params.q) queryParams.append('q', params.q);
+      if (params.fromDate) queryParams.append('fromDate', params.fromDate);
+      if (params.toDate) queryParams.append('toDate', params.toDate);
+      if (params.view) queryParams.append('view', params.view);
+      if (params.ownWarehousesOnly != null) {
+        queryParams.append('ownWarehousesOnly', String(params.ownWarehousesOnly));
+      }
+      if (params.limit != null) queryParams.append('limit', String(params.limit));
+      if (params.offset != null) queryParams.append('offset', String(params.offset));
       const query = queryParams.toString();
-      return await request(`/stock-snapshots${query ? `?${query}` : ''}`);
+      const raw = await request(`/stock-snapshots${query ? `?${query}` : ''}`, { envelope: true });
+      const data = raw.data || {};
+      const items = Array.isArray(data.items) ? data.items : [];
+      const summary = data.summary || {
+        totalRows: 0,
+        uniquePairs: 0,
+        earliestDate: null,
+        latestDate: null,
+      };
+      const m = raw.meta || {};
+      return {
+        items,
+        summary,
+        meta: {
+          limit: Number(m.limit) || 50,
+          offset: Number(m.offset) || 0,
+          total: Number(m.total) || 0,
+        },
+      };
     },
 
     get: async (id) => {

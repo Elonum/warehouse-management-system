@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Package, Warehouse as WarehouseIcon, History } from 'lucide-react';
+import { Package, Warehouse as WarehouseIcon, History, Database } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import DataTable from '@/components/ui/DataTable';
 import { Link } from 'react-router-dom';
@@ -81,12 +81,22 @@ function StockTable({
         header: '',
         sortable: false,
         cell: ({ row }) => (
-          <Button variant="ghost" size="sm" asChild>
-            <Link to={`${createPageUrl('StockMovements')}?product=${row.original.productId}`}>
-              <History className="w-4 h-4 mr-2" />
-              {t('common.history')}
-            </Link>
-          </Button>
+          <div className="flex items-center justify-end gap-1">
+            <Button variant="ghost" size="sm" asChild>
+              <Link
+                to={`${createPageUrl('StockSnapshots')}?product=${row.original.productId}&warehouse=${row.original.warehouseId}&view=latest`}
+              >
+                <Database className="w-4 h-4 mr-2" />
+                {t('stockSnapshots.linkFromStock')}
+              </Link>
+            </Button>
+            <Button variant="ghost" size="sm" asChild>
+              <Link to={`${createPageUrl('StockMovements')}?product=${row.original.productId}`}>
+                <History className="w-4 h-4 mr-2" />
+                {t('common.history')}
+              </Link>
+            </Button>
+          </div>
         ),
       });
     }

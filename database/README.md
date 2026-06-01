@@ -37,6 +37,17 @@
 
 ---
 
+### Снимки остатков (`stock_snapshots`)
+
+Таблица базовых точек остатка по паре «товар + склад + дата». От последнего снимка на пару считается `vw_current_stock` и движения после `snapshot_date`.
+
+- API: `GET /api/v1/stock-snapshots` (фильтры, пагинация, режим `view=journal|latest`)
+- UI: страница «Снимки остатков» (`/stock-snapshots`)
+
+Индекс `idx_stock_snapshots_date` ускоряет сортировку и фильтрацию по дате (см. `schema.sql`).
+
+---
+
 ### `vw_stock_movements_since_snapshot.sql`
 Представление движений **после последнего снапшота**.
 

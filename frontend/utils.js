@@ -13,6 +13,7 @@ export function createPageUrl(pageName) {
     Products: '/products',
     Warehouses: '/warehouses',
     Stock: '/stock',
+    StockSnapshots: '/stock-snapshots',
     StockMovements: '/stock-movements',
     SupplierOrders: '/supplier-orders',
     SupplierOrderDetails: '/supplier-orders/details',

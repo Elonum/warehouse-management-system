@@ -282,6 +282,8 @@ CREATE TABLE IF NOT EXISTS stock_snapshots (
 -- Stock API: ILIKE '%q%' on article/barcode cannot use UNIQUE B-trees; GIN (pg_trgm) speeds substring search.
 -- Exact match / joins use existing UNIQUE indexes on products(article), products(barcode) and PK on product_id.
 -- vw_current_stock is bounded by stock_snapshots UNIQUE (product_id, warehouse_id, snapshot_date).
+CREATE INDEX IF NOT EXISTS idx_stock_snapshots_date
+    ON stock_snapshots (snapshot_date DESC, product_id, warehouse_id);
 CREATE INDEX IF NOT EXISTS idx_products_article_trgm ON products USING gin (article gin_trgm_ops);
 CREATE INDEX IF NOT EXISTS idx_products_barcode_trgm ON products USING gin (barcode gin_trgm_ops);
 

@@ -51,61 +51,6 @@ func (h *StockSnapshotHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(response)
 }
 
-func (h *StockSnapshotHandler) List(w http.ResponseWriter, r *http.Request) {
-	limit := parseInt(r.URL.Query().Get("limit"), 50)
-	offset := parseInt(r.URL.Query().Get("offset"), 0)
-
-	var warehouseID *uuid.UUID
-	if v := r.URL.Query().Get("warehouseId"); v != "" {
-		id, err := parseUUID(v)
-		if err != nil {
-			writeError(w, http.StatusBadRequest, "INVALID_WAREHOUSE_ID", "invalid warehouseId")
-			return
-		}
-		warehouseID = &id
-	}
-
-	var productID *uuid.UUID
-	if v := r.URL.Query().Get("productId"); v != "" {
-		id, err := parseUUID(v)
-		if err != nil {
-			writeError(w, http.StatusBadRequest, "INVALID_PRODUCT_ID", "invalid productId")
-			return
-		}
-		productID = &id
-	}
-
-	if limit < 1 || limit > 1000 {
-		writeError(w, http.StatusBadRequest, "INVALID_LIMIT", "limit must be between 1 and 1000")
-		return
-	}
-	if offset < 0 {
-		writeError(w, http.StatusBadRequest, "INVALID_OFFSET", "offset must be non-negative")
-		return
-	}
-
-	snapshots, err := h.service.List(r.Context(), limit, offset, warehouseID, productID)
-	if err != nil {
-		log.Error().Err(err).Int("limit", limit).Int("offset", offset).
-			Interface("warehouseId", warehouseID).Interface("productId", productID).
-			Msg("Failed to load stock snapshots")
-		writeError(w, http.StatusInternalServerError, "SNAPSHOTS_LOAD_FAILED", "failed to load stock snapshots")
-		return
-	}
-
-	response := dto.APIResponse[[]dto.StockSnapshotResponse]{
-		Data: snapshots,
-		Meta: &dto.Meta{
-			Limit:  limit,
-			Offset: offset,
-		},
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(response)
-}
-
 func (h *StockSnapshotHandler) Create(w http.ResponseWriter, r *http.Request) {
 	userID := auth.GetUserID(r.Context())
 	if userID == uuid.Nil {

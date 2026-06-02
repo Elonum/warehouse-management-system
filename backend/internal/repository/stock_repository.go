@@ -10,10 +10,20 @@ import (
 )
 
 type StockItem struct {
-	ProductID       uuid.UUID
-	WarehouseID     uuid.UUID
-	CurrentQuantity int
-	ReorderPoint    int
+	ProductID           uuid.UUID
+	WarehouseID         uuid.UUID
+	ProductArticle      string
+	ProductBarcode      string
+	CurrentQuantity     int
+	ReorderPoint        int
+	UnitCostToWarehouse *float64
+}
+
+type StockCurrentSummary struct {
+	TotalStockValue float64
+	RowsMissingCost int64
+	RowsWithCost    int64
+	TotalRows       int64
 }
 
 type StockRepository struct {
@@ -27,6 +37,7 @@ const (
 	StockLevelFilterPositive     StockLevelFilter = "positive"
 	StockLevelFilterZero         StockLevelFilter = "zero"
 	StockLevelFilterBelowReorder StockLevelFilter = "below_reorder"
+	StockLevelFilterMissingCost  StockLevelFilter = "missing_cost"
 )
 
 func NewStockRepository(pool *pgxpool.Pool) *StockRepository {
@@ -64,6 +75,8 @@ func stockCurrentWhereAndArgs(
 		where += " AND cs.current_quantity = 0"
 	case StockLevelFilterBelowReorder:
 		where += " AND cs.current_quantity <= p.reorder_point"
+	case StockLevelFilterMissingCost:
+		where += " AND cs.current_quantity > 0 AND ac.unit_cost_to_warehouse IS NULL"
 	}
 	return where, args, n
 }
@@ -78,9 +91,9 @@ func stockCurrentOrderBy(levelFilter StockLevelFilter) string {
 }
 
 const stockCurrentFrom = `
-		SELECT cs.product_id, cs.warehouse_id, cs.current_quantity, p.reorder_point
+		SELECT cs.product_id, cs.warehouse_id, p.article, p.barcode, cs.current_quantity, p.reorder_point, ac.unit_cost_to_warehouse
 		FROM vw_current_stock cs
-		JOIN products p ON p.product_id = cs.product_id`
+		JOIN products p ON p.product_id = cs.product_id` + activeProductCostLateral
 
 func (r *StockRepository) CountCurrentStock(
 	ctx context.Context,
@@ -90,7 +103,7 @@ func (r *StockRepository) CountCurrentStock(
 	levelFilter StockLevelFilter,
 ) (int64, error) {
 	where, args, _ := stockCurrentWhereAndArgs(warehouseID, productID, q, levelFilter)
-	query := `SELECT COUNT(*)::bigint FROM vw_current_stock cs JOIN products p ON p.product_id = cs.product_id` + where
+	query := `SELECT COUNT(*)::bigint FROM vw_current_stock cs JOIN products p ON p.product_id = cs.product_id` + activeProductCostLateral + where
 
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
@@ -133,8 +146,11 @@ func (r *StockRepository) GetCurrentStock(
 		if err := rows.Scan(
 			&item.ProductID,
 			&item.WarehouseID,
+			&item.ProductArticle,
+			&item.ProductBarcode,
 			&item.CurrentQuantity,
 			&item.ReorderPoint,
+			&item.UnitCostToWarehouse,
 		); err != nil {
 			return nil, err
 		}
@@ -146,6 +162,36 @@ func (r *StockRepository) GetCurrentStock(
 	}
 
 	return result, nil
+}
+
+func (r *StockRepository) SummarizeCurrentStock(
+	ctx context.Context,
+	warehouseID *uuid.UUID,
+	productID *uuid.UUID,
+	q *string,
+	levelFilter StockLevelFilter,
+) (StockCurrentSummary, error) {
+	where, args, _ := stockCurrentWhereAndArgs(warehouseID, productID, q, levelFilter)
+	query := `
+SELECT
+	COALESCE(SUM(cs.current_quantity::numeric * ac.unit_cost_to_warehouse), 0)::float8,
+	COUNT(*) FILTER (WHERE cs.current_quantity > 0 AND ac.unit_cost_to_warehouse IS NULL)::bigint,
+	COUNT(*) FILTER (WHERE ac.unit_cost_to_warehouse IS NOT NULL)::bigint,
+	COUNT(*)::bigint
+FROM vw_current_stock cs
+JOIN products p ON p.product_id = cs.product_id` + activeProductCostLateral + where
+
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+
+	var summary StockCurrentSummary
+	err := r.pool.QueryRow(ctx, query, args...).Scan(
+		&summary.TotalStockValue,
+		&summary.RowsMissingCost,
+		&summary.RowsWithCost,
+		&summary.TotalRows,
+	)
+	return summary, err
 }
 
 func (r *StockRepository) UpdateStockByInventoryItem(ctx context.Context, productID *uuid.UUID, warehouseID uuid.UUID, adjustmentDate *time.Time, createdBy *uuid.UUID) error {

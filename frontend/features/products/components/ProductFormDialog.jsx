@@ -88,19 +88,6 @@ function ProductFormDialog({
             </div>
           </div>
           <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="unitCost">{t('products.form.price')}</Label>
-              <Input
-                id="unitCost"
-                type="number"
-                step="0.01"
-                min="0"
-                value={formData.unitCost || ''}
-                onChange={(e) => onChangeField('unitCost', e.target.value || null)}
-              />
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2 col-span-2">
               <Label htmlFor="purchasePrice">{t('products.form.purchasePrice')} (¥)</Label>
               <Input

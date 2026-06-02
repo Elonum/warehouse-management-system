@@ -206,10 +206,11 @@ func (r *ProductRepository) Create(ctx context.Context, article, barcode string,
 }
 
 func (r *ProductRepository) Update(ctx context.Context, productID uuid.UUID, article, barcode string, unitWeight, reorderPoint int, unitCost, purchasePrice *float64) (*Product, error) {
+	_ = unitCost // managed via product_costs periods and SyncProductUnitCost
 	query := `
 		UPDATE products
-		SET article = $1, barcode = $2, unit_weight = $3, reorder_point = $4, unit_cost = $5, purchase_price = $6
-		WHERE product_id = $7
+		SET article = $1, barcode = $2, unit_weight = $3, reorder_point = $4, purchase_price = $5
+		WHERE product_id = $6
 		RETURNING product_id, article, barcode, unit_weight, reorder_point, unit_cost, purchase_price
 	`
 
@@ -217,7 +218,7 @@ func (r *ProductRepository) Update(ctx context.Context, productID uuid.UUID, art
 	defer cancel()
 
 	var product Product
-	err := r.pool.QueryRow(ctx, query, article, barcode, unitWeight, reorderPoint, unitCost, purchasePrice, productID).Scan(
+	err := r.pool.QueryRow(ctx, query, article, barcode, unitWeight, reorderPoint, purchasePrice, productID).Scan(
 		&product.ProductID,
 		&product.Article,
 		&product.Barcode,

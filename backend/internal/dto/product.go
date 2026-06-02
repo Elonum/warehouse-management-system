@@ -6,7 +6,7 @@ type ProductResponse struct {
 	Barcode         string                 `json:"barcode"`
 	UnitWeight      int                    `json:"unitWeight"`
 	ReorderPoint    int                    `json:"reorderPoint"`
-	UnitCost        *float64               `json:"unitCost,omitempty"`
+	ActiveUnitCost  *float64               `json:"activeUnitCost,omitempty"`
 	PurchasePrice   *float64               `json:"purchasePrice,omitempty"`
 	Images          []ProductImageResponse `json:"images,omitempty"`
 }
@@ -23,7 +23,6 @@ type ProductCreateRequest struct {
 	Barcode         string   `json:"barcode"`
 	UnitWeight      int      `json:"unitWeight"`
 	ReorderPoint    int      `json:"reorderPoint"`
-	UnitCost        *float64 `json:"unitCost,omitempty"`
 	PurchasePrice   *float64 `json:"purchasePrice,omitempty"`
 	ImagePaths      []string `json:"imagePaths,omitempty"` // Paths to already uploaded images
 }
@@ -33,7 +32,6 @@ type ProductUpdateRequest struct {
 	Barcode         string   `json:"barcode"`
 	UnitWeight      int      `json:"unitWeight"`
 	ReorderPoint    int      `json:"reorderPoint"`
-	UnitCost        *float64 `json:"unitCost,omitempty"`
 	PurchasePrice   *float64 `json:"purchasePrice,omitempty"`
 	ImagePaths      []string `json:"imagePaths,omitempty"` // Paths to already uploaded images
 }

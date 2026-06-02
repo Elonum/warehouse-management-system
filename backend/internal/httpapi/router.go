@@ -58,7 +58,7 @@ func NewRouter(pg *db.Postgres, cfg config.Config) *chi.Mux {
 	passwordResetRepo := repository.NewPasswordResetRepository(pg.Pool)
 	emailService := service.NewEmailService(cfg.FrontendURL, cfg.Env)
 	authService := service.NewAuthService(userRepo, roleRepo, passwordResetRepo, emailService, jwtManager)
-	productService := service.NewProductService(productRepo, productImageRepo, cfg.BaseURL)
+	productService := service.NewProductService(productRepo, productImageRepo, productCostRepo, cfg.BaseURL)
 	go func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 		defer cancel()
@@ -290,6 +290,8 @@ func NewRouter(pg *db.Postgres, cfg config.Config) *chi.Mux {
 
 			r.Route("/product-costs", func(r chi.Router) {
 				r.Get("/", productCostHandler.List)
+				r.Get("/missing", productCostHandler.ListMissing)
+				r.Get("/data-quality", productCostHandler.GetDataQuality)
 				r.Post("/", productCostHandler.Create)
 				r.Get("/{id}", productCostHandler.GetByID)
 				r.Put("/{id}", productCostHandler.Update)

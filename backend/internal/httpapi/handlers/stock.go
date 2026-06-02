@@ -71,7 +71,8 @@ func (h *StockHandler) GetCurrentStock(w http.ResponseWriter, r *http.Request) {
 		case repository.StockLevelFilterAll,
 			repository.StockLevelFilterPositive,
 			repository.StockLevelFilterZero,
-			repository.StockLevelFilterBelowReorder:
+			repository.StockLevelFilterBelowReorder,
+			repository.StockLevelFilterMissingCost:
 			levelFilter = repository.StockLevelFilter(v)
 		default:
 			writeError(w, http.StatusBadRequest, "INVALID_LEVEL_FILTER", "invalid levelFilter")
@@ -79,7 +80,7 @@ func (h *StockHandler) GetCurrentStock(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	items, total, err := h.service.GetCurrentStock(r.Context(), warehouseID, productID, q, levelFilter, limit, offset)
+	out, err := h.service.GetCurrentStock(r.Context(), warehouseID, productID, q, levelFilter, limit, offset)
 	if err != nil {
 		log.Error().Err(err).
 			Interface("warehouseId", warehouseID).
@@ -93,12 +94,12 @@ func (h *StockHandler) GetCurrentStock(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp := dto.APIResponse[[]dto.StockItemResponse]{
-		Data: items,
+	resp := dto.APIResponse[*dto.StockCurrentListResponse]{
+		Data: out,
 		Meta: &dto.Meta{
 			Limit:  limit,
 			Offset: offset,
-			Total:  total,
+			Total:  out.Summary.TotalRows,
 		},
 	}
 

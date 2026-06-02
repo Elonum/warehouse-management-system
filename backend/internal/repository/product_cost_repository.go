@@ -41,8 +41,29 @@ type ProductCostListRow struct {
 	UnitCostToWarehouse float64
 	IsActive            bool
 	Notes               *string
+	CreatedByName       string
+	UpdatedByName       string
 	CreatedAt           time.Time
 	UpdatedAt           time.Time
+}
+
+type ProductMissingCostRow struct {
+	ProductID      uuid.UUID
+	ProductArticle string
+	ProductBarcode string
+	TotalQuantity  int64
+	WarehouseCount int64
+}
+
+type ProductCostOverlapRow struct {
+	ProductID      uuid.UUID
+	ProductArticle string
+	CostIDA        uuid.UUID
+	PeriodAStart   time.Time
+	PeriodAEnd     *time.Time
+	CostIDB        uuid.UUID
+	PeriodBStart   time.Time
+	PeriodBEnd     *time.Time
 }
 
 type ProductCostSummary struct {
@@ -66,7 +87,21 @@ func DateOnlyUTC(t time.Time) time.Time {
 
 const productCostFrom = `
 FROM product_costs pc
-JOIN products p ON p.product_id = pc.product_id`
+JOIN products p ON p.product_id = pc.product_id
+LEFT JOIN users cu ON cu.user_id = pc.created_by
+LEFT JOIN users uu ON uu.user_id = pc.updated_by`
+
+const productCostCreatedByNameSQL = `COALESCE(
+	NULLIF(TRIM(CONCAT(COALESCE(cu.name, ''), ' ', COALESCE(cu.surname, ''))), ''),
+	cu.email,
+	''
+)`
+
+const productCostUpdatedByNameSQL = `COALESCE(
+	NULLIF(TRIM(CONCAT(COALESCE(uu.name, ''), ' ', COALESCE(uu.surname, ''))), ''),
+	uu.email,
+	''
+)`
 
 func (r *ProductCostRepository) buildListWhere(
 	productID *uuid.UUID,
@@ -158,6 +193,8 @@ SELECT
     pc.unit_cost_to_warehouse,
     (CURRENT_DATE >= pc.period_start AND (pc.period_end IS NULL OR CURRENT_DATE <= pc.period_end)) AS is_active,
     pc.notes,
+    ` + productCostCreatedByNameSQL + `,
+    ` + productCostUpdatedByNameSQL + `,
     pc.created_at,
     pc.updated_at
 `+productCostFrom+where+`
@@ -187,6 +224,8 @@ LIMIT $%d OFFSET $%d`, n, n+1)
 			&row.UnitCostToWarehouse,
 			&row.IsActive,
 			&row.Notes,
+			&row.CreatedByName,
+			&row.UpdatedByName,
 			&row.CreatedAt,
 			&row.UpdatedAt,
 		); err != nil {

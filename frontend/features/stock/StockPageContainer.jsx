@@ -24,7 +24,7 @@ import { Input } from '@/components/ui/input';
 import { fetchMarketplaceStock } from '@/features/stock/marketplaceStockAdapter';
 import { summarizeStockRows } from '@/features/stock/stockMetrics';
 
-const LEVEL_FILTERS = new Set(['all', 'positive', 'zero', 'below_reorder']);
+const LEVEL_FILTERS = new Set(['all', 'positive', 'zero', 'below_reorder', 'missing_cost']);
 const STOCK_SOURCES = new Set(['our', 'wildberries', 'ozon']);
 
 function messageForMarketplaceStockError(err, t) {
@@ -96,6 +96,8 @@ function StockPageContainer() {
         return t('stock.filters.levelZero');
       case 'below_reorder':
         return t('stock.filters.levelBelowReorder');
+      case 'missing_cost':
+        return t('stock.filters.levelMissingCost');
       default:
         return t('stock.filters.allLevels');
     }
@@ -130,8 +132,8 @@ function StockPageContainer() {
       if (levelFilter && levelFilter !== 'all') {
         params.levelFilter = levelFilter;
       }
-      const { items, meta } = await api.stock.getCurrent(params);
-      return { items, total: meta.total };
+      const { items, meta, summary } = await api.stock.getCurrent(params);
+      return { items, total: meta.total, summary };
     },
   });
 
@@ -154,6 +156,7 @@ function StockPageContainer() {
     ? ownStockPayload?.items ?? []
     : marketplaceStockPayload?.items ?? [];
   const ownStockServerTotal = ownStockPayload?.total ?? 0;
+  const ownStockSummary = ownStockPayload?.summary ?? null;
   const loadingStock = isOwnStockMode ? loadingOwnStock : loadingMarketplaceStock;
   const fetchingStock = isOwnStockMode ? fetchingOwnStock : fetchingMarketplaceStock;
 
@@ -415,7 +418,7 @@ function StockPageContainer() {
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {isLoadingAny ? (
           <>
             {[1, 2, 3, 4].map((i) => (
@@ -461,6 +464,49 @@ function StockPageContainer() {
                 </p>
               </CardContent>
             </Card>
+
+            {isOwnStockMode ? (
+              <Card className="dark:bg-slate-900 dark:border-slate-800">
+                <CardContent className="pt-6">
+                  <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
+                    {t('stock.stats.totalStockValue')}
+                  </p>
+                  <p className="mt-1 text-2xl font-bold text-emerald-600 dark:text-emerald-400">
+                    {(ownStockSummary?.totalStockValue ?? 0).toLocaleString(undefined, {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}{' '}
+                    <span className="text-lg font-semibold text-slate-500 dark:text-slate-400">₽</span>
+                  </p>
+                </CardContent>
+              </Card>
+            ) : null}
+
+            {isOwnStockMode ? (
+              <Card className="dark:bg-slate-900 dark:border-slate-800">
+                <CardContent className="pt-6">
+                  <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
+                    {t('stock.stats.rowsMissingCost')}
+                  </p>
+                  <p className="mt-1 text-2xl font-bold text-amber-600 dark:text-amber-400">
+                    {(ownStockSummary?.rowsMissingCost ?? 0).toLocaleString()}
+                  </p>
+                </CardContent>
+              </Card>
+            ) : null}
+
+            {isOwnStockMode ? (
+              <Card className="dark:bg-slate-900 dark:border-slate-800">
+                <CardContent className="pt-6">
+                  <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
+                    {t('stock.stats.rowsWithCost')}
+                  </p>
+                  <p className="mt-1 text-2xl font-bold text-emerald-600 dark:text-emerald-400">
+                    {(ownStockSummary?.rowsWithCost ?? 0).toLocaleString()}
+                  </p>
+                </CardContent>
+              </Card>
+            ) : null}
             {selectedWarehouse && (
               <Card className="dark:bg-slate-900 dark:border-slate-800">
                 <CardContent className="pt-6">
@@ -596,6 +642,7 @@ function StockPageContainer() {
                     <SelectItem value="below_reorder">
                       {t('stock.filters.levelBelowReorder')}
                     </SelectItem>
+                    <SelectItem value="missing_cost">{t('stock.filters.levelMissingCost')}</SelectItem>
                   </SelectContent>
                 </Select>
               )}
@@ -643,6 +690,7 @@ function StockPageContainer() {
             isLoading={loadingStock}
             serverPagination={serverPagination}
             showReorderPoint={isOwnStockMode}
+            showCostColumns={isOwnStockMode}
             showHistoryAction={isOwnStockMode}
           />
         </Card>

@@ -26,7 +26,6 @@ const emptyProduct = {
   barcode: '',
   unitWeight: 0,
   reorderPoint: 0,
-  unitCost: null,
   purchasePrice: null,
   imagePaths: [],
   images: [],
@@ -195,7 +194,6 @@ function ProductsPageContainer() {
       barcode: product.barcode || '',
       unitWeight: product.unitWeight || 0,
       reorderPoint: product.reorderPoint || 0,
-      unitCost: product.unitCost || null,
       purchasePrice: product.purchasePrice || null,
       imagePaths: productImages.map((img) => img.filePath) || [],
       images: productImages,
@@ -244,13 +242,7 @@ function ProductsPageContainer() {
       return null;
     }
 
-    const unitCost = formData.unitCost ? parseFloat(formData.unitCost) : null;
     const purchasePrice = formData.purchasePrice ? parseFloat(formData.purchasePrice) : null;
-
-    if (unitCost !== null && (Number.isNaN(unitCost) || unitCost < 0)) {
-      setError(t('products.form.priceInvalid'));
-      return null;
-    }
 
     if (purchasePrice !== null && (Number.isNaN(purchasePrice) || purchasePrice < 0)) {
       setError(t('products.form.purchasePriceInvalid'));
@@ -269,7 +261,6 @@ function ProductsPageContainer() {
       barcode,
       unitWeight,
       reorderPoint,
-      unitCost,
       purchasePrice,
       imagePaths: mergedImagePaths,
     };

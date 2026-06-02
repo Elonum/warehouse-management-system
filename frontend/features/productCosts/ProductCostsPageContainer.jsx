@@ -1,10 +1,11 @@
 import React, { useEffect, useLayoutEffect, useMemo, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Filter, Plus, X } from 'lucide-react';
 import { api } from '@/api';
 import { useServerOffsetPagination } from '@/hooks/useServerOffsetPagination';
 import { useI18n } from '@/lib/i18n';
+import { createPageUrl } from '@/utils';
 import { Button } from '@/components/ui/button';
 import {
   Select,
@@ -29,6 +30,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import ProductCostsTable from '@/features/productCosts/components/ProductCostsTable';
+import ProductMissingCostTable from '@/features/productCosts/components/ProductMissingCostTable';
 import ProductCostFormDialog from '@/features/productCosts/components/ProductCostFormDialog';
 import { messageForProductCostError } from '@/features/productCosts/productCostErrors';
 
@@ -101,6 +103,7 @@ export default function ProductCostsPageContainer() {
   }, [searchParams, resetPage]);
 
   const qNormalized = useMemo(() => q.trim().slice(0, 100), [q]);
+  const isMissingTab = searchParams.get('tab') === 'missing';
 
   const {
     data: costsPayload,
@@ -117,6 +120,7 @@ export default function ProductCostsPageContainer() {
       limit,
       offset,
     ],
+    enabled: !isMissingTab,
     queryFn: async () => {
       const params = { limit, offset, view: viewMode };
       if (productFilter !== 'all') params.productId = productFilter;
@@ -127,17 +131,43 @@ export default function ProductCostsPageContainer() {
     },
   });
 
-  const rows = costsPayload?.items ?? [];
+  const {
+    data: missingPayload,
+    isLoading: loadingMissing,
+    isFetching: fetchingMissing,
+  } = useQuery({
+    queryKey: ['product-costs-missing', qNormalized || null, limit, offset],
+    enabled: isMissingTab,
+    queryFn: async () => {
+      const params = { limit, offset };
+      if (qNormalized) params.q = qNormalized;
+      return api.productCosts.missing(params);
+    },
+  });
+
+  const {
+    data: qualityPayload,
+    isLoading: loadingQuality,
+  } = useQuery({
+    queryKey: ['product-costs-data-quality'],
+    enabled: !isMissingTab,
+    queryFn: async () => api.productCosts.dataQuality(),
+  });
+
+  const costsRows = costsPayload?.items ?? [];
+  const missingRows = missingPayload?.items ?? [];
+  const rows = isMissingTab ? missingRows : costsRows;
   const summary = costsPayload?.summary ?? { totalRows: 0, activeRows: 0, productRows: 0 };
-  const serverTotal = costsPayload?.meta?.total ?? 0;
+  const serverTotal = (isMissingTab ? missingPayload?.meta?.total : costsPayload?.meta?.total) ?? 0;
 
   useEffect(() => {
-    if (fetchingCosts) return;
+    if (isMissingTab ? fetchingMissing : fetchingCosts) return;
     clampToTotal(serverTotal);
-  }, [serverTotal, clampToTotal, fetchingCosts]);
+  }, [serverTotal, clampToTotal, fetchingCosts, fetchingMissing, isMissingTab]);
 
   const { data: productsData, isLoading: loadingProducts } = useQuery({
     queryKey: ['products'],
+    enabled: !isMissingTab,
     queryFn: async () => {
       const response = await api.products.list({ limit: 1000, offset: 0 });
       return Array.isArray(response) ? response : [];
@@ -167,6 +197,25 @@ export default function ProductCostsPageContainer() {
 
   const viewModeLabel =
     viewMode === 'active' ? t('productCosts.viewActive') : t('productCosts.viewJournal');
+
+  const periodsLink = useMemo(() => {
+    const params = new URLSearchParams();
+    params.set('view', viewMode);
+    if (productFilter !== 'all') params.set('product', productFilter);
+    if (qNormalized) params.set('q', qNormalized);
+    if (fromDate) params.set('fromDate', fromDate);
+    if (toDate) params.set('toDate', toDate);
+    const qs = params.toString();
+    return qs ? `${createPageUrl('ProductCosts')}?${qs}` : createPageUrl('ProductCosts');
+  }, [createPageUrl, viewMode, productFilter, qNormalized, fromDate, toDate]);
+
+  const missingLink = useMemo(() => {
+    const params = new URLSearchParams();
+    params.set('tab', 'missing');
+    if (qNormalized) params.set('q', qNormalized);
+    const qs = params.toString();
+    return qs ? `${createPageUrl('ProductCosts')}?${qs}` : createPageUrl('ProductCosts');
+  }, [createPageUrl, qNormalized]);
 
   const serverPagination = toDataTableServerPagination({
     total: serverTotal,
@@ -271,31 +320,60 @@ export default function ProductCostsPageContainer() {
     resetPage();
   };
 
-  const hasActiveFilters =
-    productFilter !== 'all' ||
-    viewMode !== 'journal' ||
-    !!qNormalized ||
-    !!fromDate ||
-    !!toDate;
+  const hasActiveFilters = isMissingTab
+    ? !!qNormalized
+    : productFilter !== 'all' ||
+      viewMode !== 'journal' ||
+      !!qNormalized ||
+      !!fromDate ||
+      !!toDate;
 
-  const isLoadingAny = loadingCosts || loadingProducts;
+  const isLoadingAny = isMissingTab ? loadingMissing : loadingCosts || loadingProducts;
   const isSubmitting = createMutation.isPending || updateMutation.isPending;
 
   return (
     <div className="space-y-6">
       <PageHeader
-        title={t('productCosts.title')}
-        description={t('productCosts.description')}
-        titleHint={t('productCosts.titleHint')}
+        title={isMissingTab ? t('productCosts.missing.title') : t('productCosts.title')}
+        description={isMissingTab ? t('productCosts.missing.description') : t('productCosts.description')}
+        titleHint={!isMissingTab ? t('productCosts.titleHint') : undefined}
       >
-        <Button onClick={handleOpenCreate}>
-          <Plus className="mr-2 h-4 w-4" />
-          {t('productCosts.addPeriod')}
-        </Button>
+        {isMissingTab ? (
+          <Button variant="outline" asChild>
+            <Link to={periodsLink}>{t('productCosts.missing.backToPeriods')}</Link>
+          </Button>
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" asChild>
+              <Link to={missingLink}>{t('productCosts.missing.openReport')}</Link>
+            </Button>
+            <Button onClick={handleOpenCreate}>
+              <Plus className="mr-2 h-4 w-4" />
+              {t('productCosts.addPeriod')}
+            </Button>
+          </div>
+        )}
       </PageHeader>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        {isLoadingAny && !costsPayload ? (
+        {isMissingTab ? (
+          isLoadingAny && !missingPayload ? (
+            <Card className="dark:border-slate-800 dark:bg-slate-900">
+              <CardContent className="pt-6">
+                <LoadingState />
+              </CardContent>
+            </Card>
+          ) : (
+            <Card className="dark:border-slate-800 dark:bg-slate-900">
+              <CardContent className="pt-6">
+                <p className="text-sm text-slate-500 dark:text-slate-400">{t('productCosts.missing.stats.total')}</p>
+                <p className="mt-1 text-2xl font-bold text-amber-600 dark:text-amber-400">
+                  {serverTotal.toLocaleString()}
+                </p>
+              </CardContent>
+            </Card>
+          )
+        ) : isLoadingAny && !costsPayload ? (
           [1, 2, 3].map((i) => (
             <Card key={i} className="dark:border-slate-800 dark:bg-slate-900">
               <CardContent className="pt-6">
@@ -339,9 +417,62 @@ export default function ProductCostsPageContainer() {
         )}
       </div>
 
+      {!isMissingTab && !loadingQuality && (qualityPayload?.overlapPairCount ?? 0) > 0 ? (
+        <Card className="dark:border-amber-500/40 dark:bg-amber-500/10 border-amber-500/30">
+          <CardContent className="pt-6">
+            <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
+              {t('productCosts.quality.overlapPairs', { count: qualityPayload.overlapPairCount })}
+            </p>
+          </CardContent>
+        </Card>
+      ) : null}
+
       <Card className="dark:border-slate-800 dark:bg-slate-900">
         <CardContent className="pt-6">
-          {loadingProducts ? (
+          {isMissingTab ? (
+            <div className="flex flex-wrap items-center gap-4">
+              <div className="flex items-center gap-2">
+                <Filter className="h-4 w-4 text-slate-400" />
+                <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                  {t('productCosts.filters.title')}
+                </span>
+              </div>
+
+              <div className="relative w-72">
+                <Input
+                  value={q}
+                  onChange={(e) => {
+                    setQ(e.target.value);
+                    resetPage();
+                  }}
+                  placeholder={t('productCosts.searchPlaceholder')}
+                  aria-label={t('productCosts.searchPlaceholder')}
+                  className="pr-10"
+                />
+                {q ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2"
+                    onClick={() => {
+                      setQ('');
+                      resetPage();
+                    }}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                ) : null}
+              </div>
+
+              {hasActiveFilters ? (
+                <Button variant="ghost" size="sm" onClick={clearFilters}>
+                  <X className="mr-1 h-4 w-4" />
+                  {t('productCosts.filters.clear')}
+                </Button>
+              ) : null}
+            </div>
+          ) : loadingProducts ? (
             <LoadingState />
           ) : (
             <div className="flex flex-wrap items-center gap-4">
@@ -456,7 +587,30 @@ export default function ProductCostsPageContainer() {
         </CardContent>
       </Card>
 
-      {isLoadingAny && rows.length === 0 ? (
+      {isMissingTab ? (
+        loadingMissing && missingRows.length === 0 ? (
+          <Card className="dark:border-slate-800 dark:bg-slate-900">
+            <CardContent className="pt-6">
+              <LoadingState />
+            </CardContent>
+          </Card>
+        ) : missingRows.length === 0 && !loadingMissing ? (
+          <Card className="dark:border-slate-800 dark:bg-slate-900">
+            <CardContent className="pt-6">
+              <EmptyState message={t('productCosts.missing.emptyMessage')} />
+            </CardContent>
+          </Card>
+        ) : (
+          <Card className="overflow-hidden p-0 dark:border-slate-800 dark:bg-slate-900">
+            <ProductMissingCostTable
+              t={t}
+              rows={missingRows}
+              isLoading={loadingMissing}
+              serverPagination={serverPagination}
+            />
+          </Card>
+        )
+      ) : isLoadingAny && rows.length === 0 ? (
         <Card className="dark:border-slate-800 dark:bg-slate-900">
           <CardContent className="pt-6">
             <LoadingState />
@@ -485,59 +639,63 @@ export default function ProductCostsPageContainer() {
         </Card>
       )}
 
-      <ProductCostFormDialog
-        t={t}
-        open={dialogOpen}
-        onOpenChange={(open) => {
-          setDialogOpen(open);
-          if (!open) resetForm();
-        }}
-        isEdit={!!currentRow}
-        formData={formData}
-        onChangeField={(field, value) => setFormData((prev) => ({ ...prev, [field]: value }))}
-        products={products}
-        getProductLabel={getProductLabel}
-        error={formError}
-        isSubmitting={isSubmitting}
-        onSubmit={handleSubmit}
-        onCancel={() => {
-          setDialogOpen(false);
-          resetForm();
-        }}
-      />
+      {!isMissingTab ? (
+        <>
+          <ProductCostFormDialog
+            t={t}
+            open={dialogOpen}
+            onOpenChange={(open) => {
+              setDialogOpen(open);
+              if (!open) resetForm();
+            }}
+            isEdit={!!currentRow}
+            formData={formData}
+            onChangeField={(field, value) => setFormData((prev) => ({ ...prev, [field]: value }))}
+            products={products}
+            getProductLabel={getProductLabel}
+            error={formError}
+            isSubmitting={isSubmitting}
+            onSubmit={handleSubmit}
+            onCancel={() => {
+              setDialogOpen(false);
+              resetForm();
+            }}
+          />
 
-      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{t('productCosts.deleteConfirm.title')}</AlertDialogTitle>
-            <AlertDialogDescription>
-              {t('productCosts.deleteConfirm.description')}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel
-              onClick={() => {
-                setDeleteDialogOpen(false);
-                setCurrentRow(null);
-              }}
-            >
-              {t('common.cancel')}
-            </AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-red-600 hover:bg-red-700"
-              disabled={deleteMutation.isPending}
-              onClick={(e) => {
-                e.preventDefault();
-                if (currentRow) {
-                  deleteMutation.mutate(currentRow.costId);
-                }
-              }}
-            >
-              {deleteMutation.isPending ? t('common.deleting') : t('common.delete')}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+          <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>{t('productCosts.deleteConfirm.title')}</AlertDialogTitle>
+                <AlertDialogDescription>
+                  {t('productCosts.deleteConfirm.description')}
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel
+                  onClick={() => {
+                    setDeleteDialogOpen(false);
+                    setCurrentRow(null);
+                  }}
+                >
+                  {t('common.cancel')}
+                </AlertDialogCancel>
+                <AlertDialogAction
+                  className="bg-red-600 hover:bg-red-700"
+                  disabled={deleteMutation.isPending}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    if (currentRow) {
+                      deleteMutation.mutate(currentRow.costId);
+                    }
+                  }}
+                >
+                  {deleteMutation.isPending ? t('common.deleting') : t('common.delete')}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </>
+      ) : null}
     </div>
   );
 }

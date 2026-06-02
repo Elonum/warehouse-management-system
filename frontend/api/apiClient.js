@@ -701,6 +701,31 @@ const api = {
       };
     },
 
+    missing: async (params = {}) => {
+      const queryParams = new URLSearchParams();
+      if (params.q) queryParams.append('q', params.q);
+      if (params.limit != null) queryParams.append('limit', String(params.limit));
+      if (params.offset != null) queryParams.append('offset', String(params.offset));
+      const query = queryParams.toString();
+      const raw = await request(`/product-costs/missing${query ? `?${query}` : ''}`, { envelope: true });
+      const data = raw.data || {};
+      const items = Array.isArray(data.items) ? data.items : [];
+      const m = raw.meta || {};
+      return {
+        items,
+        meta: {
+          limit: Number(m.limit) || 50,
+          offset: Number(m.offset) || 0,
+          total: Number(m.total) || 0,
+        },
+      };
+    },
+
+    dataQuality: async () => {
+      const raw = await request(`/product-costs/data-quality`, { envelope: true });
+      return raw.data || {};
+    },
+
     get: async (id) => {
       return await request(`/product-costs/${id}`);
     },
@@ -803,10 +828,18 @@ const api = {
       const raw = await request(`/stock/current${query ? `?${query}` : ''}`, {
         envelope: true,
       });
-      const items = Array.isArray(raw.data) ? raw.data : [];
+      const data = raw.data || {};
+      const items = Array.isArray(data.items) ? data.items : [];
+      const summary = data.summary || {
+        totalStockValue: 0,
+        rowsMissingCost: 0,
+        rowsWithCost: 0,
+        totalRows: 0,
+      };
       const m = raw.meta || {};
       return {
         items,
+        summary,
         meta: {
           limit: Number(m.limit) || 50,
           offset: Number(m.offset) || 0,

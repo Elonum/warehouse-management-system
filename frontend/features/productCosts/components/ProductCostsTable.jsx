@@ -10,7 +10,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
-import { Edit2, MoreHorizontal, Trash2 } from 'lucide-react';
+import { Edit2, HelpCircle, MoreHorizontal, Trash2 } from 'lucide-react';
 
 function formatMoney(value) {
   const num = Number(value);
@@ -81,6 +81,64 @@ export default function ProductCostsTable({
             {formatMoney(row.original.unitCostToWarehouse)} ₽
           </span>
         ),
+      },
+      {
+        accessorKey: 'createdAt',
+        header: (
+          <div className="flex items-center gap-1">
+            <span>{t('productCosts.table.createdAt')}</span>
+            <span
+              className="relative inline-flex items-center group"
+              onClick={(e) => e.stopPropagation()}
+              onMouseDown={(e) => e.stopPropagation()}
+            >
+              <HelpCircle className="w-3 h-3 text-slate-400" />
+              <span className="pointer-events-none absolute left-1/2 top-full z-20 mt-2 w-72 -translate-x-1/2 rounded-md border bg-white px-2 py-1 text-xs font-normal text-slate-700 opacity-0 shadow-sm transition-opacity group-hover:opacity-100 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200">
+                {t('productCosts.meta.createdAtHint')}
+              </span>
+            </span>
+          </div>
+        ),
+        sortable: false,
+        cell: ({ row }) => {
+          const user = row.original.createdByName || t('common.notSpecified');
+          const dt = row.original.createdAt ? formatDate(row.original.createdAt, 'dd.MM.yyyy HH:mm') : '—';
+          return (
+            <div className="leading-tight" title={`${user}\n${dt}`}>
+              <div className="text-slate-600 dark:text-slate-400">{dt}</div>
+              <div className="text-xs text-slate-500 dark:text-slate-400 truncate">{user}</div>
+            </div>
+          );
+        },
+      },
+      {
+        accessorKey: 'updatedAt',
+        header: (
+          <div className="flex items-center gap-1">
+            <span>{t('productCosts.table.updatedAt')}</span>
+            <span
+              className="relative inline-flex items-center group"
+              onClick={(e) => e.stopPropagation()}
+              onMouseDown={(e) => e.stopPropagation()}
+            >
+              <HelpCircle className="w-3 h-3 text-slate-400" />
+              <span className="pointer-events-none absolute left-1/2 top-full z-20 mt-2 w-72 -translate-x-1/2 rounded-md border bg-white px-2 py-1 text-xs font-normal text-slate-700 opacity-0 shadow-sm transition-opacity group-hover:opacity-100 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200">
+                {t('productCosts.meta.updatedAtHint')}
+              </span>
+            </span>
+          </div>
+        ),
+        sortable: false,
+        cell: ({ row }) => {
+          const user = row.original.updatedByName || t('common.notSpecified');
+          const dt = row.original.updatedAt ? formatDate(row.original.updatedAt, 'dd.MM.yyyy HH:mm') : '—';
+          return (
+            <div className="leading-tight" title={`${user}\n${dt}`}>
+              <div className="text-slate-600 dark:text-slate-400">{dt}</div>
+              <div className="text-xs text-slate-500 dark:text-slate-400 truncate">{user}</div>
+            </div>
+          );
+        },
       },
       {
         id: 'status',

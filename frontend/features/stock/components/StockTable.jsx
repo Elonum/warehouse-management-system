@@ -12,9 +12,16 @@ function StockTable({
   isLoading,
   serverPagination,
   showReorderPoint = true,
+  showCostColumns = false,
   showHistoryAction = true,
 }) {
   const columns = useMemo(() => {
+    const formatMoney = (value) => {
+      const num = value == null ? NaN : Number(value);
+      if (!Number.isFinite(num)) return '—';
+      return num.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    };
+
     const cols = [
       {
         accessorKey: 'productName',
@@ -63,6 +70,38 @@ function StockTable({
       ),
     });
 
+    if (showCostColumns) {
+      cols.push({
+        accessorKey: 'unitCost',
+        header: t('stock.table.unitCost'),
+        headerClassName: 'text-right',
+        className: 'text-right',
+        cell: ({ row }) => (
+          <span
+            className={
+              row.original.hasUnitCost
+                ? 'font-semibold tabular-nums text-slate-900 dark:text-slate-100'
+                : 'font-semibold tabular-nums text-amber-600 dark:text-amber-400'
+            }
+          >
+            {row.original.hasUnitCost ? `${formatMoney(row.original.unitCost)} ₽` : '—'}
+          </span>
+        ),
+      });
+
+      cols.push({
+        accessorKey: 'stockValue',
+        header: t('stock.table.stockValue'),
+        headerClassName: 'text-right',
+        className: 'text-right',
+        cell: ({ row }) => (
+          <span className="font-semibold tabular-nums text-slate-900 dark:text-slate-100">
+            {row.original.hasUnitCost ? `${formatMoney(row.original.stockValue)} ₽` : '—'}
+          </span>
+        ),
+      });
+    }
+
     if (showReorderPoint) {
       cols.push({
         accessorKey: 'reorderPoint',
@@ -102,7 +141,7 @@ function StockTable({
     }
 
     return cols;
-  }, [warehouseFilter, t, showReorderPoint, showHistoryAction]);
+  }, [warehouseFilter, t, showReorderPoint, showCostColumns, showHistoryAction]);
 
   return (
     <DataTable

@@ -18,6 +18,7 @@ import (
 type ProductService struct {
 	repo      *repository.ProductRepository
 	imageRepo *repository.ProductImageRepository
+	costRepo  *repository.ProductCostRepository
 	baseURL   string // Base URL for serving images (e.g., "http://localhost:8080")
 }
 
@@ -26,12 +27,50 @@ var ErrTooManyProductImages = errors.New("too many product images")
 
 const maxProductImagesPerProduct = 10
 
-func NewProductService(repo *repository.ProductRepository, imageRepo *repository.ProductImageRepository, baseURL string) *ProductService {
+func NewProductService(
+	repo *repository.ProductRepository,
+	imageRepo *repository.ProductImageRepository,
+	costRepo *repository.ProductCostRepository,
+	baseURL string,
+) *ProductService {
 	return &ProductService{
 		repo:      repo,
 		imageRepo: imageRepo,
+		costRepo:  costRepo,
 		baseURL:   baseURL,
 	}
+}
+
+func (s *ProductService) productToResponse(
+	product repository.Product,
+	images []repository.ProductImage,
+	activeCosts map[uuid.UUID]float64,
+) dto.ProductResponse {
+	var activeUnitCost *float64
+	if v, ok := activeCosts[product.ProductID]; ok {
+		activeUnitCost = &v
+	}
+	return dto.ProductResponse{
+		ProductID:      product.ProductID.String(),
+		Article:        product.Article,
+		Barcode:        product.Barcode,
+		UnitWeight:     product.UnitWeight,
+		ReorderPoint:   product.ReorderPoint,
+		ActiveUnitCost: activeUnitCost,
+		PurchasePrice:  product.PurchasePrice,
+		Images:         s.mapImagesToDTO(images),
+	}
+}
+
+func (s *ProductService) loadActiveCosts(ctx context.Context, products []repository.Product) (map[uuid.UUID]float64, error) {
+	if s.costRepo == nil || len(products) == 0 {
+		return map[uuid.UUID]float64{}, nil
+	}
+	ids := make([]uuid.UUID, len(products))
+	for i, p := range products {
+		ids[i] = p.ProductID
+	}
+	return s.costRepo.GetActiveUnitCosts(ctx, ids)
 }
 
 func (s *ProductService) GetByID(ctx context.Context, productID uuid.UUID) (*dto.ProductResponse, error) {
@@ -48,18 +87,9 @@ func (s *ProductService) GetByID(ctx context.Context, productID uuid.UUID) (*dto
 		images = []repository.ProductImage{} // Continue without images
 	}
 
-	imageResponses := s.mapImagesToDTO(images)
-
-	return &dto.ProductResponse{
-		ProductID:     product.ProductID.String(),
-		Article:       product.Article,
-		Barcode:       product.Barcode,
-		UnitWeight:    product.UnitWeight,
-		ReorderPoint:  product.ReorderPoint,
-		UnitCost:      product.UnitCost,
-		PurchasePrice: product.PurchasePrice,
-		Images:        imageResponses,
-	}, nil
+	activeCosts, _ := s.loadActiveCosts(ctx, []repository.Product{*product})
+	resp := s.productToResponse(*product, images, activeCosts)
+	return &resp, nil
 }
 
 func (s *ProductService) GetByArticle(ctx context.Context, article string) (*dto.ProductResponse, error) {
@@ -75,18 +105,9 @@ func (s *ProductService) GetByArticle(ctx context.Context, article string) (*dto
 		images = []repository.ProductImage{}
 	}
 
-	imageResponses := s.mapImagesToDTO(images)
-
-	return &dto.ProductResponse{
-		ProductID:     product.ProductID.String(),
-		Article:       product.Article,
-		Barcode:       product.Barcode,
-		UnitWeight:    product.UnitWeight,
-		ReorderPoint:  product.ReorderPoint,
-		UnitCost:      product.UnitCost,
-		PurchasePrice: product.PurchasePrice,
-		Images:        imageResponses,
-	}, nil
+	activeCosts, _ := s.loadActiveCosts(ctx, []repository.Product{*product})
+	resp := s.productToResponse(*product, images, activeCosts)
+	return &resp, nil
 }
 
 func (s *ProductService) GetByBarcode(ctx context.Context, barcode string) (*dto.ProductResponse, error) {
@@ -102,18 +123,9 @@ func (s *ProductService) GetByBarcode(ctx context.Context, barcode string) (*dto
 		images = []repository.ProductImage{}
 	}
 
-	imageResponses := s.mapImagesToDTO(images)
-
-	return &dto.ProductResponse{
-		ProductID:     product.ProductID.String(),
-		Article:       product.Article,
-		Barcode:       product.Barcode,
-		UnitWeight:    product.UnitWeight,
-		ReorderPoint:  product.ReorderPoint,
-		UnitCost:      product.UnitCost,
-		PurchasePrice: product.PurchasePrice,
-		Images:        imageResponses,
-	}, nil
+	activeCosts, _ := s.loadActiveCosts(ctx, []repository.Product{*product})
+	resp := s.productToResponse(*product, images, activeCosts)
+	return &resp, nil
 }
 
 func (s *ProductService) List(ctx context.Context, limit, offset int) ([]dto.ProductResponse, error) {
@@ -123,22 +135,16 @@ func (s *ProductService) List(ctx context.Context, limit, offset int) ([]dto.Pro
 		return nil, err
 	}
 
+	activeCosts, err := s.loadActiveCosts(ctx, products)
+	if err != nil {
+		log.Warn().Err(err).Msg("Failed to load active unit costs for product list")
+		activeCosts = map[uuid.UUID]float64{}
+	}
+
 	result := make([]dto.ProductResponse, 0, len(products))
 	for _, product := range products {
 		images, _ := s.imageRepo.GetByProductID(ctx, product.ProductID)
-
-		productResponse := dto.ProductResponse{
-			ProductID:     product.ProductID.String(),
-			Article:       product.Article,
-			Barcode:       product.Barcode,
-			UnitWeight:    product.UnitWeight,
-			ReorderPoint:  product.ReorderPoint,
-			UnitCost:      product.UnitCost,
-			PurchasePrice: product.PurchasePrice,
-			Images:        s.mapImagesToDTO(images),
-		}
-
-		result = append(result, productResponse)
+		result = append(result, s.productToResponse(product, images, activeCosts))
 	}
 
 	return result, nil
@@ -150,7 +156,7 @@ func (s *ProductService) Create(ctx context.Context, req dto.ProductCreateReques
 		return nil, err
 	}
 
-	product, err := s.repo.Create(ctx, req.Article, req.Barcode, req.UnitWeight, req.ReorderPoint, req.UnitCost, req.PurchasePrice)
+	product, err := s.repo.Create(ctx, req.Article, req.Barcode, req.UnitWeight, req.ReorderPoint, nil, req.PurchasePrice)
 	if err != nil {
 		log.Error().Err(err).Str("article", req.Article).Str("barcode", req.Barcode).Msg("Failed to create product")
 		return nil, err
@@ -170,18 +176,9 @@ func (s *ProductService) Create(ctx context.Context, req dto.ProductCreateReques
 
 	// Load all images
 	images, _ := s.imageRepo.GetByProductID(ctx, product.ProductID)
-	imageResponses := s.mapImagesToDTO(images)
-
-	return &dto.ProductResponse{
-		ProductID:     product.ProductID.String(),
-		Article:       product.Article,
-		Barcode:       product.Barcode,
-		UnitWeight:    product.UnitWeight,
-		ReorderPoint:  product.ReorderPoint,
-		UnitCost:      product.UnitCost,
-		PurchasePrice: product.PurchasePrice,
-		Images:        imageResponses,
-	}, nil
+	activeCosts, _ := s.loadActiveCosts(ctx, []repository.Product{*product})
+	resp := s.productToResponse(*product, images, activeCosts)
+	return &resp, nil
 }
 
 func (s *ProductService) Update(ctx context.Context, productID uuid.UUID, req dto.ProductUpdateRequest) (*dto.ProductResponse, error) {
@@ -190,7 +187,7 @@ func (s *ProductService) Update(ctx context.Context, productID uuid.UUID, req dt
 		return nil, err
 	}
 
-	product, err := s.repo.Update(ctx, productID, req.Article, req.Barcode, req.UnitWeight, req.ReorderPoint, req.UnitCost, req.PurchasePrice)
+	product, err := s.repo.Update(ctx, productID, req.Article, req.Barcode, req.UnitWeight, req.ReorderPoint, nil, req.PurchasePrice)
 	if err != nil {
 		log.Error().Err(err).Str("productId", productID.String()).Msg("Failed to update product")
 		return nil, err
@@ -211,18 +208,9 @@ func (s *ProductService) Update(ctx context.Context, productID uuid.UUID, req dt
 	}
 
 	images, _ := s.imageRepo.GetByProductID(ctx, productID)
-	imageResponses := s.mapImagesToDTO(images)
-
-	return &dto.ProductResponse{
-		ProductID:     product.ProductID.String(),
-		Article:       product.Article,
-		Barcode:       product.Barcode,
-		UnitWeight:    product.UnitWeight,
-		ReorderPoint:  product.ReorderPoint,
-		UnitCost:      product.UnitCost,
-		PurchasePrice: product.PurchasePrice,
-		Images:        imageResponses,
-	}, nil
+	activeCosts, _ := s.loadActiveCosts(ctx, []repository.Product{*product})
+	resp := s.productToResponse(*product, images, activeCosts)
+	return &resp, nil
 }
 
 func (s *ProductService) Delete(ctx context.Context, productID uuid.UUID) error {

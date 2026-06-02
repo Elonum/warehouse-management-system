@@ -105,6 +105,8 @@ func (s *ProductCostService) ListPage(
 			UnitCostToWarehouse: row.UnitCostToWarehouse,
 			IsActive:            row.IsActive,
 			Notes:               row.Notes,
+			CreatedByName:       row.CreatedByName,
+			UpdatedByName:       row.UpdatedByName,
 			CreatedAt:           row.CreatedAt,
 			UpdatedAt:           row.UpdatedAt,
 		})
@@ -191,6 +193,9 @@ func (s *ProductCostService) Create(ctx context.Context, userID uuid.UUID, req d
 		return nil, err
 	}
 
+	if syncErr := s.repo.SyncProductUnitCost(ctx, productID); syncErr != nil {
+		log.Error().Err(syncErr).Str("productId", productID.String()).Msg("failed to sync product unit_cost after create")
+	}
 	log.Info().Str("costId", cost.CostID.String()).Str("productId", req.ProductID).Msg("Product cost created")
 	return toCostResponse(cost), nil
 }
@@ -223,16 +228,77 @@ func (s *ProductCostService) Update(ctx context.Context, costID, userID uuid.UUI
 		return nil, err
 	}
 
+	if syncErr := s.repo.SyncProductUnitCost(ctx, productID); syncErr != nil {
+		log.Error().Err(syncErr).Str("productId", productID.String()).Msg("failed to sync product unit_cost after update")
+	}
 	log.Info().Str("costId", costID.String()).Msg("Product cost updated")
 	return toCostResponse(cost), nil
 }
 
 func (s *ProductCostService) Delete(ctx context.Context, costID uuid.UUID) error {
-	err := s.repo.Delete(ctx, costID)
+	existing, err := s.repo.GetByID(ctx, costID)
+	if err != nil {
+		log.Error().Err(err).Str("costId", costID.String()).Msg("Failed to get product cost before delete")
+		return err
+	}
+	productID := existing.ProductID
+
+	err = s.repo.Delete(ctx, costID)
 	if err != nil {
 		log.Error().Err(err).Str("costId", costID.String()).Msg("Failed to delete product cost")
 		return err
 	}
+	if syncErr := s.repo.SyncProductUnitCost(ctx, productID); syncErr != nil {
+		log.Error().Err(syncErr).Str("productId", productID.String()).Msg("failed to sync product unit_cost after delete")
+	}
 	log.Info().Str("costId", costID.String()).Msg("Product cost deleted")
 	return nil
+}
+
+func (s *ProductCostService) ListMissingCost(
+	ctx context.Context,
+	q *string,
+	limit int,
+	offset int,
+) (*dto.ProductMissingCostListResponse, int, error) {
+	var rows []repository.ProductMissingCostRow
+	var total int64
+	var listErr, countErr error
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		rows, listErr = s.repo.ListProductsMissingCost(ctx, q, limit, offset)
+	}()
+	go func() {
+		defer wg.Done()
+		total, countErr = s.repo.CountProductsMissingCost(ctx, q)
+	}()
+	wg.Wait()
+	if listErr != nil {
+		return nil, 0, listErr
+	}
+	if countErr != nil {
+		return nil, 0, countErr
+	}
+
+	items := make([]dto.ProductMissingCostItemResponse, 0, len(rows))
+	for _, row := range rows {
+		items = append(items, dto.ProductMissingCostItemResponse{
+			ProductID:      row.ProductID.String(),
+			ProductArticle: row.ProductArticle,
+			ProductBarcode: row.ProductBarcode,
+			TotalQuantity:  row.TotalQuantity,
+			WarehouseCount: row.WarehouseCount,
+		})
+	}
+	return &dto.ProductMissingCostListResponse{Items: items}, clampCostInt64(total), nil
+}
+
+func (s *ProductCostService) GetDataQuality(ctx context.Context) (*dto.ProductCostDataQualityResponse, error) {
+	n, err := s.repo.CountOverlapPairs(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &dto.ProductCostDataQualityResponse{OverlapPairCount: n}, nil
 }

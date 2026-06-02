@@ -179,13 +179,13 @@ function ProductsTable({
         ),
       },
       {
-        accessorKey: 'unitCost',
-        header: t('products.table.price'),
+        accessorKey: 'activeUnitCost',
+        header: t('products.table.activeUnitCost'),
         headerClassName: 'text-center',
         cell: ({ row }) => (
           <div className="flex items-center justify-center h-full">
             <span className="font-medium text-slate-900 dark:text-slate-100">
-              {row.original.unitCost ? `₽${row.original.unitCost.toFixed(2)}` : '—'}
+              {row.original.activeUnitCost != null ? `₽${row.original.activeUnitCost.toFixed(2)}` : '—'}
             </span>
           </div>
         ),

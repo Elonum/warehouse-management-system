@@ -48,10 +48,7 @@ export default function ProductImageUpload({
       onImagesChange([...images, newImage]);
       setUploadError('');
     },
-    onError: (err) => {
-      // Keep UX consistent and avoid leaking backend raw messages to end-users.
-      // eslint-disable-next-line no-console
-      console.warn('Upload image failed:', err);
+    onError: () => {
       setUploadError(t('products.images.uploadFailed'));
     },
     onSettled: () => {
@@ -69,9 +66,7 @@ export default function ProductImageUpload({
         try {
           const productImages = await api.products.getImages(variables.productId);
           onImagesChange(productImages || []);
-        } catch (err) {
-          // eslint-disable-next-line no-console
-          console.warn('Failed to reload images after delete:', err);
+        } catch {
           setUploadError(t('products.images.deleteFailed'));
         }
       } else {
@@ -81,9 +76,7 @@ export default function ProductImageUpload({
         }));
       }
     },
-    onError: (err) => {
-      // eslint-disable-next-line no-console
-      console.warn('Delete image failed:', err);
+    onError: () => {
       setUploadError(t('products.images.deleteFailed'));
     },
   });
@@ -286,7 +279,6 @@ export default function ProductImageUpload({
                   alt={`Product image ${index + 1}`}
                   className="w-full h-full object-cover transition-transform group-hover:scale-105"
                   onError={(e) => {
-                    console.error('Failed to load image:', imageUrl, image);
                     e.target.style.display = 'none';
                     const parent = e.target.parentElement;
                     if (parent) {

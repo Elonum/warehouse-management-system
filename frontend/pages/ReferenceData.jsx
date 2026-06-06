@@ -7,7 +7,6 @@ import {
   Truck,
   ShoppingCart,
   ClipboardList,
-  Warehouse,
   BookOpen,
   ChevronRight,
   ArrowLeft,
@@ -89,15 +88,6 @@ export default function ReferenceData() {
   const [inventoryStatusError, setInventoryStatusError] = useState('');
   const [inventoryStatusDeleteError, setInventoryStatusDeleteError] = useState('');
   const [inventoryStatusIsFinal, setInventoryStatusIsFinal] = useState(false);
-  
-  // Warehouse Type states
-  const [warehouseTypeDialogOpen, setWarehouseTypeDialogOpen] = useState(false);
-  const [deleteWarehouseTypeDialogOpen, setDeleteWarehouseTypeDialogOpen] = useState(false);
-  const [currentWarehouseType, setCurrentWarehouseType] = useState(null);
-  const [warehouseTypeName, setWarehouseTypeName] = useState('');
-  const [warehouseTypeIsMarketplace, setWarehouseTypeIsMarketplace] = useState(false);
-  const [warehouseTypeError, setWarehouseTypeError] = useState('');
-  const [warehouseTypeDeleteError, setWarehouseTypeDeleteError] = useState('');
 
   const { data: roles = [], isLoading: rolesLoading } = useQuery({
     queryKey: ['roles'],
@@ -130,9 +120,6 @@ export default function ReferenceData() {
       return Array.isArray(response) ? response : [];
     },
   });
-
-  const warehouseTypes = [];
-  const warehouseTypesLoading = false;
 
   const createRoleMutation = useMutation({
     mutationFn: (data) => api.roles.create(data),
@@ -177,11 +164,10 @@ export default function ReferenceData() {
     },
     onError: (err) => {
       if (err instanceof ApiError) {
-        setError(err.message || t('referenceData.roles.errors.deleteFailed'));
+        setDeleteError(err.message || t('referenceData.roles.errors.deleteFailed'));
       } else {
-        setError(t('referenceData.roles.errors.deleteFailed'));
+        setDeleteError(t('referenceData.roles.errors.deleteFailed'));
       }
-      setDeleteDialogOpen(false);
     },
   });
 
@@ -222,7 +208,7 @@ export default function ReferenceData() {
       return;
     }
 
-    const data = { name, isFinal: shipmentStatusIsFinal };
+    const data = { name };
 
     if (currentRole) {
       updateRoleMutation.mutate({ id: currentRole.roleId, data });
@@ -299,11 +285,10 @@ export default function ReferenceData() {
     },
     onError: (err) => {
       if (err instanceof ApiError) {
-        setOrderStatusError(err.message || t('referenceData.orderStatuses.errors.deleteFailed'));
+        setOrderStatusDeleteError(err.message || t('referenceData.orderStatuses.errors.deleteFailed'));
       } else {
-        setOrderStatusError(t('referenceData.orderStatuses.errors.deleteFailed'));
+        setOrderStatusDeleteError(t('referenceData.orderStatuses.errors.deleteFailed'));
       }
-      setDeleteOrderStatusDialogOpen(false);
     },
   });
 
@@ -424,18 +409,17 @@ export default function ReferenceData() {
     onError: (err) => {
       if (err instanceof ApiError) {
         if (err.code === 'STATUS_IN_USE') {
-          setShipmentStatusError(
+          setShipmentStatusDeleteError(
             t('referenceData.shipmentStatuses.errors.statusInUseSingle'),
           );
         } else {
-          setShipmentStatusError(
+          setShipmentStatusDeleteError(
             err.message || t('referenceData.shipmentStatuses.errors.deleteFailed'),
           );
         }
       } else {
-        setShipmentStatusError(t('referenceData.shipmentStatuses.errors.deleteFailed'));
+        setShipmentStatusDeleteError(t('referenceData.shipmentStatuses.errors.deleteFailed'));
       }
-      setDeleteShipmentStatusDialogOpen(false);
     },
   });
 
@@ -619,11 +603,10 @@ export default function ReferenceData() {
     },
     onError: (err) => {
       if (err instanceof ApiError) {
-        setInventoryStatusError(err.message || t('referenceData.inventoryStatuses.errors.deleteFailed'));
+        setInventoryStatusDeleteError(err.message || t('referenceData.inventoryStatuses.errors.deleteFailed'));
       } else {
-        setInventoryStatusError(t('referenceData.inventoryStatuses.errors.deleteFailed'));
+        setInventoryStatusDeleteError(t('referenceData.inventoryStatuses.errors.deleteFailed'));
       }
-      setDeleteInventoryStatusDialogOpen(false);
     },
   });
 
@@ -750,183 +733,6 @@ export default function ReferenceData() {
             <GuardedMenuItem
               allowed={canAdmin}
               onClick={() => handleDeleteInventoryStatus(row.original)}
-              className="text-red-600 dark:text-red-400"
-            >
-              <Trash2 className="w-4 h-4 mr-2" />
-              {t('common.delete')}
-            </GuardedMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      ),
-    },
-  ];
-
-  // Warehouse Type mutations
-  const createWarehouseTypeMutation = useMutation({
-    mutationFn: (data) => api.warehouseTypes.create(data),
-    onSuccess: async () => {
-      queryClient.invalidateQueries({ queryKey: ['warehouseTypes'] });
-      setWarehouseTypeDialogOpen(false);
-      resetWarehouseTypeForm();
-      setWarehouseTypeError('');
-    },
-    onError: (err) => {
-      if (err instanceof ApiError) {
-        setWarehouseTypeError(err.message || t('referenceData.warehouseTypes.errors.createFailed'));
-      } else {
-        setWarehouseTypeError(t('referenceData.warehouseTypes.errors.createFailed'));
-      }
-    },
-  });
-
-  const updateWarehouseTypeMutation = useMutation({
-    mutationFn: ({ id, data }) => api.warehouseTypes.update(id, data),
-    onSuccess: async () => {
-      queryClient.invalidateQueries({ queryKey: ['warehouseTypes'] });
-      setWarehouseTypeDialogOpen(false);
-      resetWarehouseTypeForm();
-      setWarehouseTypeError('');
-    },
-    onError: (err) => {
-      if (err instanceof ApiError) {
-        setWarehouseTypeError(err.message || t('referenceData.warehouseTypes.errors.updateFailed'));
-      } else {
-        setWarehouseTypeError(t('referenceData.warehouseTypes.errors.updateFailed'));
-      }
-    },
-  });
-
-  const deleteWarehouseTypeMutation = useMutation({
-    mutationFn: (id) => api.warehouseTypes.delete(id),
-    onSuccess: async () => {
-      queryClient.invalidateQueries({ queryKey: ['warehouseTypes'] });
-      setDeleteWarehouseTypeDialogOpen(false);
-      setCurrentWarehouseType(null);
-    },
-    onError: (err) => {
-      if (err instanceof ApiError) {
-        setWarehouseTypeError(err.message || t('referenceData.warehouseTypes.errors.deleteFailed'));
-      } else {
-        setWarehouseTypeError(t('referenceData.warehouseTypes.errors.deleteFailed'));
-      }
-      setDeleteWarehouseTypeDialogOpen(false);
-    },
-  });
-
-  const resetWarehouseTypeForm = () => {
-    setWarehouseTypeName('');
-    setWarehouseTypeIsMarketplace(false);
-    setCurrentWarehouseType(null);
-    setWarehouseTypeError('');
-  };
-
-  const handleOpenWarehouseTypeDialog = (warehouseType = null) => {
-    if (warehouseType) {
-      setCurrentWarehouseType(warehouseType);
-      setWarehouseTypeName(warehouseType.name || '');
-      setWarehouseTypeIsMarketplace(!!warehouseType.isMarketplace);
-    } else {
-      resetWarehouseTypeForm();
-    }
-    setWarehouseTypeError('');
-    setWarehouseTypeDialogOpen(true);
-  };
-
-  const handleCloseWarehouseTypeDialog = () => {
-    setWarehouseTypeDialogOpen(false);
-    resetWarehouseTypeForm();
-  };
-
-  const handleWarehouseTypeSubmit = (e) => {
-    e.preventDefault();
-    setWarehouseTypeError('');
-
-    const name = warehouseTypeName.trim();
-    if (!name) {
-      setWarehouseTypeError(t('referenceData.warehouseTypes.errors.nameRequired'));
-      return;
-    }
-
-    if (name.length < 2) {
-      setWarehouseTypeError(t('referenceData.warehouseTypes.errors.nameMinLength'));
-      return;
-    }
-
-    const data = { name, isMarketplace: warehouseTypeIsMarketplace };
-
-    if (currentWarehouseType) {
-      updateWarehouseTypeMutation.mutate({ id: currentWarehouseType.warehouseTypeId, data });
-    } else {
-      createWarehouseTypeMutation.mutate(data);
-    }
-  };
-
-  const handleDeleteWarehouseType = (warehouseType) => {
-    setCurrentWarehouseType(warehouseType);
-    setWarehouseTypeDeleteError('');
-    setDeleteWarehouseTypeDialogOpen(true);
-  };
-
-  const confirmDeleteWarehouseType = () => {
-    if (!currentWarehouseType) return;
-
-    // Check if warehouse type is used by any warehouses
-    const warehousesWithType = warehouses.filter(warehouse => warehouse.warehouseTypeId === currentWarehouseType.warehouseTypeId);
-    if (warehousesWithType.length > 0) {
-      const count = warehousesWithType.length;
-      const errorMessage = count === 1 
-        ? t('referenceData.warehouseTypes.errors.typeInUseSingle')
-        : t('referenceData.warehouseTypes.errors.typeInUse', { count });
-      setWarehouseTypeDeleteError(errorMessage);
-      return;
-    }
-
-    setWarehouseTypeDeleteError('');
-    deleteWarehouseTypeMutation.mutate(currentWarehouseType.warehouseTypeId);
-  };
-
-  const warehouseTypeColumns = [
-    {
-      accessorKey: 'name',
-      header: t('referenceData.warehouseTypes.table.name'),
-      cell: ({ row }) => (
-        <div className="flex items-center gap-3">
-          <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-emerald-100 dark:bg-emerald-500/20">
-            <Warehouse className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="font-medium text-slate-900 dark:text-slate-100">
-              {row.original.name}
-            </span>
-            {row.original.isMarketplace ? (
-              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-50 text-purple-700 dark:bg-purple-500/10 dark:text-purple-300">
-                MP
-              </span>
-            ) : null}
-          </div>
-        </div>
-      ),
-    },
-    {
-      id: 'actions',
-      header: '',
-      sortable: false,
-      cell: ({ row }) => (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="w-8 h-8">
-              <MoreHorizontal className="w-4 h-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <GuardedMenuItem allowed={canAdmin} onClick={() => handleOpenWarehouseTypeDialog(row.original)}>
-              <Edit2 className="w-4 h-4 mr-2" />
-              {t('common.edit')}
-            </GuardedMenuItem>
-            <DropdownMenuSeparator />
-            <GuardedMenuItem
-              allowed={canAdmin}
-              onClick={() => handleDeleteWarehouseType(row.original)}
               className="text-red-600 dark:text-red-400"
             >
               <Trash2 className="w-4 h-4 mr-2" />
@@ -1149,14 +955,6 @@ export default function ReferenceData() {
     queryKey: ['inventories'],
     queryFn: async () => {
       const response = await api.inventories.list({ limit: 1000, offset: 0 });
-      return Array.isArray(response) ? response : [];
-    },
-  });
-
-  const { data: warehouses = [] } = useQuery({
-    queryKey: ['warehouses'],
-    queryFn: async () => {
-      const response = await api.warehouses.list({ limit: 1000, offset: 0 });
       return Array.isArray(response) ? response : [];
     },
   });
@@ -1781,8 +1579,8 @@ export default function ReferenceData() {
                     </div>
                     <div className="space-y-1.5 max-h-48 overflow-y-auto">
                       {section.items.slice(0, 5).map((item, index) => {
-                        const itemId = item.roleId || item.orderStatusId || item.shipmentStatusId || 
-                                      item.inventoryStatusId || item.warehouseTypeId || item.id || index;
+                        const itemId = item.roleId || item.orderStatusId || item.shipmentStatusId ||
+                                      item.inventoryStatusId || item.id || index;
                         return (
                           <div
                             key={itemId}

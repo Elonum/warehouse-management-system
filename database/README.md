@@ -109,3 +109,38 @@
 2. Все движения хранятся отдельно
 3. Актуальные остатки считаются как:
 Snapshot + Movements
+
+---
+
+### `test_values.sql`
+Демо-набор данных для разработки и интеграционных тестов.
+
+Содержит связанные данные по всем сущностям:
+- 6 ролей и пользователей (пароль `password123`, админ `admin@warehouse.ru`)
+- 10 товаров с `reorder_point`, изображениями и себестоимостью (закрытый + открытый период)
+- 6 складов (3 своих + 3 МП)
+- заказы поставщикам (в т.ч. подзаказ), отгрузки на WB/Ozon/ЯМ, инвентаризации
+- снапшоты на `2026-05-31` и движения после них (приёмки, отгрузки, корректировки)
+- финальные статусы (`is_final`) для корректной работы `vw_stock_movements`
+
+**Загрузка на пустую БД:**
+```bash
+psql -d warehouse -f database/schema.sql
+psql -d warehouse -f database/vw_stock_movements.sql
+psql -d warehouse -f database/vw_current_stock.sql
+psql -d warehouse -f database/vw_stock_movements_since_snapshot.sql
+psql -d warehouse -f database/vw_stock_with_cost.sql
+psql -d warehouse -f database/vw_warehouse_stock_value.sql
+psql -d warehouse -f database/test_values.sql
+```
+
+**Перезагрузка демо-данных:**
+```bash
+psql -d warehouse -f database/clear_all_data.sql
+psql -d warehouse -f database/test_values.sql
+```
+
+---
+
+### `clear_all_data.sql`
+Удаляет все строки из бизнес-таблиц (включая `product_images`, `password_reset_tokens`), сохраняя схему.

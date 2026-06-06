@@ -29,7 +29,10 @@ createdb warehouse
 psql -d warehouse -f database/schema.sql
 psql -d warehouse -f database/vw_stock_movements.sql
 psql -d warehouse -f database/vw_current_stock.sql
-# опционально — тестовые данные (логин admin@warehouse.ru / password123):
+psql -d warehouse -f database/vw_stock_movements_since_snapshot.sql
+psql -d warehouse -f database/vw_stock_with_cost.sql
+psql -d warehouse -f database/vw_warehouse_stock_value.sql
+# демо-данные (логин admin@warehouse.ru / password123):
 psql -d warehouse -f database/test_values.sql
 ```
 

@@ -997,14 +997,14 @@ const api = {
     openFile: async (filePath) => {
       const url = api.upload.getFileUrl(filePath);
       if (!url) {
-        throw new ApiError('INVALID_FILE', 'File path is missing', 400);
+        throw new ApiError('File path is missing', 'INVALID_FILE', 400);
       }
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('auth_token');
       const response = await fetch(url, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
       if (!response.ok) {
-        throw new ApiError('FILE_OPEN_FAILED', 'Failed to open file', response.status);
+        throw new ApiError('Failed to open file', 'FILE_OPEN_FAILED', response.status);
       }
       const blob = await response.blob();
       const blobUrl = URL.createObjectURL(blob);

@@ -78,8 +78,8 @@ function ProductsPageContainer() {
               imagePaths: fullProduct.images?.map((img) => img.filePath) || [],
             }));
           }
-        } catch (err) {
-          console.error('Failed to reload product images:', err);
+        } catch {
+          // Images will refresh on next product list invalidation.
         }
       }
       setDialogOpen(false);
@@ -111,8 +111,8 @@ function ProductsPageContainer() {
               imagePaths: fullProduct.images?.map((img) => img.filePath) || [],
             }));
           }
-        } catch (err) {
-          console.error('Failed to reload product images:', err);
+        } catch {
+          // Images will refresh on next product list invalidation.
         }
       }
       setDialogOpen(false);
@@ -164,8 +164,6 @@ function ProductsPageContainer() {
         // Always show i18n errors to the user.
         // Keep backend message for debugging only.
         if (err.code !== 'PRODUCT_IN_USE') {
-          // eslint-disable-next-line no-console
-          console.warn('Delete product failed:', { code: err.code, status: err.status, message: err.message });
           setDeleteError(t('products.errors.deleteFailed'));
         }
         return;
@@ -183,8 +181,7 @@ function ProductsPageContainer() {
       try {
         const fullProduct = await api.products.get(product.productId);
         productImages = fullProduct.images || [];
-      } catch (err) {
-        console.error('Failed to load product images:', err);
+      } catch {
         productImages = product.images || [];
       }
     } else {

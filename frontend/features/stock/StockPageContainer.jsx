@@ -27,6 +27,20 @@ import { summarizeStockRows } from '@/features/stock/stockMetrics';
 const LEVEL_FILTERS = new Set(['all', 'positive', 'zero', 'below_reorder', 'missing_cost']);
 const STOCK_SOURCES = new Set(['our', 'wildberries', 'ozon']);
 
+function StatCard({ label, value, valueClassName = 'text-slate-900 dark:text-slate-100', suffix = null }) {
+  return (
+    <Card className="dark:bg-slate-900 dark:border-slate-800">
+      <CardContent className="pt-6">
+        <p className="text-sm font-medium text-slate-500 dark:text-slate-400">{label}</p>
+        <p className={`mt-1 text-2xl font-bold ${valueClassName}`}>
+          {value}
+          {suffix ? <span className="text-lg font-semibold text-slate-500 dark:text-slate-400"> {suffix}</span> : null}
+        </p>
+      </CardContent>
+    </Card>
+  );
+}
+
 function messageForMarketplaceStockError(err, t) {
   if (err instanceof ApiError) {
     if (err.code === 'WB_STATISTICS_TOKEN_MISSING' || err.code === 'OZON_CREDENTIALS_MISSING') {
@@ -191,7 +205,7 @@ function StockPageContainer() {
     for (const row of stock) {
       const sku = String(row.productId);
       const article = (row.listingArticle || row.productName || '').trim();
-      const label = article && article !== `#${sku}` ? `${article} (${sku})` : sku;
+      const label = article && article !== `#${sku}` ? article : sku;
       if (!seen.has(sku)) {
         seen.set(sku, label);
       }
@@ -431,81 +445,47 @@ function StockPageContainer() {
           </>
         ) : (
           <>
-            <Card className="dark:bg-slate-900 dark:border-slate-800">
-              <CardContent className="pt-6">
-                <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
-                  {t('stock.stats.stockTotal')}
-                </p>
-                <p className="mt-1 text-2xl font-bold text-slate-900 dark:text-slate-100">
-                  {stockSummary.totalUnits.toLocaleString()}{' '}
-                  <span className="text-lg font-semibold text-slate-500 dark:text-slate-400">
-                    {t('common.units')}
-                  </span>
-                </p>
-              </CardContent>
-            </Card>
-            <Card className="dark:bg-slate-900 dark:border-slate-800">
-              <CardContent className="pt-6">
-                <p className="text-sm text-slate-500 dark:text-slate-400">
-                  {t('stock.stats.uniqueSkus')}
-                </p>
-                <p className="mt-1 text-2xl font-bold text-slate-900 dark:text-slate-100">
-                  {stockSummary.uniqueProductsWithStock.toLocaleString()}
-                </p>
-              </CardContent>
-            </Card>
-            <Card className="dark:bg-slate-900 dark:border-slate-800">
-              <CardContent className="pt-6">
-                <p className="text-sm text-slate-500 dark:text-slate-400">
-                  {t('stock.stats.positions')}
-                </p>
-                <p className="mt-1 text-2xl font-bold text-indigo-600 dark:text-indigo-400">
-                  {stockSummary.positionsWithStock.toLocaleString()}
-                </p>
-              </CardContent>
-            </Card>
+            <StatCard
+              label={t('stock.stats.stockTotal')}
+              value={stockSummary.totalUnits.toLocaleString()}
+              suffix={t('common.units')}
+            />
+            <StatCard
+              label={t('stock.stats.uniqueSkus')}
+              value={stockSummary.uniqueProductsWithStock.toLocaleString()}
+            />
+            <StatCard
+              label={t('stock.stats.positions')}
+              value={stockSummary.positionsWithStock.toLocaleString()}
+              valueClassName="text-indigo-600 dark:text-indigo-400"
+            />
 
             {isOwnStockMode ? (
-              <Card className="dark:bg-slate-900 dark:border-slate-800">
-                <CardContent className="pt-6">
-                  <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
-                    {t('stock.stats.totalStockValue')}
-                  </p>
-                  <p className="mt-1 text-2xl font-bold text-emerald-600 dark:text-emerald-400">
-                    {(ownStockSummary?.totalStockValue ?? 0).toLocaleString(undefined, {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2,
-                    })}{' '}
-                    <span className="text-lg font-semibold text-slate-500 dark:text-slate-400">₽</span>
-                  </p>
-                </CardContent>
-              </Card>
+              <StatCard
+                label={t('stock.stats.totalStockValue')}
+                value={(ownStockSummary?.totalStockValue ?? 0).toLocaleString(undefined, {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}
+                suffix="₽"
+                valueClassName="text-emerald-600 dark:text-emerald-400"
+              />
             ) : null}
 
             {isOwnStockMode ? (
-              <Card className="dark:bg-slate-900 dark:border-slate-800">
-                <CardContent className="pt-6">
-                  <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
-                    {t('stock.stats.rowsMissingCost')}
-                  </p>
-                  <p className="mt-1 text-2xl font-bold text-amber-600 dark:text-amber-400">
-                    {(ownStockSummary?.rowsMissingCost ?? 0).toLocaleString()}
-                  </p>
-                </CardContent>
-              </Card>
+              <StatCard
+                label={t('stock.stats.rowsMissingCost')}
+                value={(ownStockSummary?.rowsMissingCost ?? 0).toLocaleString()}
+                valueClassName="text-amber-600 dark:text-amber-400"
+              />
             ) : null}
 
             {isOwnStockMode ? (
-              <Card className="dark:bg-slate-900 dark:border-slate-800">
-                <CardContent className="pt-6">
-                  <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
-                    {t('stock.stats.rowsWithCost')}
-                  </p>
-                  <p className="mt-1 text-2xl font-bold text-emerald-600 dark:text-emerald-400">
-                    {(ownStockSummary?.rowsWithCost ?? 0).toLocaleString()}
-                  </p>
-                </CardContent>
-              </Card>
+              <StatCard
+                label={t('stock.stats.rowsWithCost')}
+                value={(ownStockSummary?.rowsWithCost ?? 0).toLocaleString()}
+                valueClassName="text-emerald-600 dark:text-emerald-400"
+              />
             ) : null}
             {selectedWarehouse && (
               <Card className="dark:bg-slate-900 dark:border-slate-800">

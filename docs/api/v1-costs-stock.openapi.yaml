@@ -1,0 +1,276 @@
+openapi: 3.0.3
+info:
+  title: Warehouse API — Stock & Product Costs
+  version: 1.0.0
+  description: Contract for stock valuation and product cost endpoints.
+
+servers:
+  - url: /api/v1
+
+security:
+  - bearerAuth: []
+
+paths:
+  /stock/current:
+    get:
+      summary: Current stock with unit cost and valuation
+      parameters:
+        - in: query
+          name: warehouseId
+          schema: { type: string, format: uuid }
+        - in: query
+          name: productId
+          schema: { type: string, format: uuid }
+        - in: query
+          name: q
+          schema: { type: string, maxLength: 100 }
+        - in: query
+          name: levelFilter
+          schema:
+            type: string
+            enum: [all, positive, zero, below_reorder, missing_cost]
+        - in: query
+          name: limit
+          schema: { type: integer, minimum: 1, maximum: 1000, default: 50 }
+        - in: query
+          name: offset
+          schema: { type: integer, minimum: 0, default: 0 }
+      responses:
+        '200':
+          description: Stock page with summary
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StockCurrentEnvelope'
+
+  /product-costs:
+    get:
+      summary: Product cost periods (journal or active view)
+      parameters:
+        - in: query
+          name: view
+          schema: { type: string, enum: [journal, active] }
+        - in: query
+          name: productId
+          schema: { type: string, format: uuid }
+        - in: query
+          name: q
+          schema: { type: string, maxLength: 100 }
+        - in: query
+          name: fromDate
+          schema: { type: string, format: date }
+        - in: query
+          name: toDate
+          schema: { type: string, format: date }
+        - in: query
+          name: limit
+          schema: { type: integer, minimum: 1, maximum: 500, default: 50 }
+        - in: query
+          name: offset
+          schema: { type: integer, minimum: 0, default: 0 }
+      responses:
+        '200':
+          description: Cost periods list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductCostListEnvelope'
+
+  /product-costs/missing:
+    get:
+      summary: Products with stock but without active unit cost
+      parameters:
+        - in: query
+          name: q
+          schema: { type: string, maxLength: 100 }
+        - in: query
+          name: limit
+          schema: { type: integer, minimum: 1, maximum: 500, default: 50 }
+        - in: query
+          name: offset
+          schema: { type: integer, minimum: 0, default: 0 }
+      responses:
+        '200':
+          description: Missing-cost report
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MissingCostEnvelope'
+
+  /product-costs/data-quality:
+    get:
+      summary: Data quality diagnostics for cost periods
+      responses:
+        '200':
+          description: Overlap diagnostics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DataQualityEnvelope'
+
+  /products:
+    get:
+      summary: Product catalog (active unit cost from periods)
+      parameters:
+        - in: query
+          name: limit
+          schema: { type: integer, minimum: 1, maximum: 1000, default: 50 }
+        - in: query
+          name: offset
+          schema: { type: integer, minimum: 0, default: 0 }
+      responses:
+        '200':
+          description: Products list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductsEnvelope'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    Meta:
+      type: object
+      properties:
+        limit: { type: integer }
+        offset: { type: integer }
+        total: { type: integer }
+
+    StockItem:
+      type: object
+      required: [productId, warehouseId, currentQuantity, reorderPoint, hasUnitCost]
+      properties:
+        productId: { type: string, format: uuid }
+        warehouseId: { type: string, format: uuid }
+        productArticle: { type: string }
+        productBarcode: { type: string }
+        currentQuantity: { type: integer }
+        reorderPoint: { type: integer }
+        unitCost: { type: number, format: double, nullable: true }
+        stockValue: { type: number, format: double, nullable: true }
+        hasUnitCost: { type: boolean }
+
+    StockSummary:
+      type: object
+      required: [totalStockValue, rowsMissingCost, rowsWithCost, totalRows]
+      properties:
+        totalStockValue: { type: number, format: double }
+        rowsMissingCost: { type: integer }
+        rowsWithCost: { type: integer }
+        totalRows: { type: integer }
+
+    StockCurrentData:
+      type: object
+      required: [items, summary]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/StockItem' }
+        summary: { $ref: '#/components/schemas/StockSummary' }
+
+    ProductCostListItem:
+      type: object
+      required:
+        - costId
+        - productId
+        - periodStart
+        - unitCostToWarehouse
+        - isActive
+        - createdAt
+        - updatedAt
+      properties:
+        costId: { type: string, format: uuid }
+        productId: { type: string, format: uuid }
+        productArticle: { type: string }
+        productBarcode: { type: string }
+        periodStart: { type: string, format: date-time }
+        periodEnd: { type: string, format: date-time, nullable: true }
+        unitCostToWarehouse: { type: number, format: double }
+        isActive: { type: boolean }
+        createdByName: { type: string }
+        updatedByName: { type: string }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    Product:
+      type: object
+      required: [productId, article, barcode, unitWeight, reorderPoint]
+      properties:
+        productId: { type: string, format: uuid }
+        article: { type: string }
+        barcode: { type: string }
+        unitWeight: { type: integer }
+        reorderPoint: { type: integer }
+        activeUnitCost: { type: number, format: double, nullable: true }
+        purchasePrice: { type: number, format: double, nullable: true }
+
+    StockCurrentEnvelope:
+      type: object
+      required: [data]
+      properties:
+        data: { $ref: '#/components/schemas/StockCurrentData' }
+        meta: { $ref: '#/components/schemas/Meta' }
+
+    ProductCostListEnvelope:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: object
+          required: [items, summary]
+          properties:
+            items:
+              type: array
+              items: { $ref: '#/components/schemas/ProductCostListItem' }
+            summary:
+              type: object
+              properties:
+                totalRows: { type: integer }
+                activeRows: { type: integer }
+                productRows: { type: integer }
+        meta: { $ref: '#/components/schemas/Meta' }
+
+    MissingCostEnvelope:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: object
+          required: [items]
+          properties:
+            items:
+              type: array
+              items:
+                type: object
+                required: [productId, totalQuantity, warehouseCount]
+                properties:
+                  productId: { type: string, format: uuid }
+                  productArticle: { type: string }
+                  productBarcode: { type: string }
+                  totalQuantity: { type: integer, format: int64 }
+                  warehouseCount: { type: integer, format: int64 }
+        meta: { $ref: '#/components/schemas/Meta' }
+
+    DataQualityEnvelope:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: object
+          required: [overlapPairCount]
+          properties:
+            overlapPairCount: { type: integer, format: int64 }
+
+    ProductsEnvelope:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/Product' }
+        meta: { $ref: '#/components/schemas/Meta' }

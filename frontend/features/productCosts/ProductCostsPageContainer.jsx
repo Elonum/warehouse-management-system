@@ -186,8 +186,7 @@ export default function ProductCostsPageContainer() {
         ? t('productCosts.unknownProduct', { id: productOrId })
         : t('productCosts.unknownProduct', { id: '—' });
     }
-    const primary = product.article || `#${product.productId}`;
-    return product.barcode ? `${primary} · ${product.barcode}` : primary;
+    return product.article || `#${product.productId}`;
   };
 
   const productFilterLabel = useMemo(() => {
@@ -330,6 +329,37 @@ export default function ProductCostsPageContainer() {
 
   const isLoadingAny = isMissingTab ? loadingMissing : loadingCosts || loadingProducts;
   const isSubmitting = createMutation.isPending || updateMutation.isPending;
+  const isMissingRowsLoading = loadingMissing && missingRows.length === 0;
+  const isCostsRowsLoading = isLoadingAny && rows.length === 0;
+
+  const renderSearchBox = () => (
+    <div className="relative w-72">
+      <Input
+        value={q}
+        onChange={(e) => {
+          setQ(e.target.value);
+          resetPage();
+        }}
+        placeholder={t('productCosts.searchPlaceholder')}
+        aria-label={t('productCosts.searchPlaceholder')}
+        className="pr-10"
+      />
+      {q ? (
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2"
+          onClick={() => {
+            setQ('');
+            resetPage();
+          }}
+        >
+          <X className="h-4 w-4" />
+        </Button>
+      ) : null}
+    </div>
+  );
 
   return (
     <div className="space-y-6">
@@ -437,33 +467,7 @@ export default function ProductCostsPageContainer() {
                   {t('productCosts.filters.title')}
                 </span>
               </div>
-
-              <div className="relative w-72">
-                <Input
-                  value={q}
-                  onChange={(e) => {
-                    setQ(e.target.value);
-                    resetPage();
-                  }}
-                  placeholder={t('productCosts.searchPlaceholder')}
-                  aria-label={t('productCosts.searchPlaceholder')}
-                  className="pr-10"
-                />
-                {q ? (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2"
-                    onClick={() => {
-                      setQ('');
-                      resetPage();
-                    }}
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                ) : null}
-              </div>
+              {renderSearchBox()}
 
               {hasActiveFilters ? (
                 <Button variant="ghost" size="sm" onClick={clearFilters}>
@@ -483,32 +487,7 @@ export default function ProductCostsPageContainer() {
                 </span>
               </div>
 
-              <div className="relative w-72">
-                <Input
-                  value={q}
-                  onChange={(e) => {
-                    setQ(e.target.value);
-                    resetPage();
-                  }}
-                  placeholder={t('productCosts.searchPlaceholder')}
-                  aria-label={t('productCosts.searchPlaceholder')}
-                  className="pr-10"
-                />
-                {q ? (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2"
-                    onClick={() => {
-                      setQ('');
-                      resetPage();
-                    }}
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                ) : null}
-              </div>
+              {renderSearchBox()}
 
               <Select
                 value={viewMode}
@@ -588,7 +567,7 @@ export default function ProductCostsPageContainer() {
       </Card>
 
       {isMissingTab ? (
-        loadingMissing && missingRows.length === 0 ? (
+        isMissingRowsLoading ? (
           <Card className="dark:border-slate-800 dark:bg-slate-900">
             <CardContent className="pt-6">
               <LoadingState />
@@ -610,7 +589,7 @@ export default function ProductCostsPageContainer() {
             />
           </Card>
         )
-      ) : isLoadingAny && rows.length === 0 ? (
+      ) : isCostsRowsLoading ? (
         <Card className="dark:border-slate-800 dark:bg-slate-900">
           <CardContent className="pt-6">
             <LoadingState />

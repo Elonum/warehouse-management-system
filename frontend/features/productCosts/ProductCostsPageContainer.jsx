@@ -362,7 +362,7 @@ export default function ProductCostsPageContainer() {
     : fetchingCosts && rows.length > 0;
 
   const renderSearchBox = () => (
-    <div className="relative w-72">
+    <div className="relative w-full min-w-[12rem] sm:w-72">
       <Input
         value={q}
         onChange={(e) => setQ(e.target.value)}
@@ -522,7 +522,7 @@ export default function ProductCostsPageContainer() {
                   resetPage();
                 }}
               >
-                <SelectTrigger className="w-48" aria-label={t('productCosts.filters.view')}>
+                <SelectTrigger className="w-full min-w-[10rem] sm:w-48" aria-label={t('productCosts.filters.view')}>
                   <SelectValue>{viewModeLabel}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
@@ -538,7 +538,7 @@ export default function ProductCostsPageContainer() {
                   resetPage();
                 }}
               >
-                <SelectTrigger className="w-48" aria-label={t('productCosts.filters.product')}>
+                <SelectTrigger className="w-full min-w-[10rem] sm:w-48" aria-label={t('productCosts.filters.product')}>
                   <SelectValue>{productFilterLabel}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
@@ -562,7 +562,7 @@ export default function ProductCostsPageContainer() {
                     setFromDate(e.target.value);
                     resetPage();
                   }}
-                  className="w-40"
+                  className="w-full min-w-[9rem] sm:w-40"
                 />
               </div>
 
@@ -577,7 +577,7 @@ export default function ProductCostsPageContainer() {
                     setToDate(e.target.value);
                     resetPage();
                   }}
-                  className="w-40"
+                  className="w-full min-w-[9rem] sm:w-40"
                 />
               </div>
 

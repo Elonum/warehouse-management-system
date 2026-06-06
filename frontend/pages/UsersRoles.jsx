@@ -539,7 +539,7 @@ export default function UsersRoles() {
         </GuardedButton>
       </PageHeader>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Card className="dark:bg-slate-900 dark:border-slate-800">
           <CardContent className="pt-6">
             <div className="flex items-center gap-4">
@@ -569,8 +569,8 @@ export default function UsersRoles() {
       </div>
 
       {/* Search and Filter Controls */}
-      <div className="flex items-center gap-4">
-        <div className="relative flex-1 max-w-sm">
+      <div className="flex flex-wrap items-center gap-4">
+        <div className="relative w-full min-w-0 flex-1 sm:max-w-sm">
           <Input
             placeholder={t('users.searchPlaceholder')}
             value={searchQuery}
@@ -581,7 +581,7 @@ export default function UsersRoles() {
           <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
         </div>
         <Select value={roleFilter} onValueChange={setRoleFilter}>
-          <SelectTrigger className="w-48">
+          <SelectTrigger className="w-full sm:w-48">
             <SelectValue placeholder={t('users.filters.allRoles')}>
               {roleFilter === 'all' 
                 ? t('users.filters.allRoles')
@@ -637,7 +637,7 @@ export default function UsersRoles() {
               </div>
             )}
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="email">
                   {t('users.form.email')} <span className="text-red-500">*</span>
@@ -689,8 +689,8 @@ export default function UsersRoles() {
               <Label htmlFor="password">
                 {t('users.form.password')} {!currentUser && <span className="text-red-500">*</span>}
               </Label>
-              <div className="flex items-start gap-2">
-                <div className="relative flex-1">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-start">
+                <div className="relative min-w-0 flex-1">
                   <Input
                     id="password"
                     type={showPassword ? 'text' : 'password'}
@@ -738,7 +738,7 @@ export default function UsersRoles() {
                 <Button
                   type="button"
                   variant="outline"
-                  className="whitespace-nowrap"
+                  className="w-full whitespace-nowrap sm:w-auto"
                   onClick={generateSecurePassword}
                 >
                   {t('users.form.generatePassword')}
@@ -774,7 +774,7 @@ export default function UsersRoles() {
               )}
             </div>
 
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
               <div className="space-y-2">
                 <Label htmlFor="surname">
                   {t('users.form.surname')} <span className="text-red-500">*</span>

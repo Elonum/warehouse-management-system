@@ -271,7 +271,7 @@ export default function StockMovementsPageContainer() {
                 </span>
               </div>
 
-              <div className="relative w-72">
+              <div className="relative w-full min-w-[12rem] flex-1 sm:w-72 sm:flex-none">
                 <Input
                   value={q}
                   onChange={(e) => setQ(e.target.value)}
@@ -302,7 +302,7 @@ export default function StockMovementsPageContainer() {
                   resetPage();
                 }}
               >
-                <SelectTrigger className="w-48" aria-label={t('stockMovements.filters.product')}>
+                <SelectTrigger className="w-full min-w-[10rem] sm:w-48" aria-label={t('stockMovements.filters.product')}>
                   <SelectValue>{productFilterLabel}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
@@ -322,7 +322,7 @@ export default function StockMovementsPageContainer() {
                   resetPage();
                 }}
               >
-                <SelectTrigger className="w-48" aria-label={t('stockMovements.filters.warehouse')}>
+                <SelectTrigger className="w-full min-w-[10rem] sm:w-48" aria-label={t('stockMovements.filters.warehouse')}>
                   <SelectValue>{warehouseFilterLabel}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
@@ -342,7 +342,7 @@ export default function StockMovementsPageContainer() {
                   resetPage();
                 }}
               >
-                <SelectTrigger className="w-56" aria-label={t('stockMovements.filters.type')}>
+                <SelectTrigger className="w-full min-w-[12rem] sm:w-56" aria-label={t('stockMovements.filters.type')}>
                   <SelectValue>{movementTypeFilterLabel}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
@@ -367,7 +367,7 @@ export default function StockMovementsPageContainer() {
                     resetPage();
                   }}
                   aria-label={t('stockMovements.filters.fromDate')}
-                  className="w-40"
+                  className="w-full min-w-[9rem] sm:w-40"
                 />
               </div>
 
@@ -383,7 +383,7 @@ export default function StockMovementsPageContainer() {
                     resetPage();
                   }}
                   aria-label={t('stockMovements.filters.toDate')}
-                  className="w-40"
+                  className="w-full min-w-[9rem] sm:w-40"
                 />
               </div>
 

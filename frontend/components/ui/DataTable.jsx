@@ -182,11 +182,11 @@ export default function DataTable({
       {/* Table */}
       <div
         className={cn(
-          'overflow-hidden bg-white dark:bg-slate-900',
+          'overflow-x-auto bg-white dark:bg-slate-900',
           !embedded && 'rounded-lg border dark:border-slate-800',
         )}
       >
-        <Table>
+        <Table className="min-w-[640px]">
           <TableHeader>
             <TableRow className="bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-50 dark:hover:bg-slate-800/50">
               {columns.map((column) => (

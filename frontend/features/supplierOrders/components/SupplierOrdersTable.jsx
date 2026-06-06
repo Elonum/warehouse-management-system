@@ -486,8 +486,8 @@ function SupplierOrdersTable({
       </Card>
 
       <div className="space-y-4">
-        <div className="flex items-center gap-4">
-          <div className="relative flex-1 max-w-sm">
+        <div className="flex flex-wrap items-center gap-4">
+          <div className="relative w-full min-w-0 flex-1 sm:max-w-sm">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <Input
               placeholder={t('supplierOrders.searchPlaceholder')}
@@ -509,12 +509,12 @@ function SupplierOrdersTable({
           </div>
         </div>
 
-      <div className="overflow-hidden bg-white border rounded-lg dark:bg-slate-900 dark:border-slate-800">
+      <div className="overflow-x-auto rounded-lg border bg-white dark:border-slate-800 dark:bg-slate-900">
         {isLoading ? (
           <LoadingState className="px-4 py-12" />
         ) : (
           <>
-          <table className="w-full text-sm">
+          <table className="w-full min-w-[960px] text-sm">
             <thead>
               <tr className="border-b bg-slate-50 dark:bg-slate-800/50 dark:border-slate-800">
                 <th

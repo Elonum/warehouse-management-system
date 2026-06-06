@@ -617,7 +617,7 @@ function StockPageContainer() {
                   {t('stock.filters.title')}
                 </span>
               </div>
-              <div className="relative w-72">
+              <div className="relative w-full min-w-[12rem] flex-1 sm:w-72 sm:flex-none">
                 <Input
                   value={q}
                   onChange={(e) => setQ(e.target.value)}
@@ -646,7 +646,7 @@ function StockPageContainer() {
                   resetPage();
                 }}
               >
-                <SelectTrigger className="w-48">
+                <SelectTrigger className="w-full min-w-[10rem] sm:w-48">
                   <SelectValue>{selectedProductLabel}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
@@ -680,7 +680,7 @@ function StockPageContainer() {
                     resetPage();
                   }}
                 >
-                  <SelectTrigger className="w-48">
+                  <SelectTrigger className="w-full min-w-[10rem] sm:w-48">
                     <SelectValue>{warehouseTriggerLabel}</SelectValue>
                   </SelectTrigger>
                   <SelectContent>
@@ -706,7 +706,7 @@ function StockPageContainer() {
                     resetPage();
                   }}
                 >
-                  <SelectTrigger className="w-56 min-w-[12rem]">
+                  <SelectTrigger className="w-full min-w-[12rem] sm:w-56">
                     <SelectValue>{selectedLevelLabel}</SelectValue>
                   </SelectTrigger>
                   <SelectContent>

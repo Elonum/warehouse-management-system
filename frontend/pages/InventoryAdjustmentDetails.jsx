@@ -540,13 +540,14 @@ export default function InventoryAdjustmentDetails() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" asChild>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start lg:items-center">
+        <Button variant="ghost" size="icon" className="self-start shrink-0" asChild>
           <Link to={createPageUrl('InventoryAdjustments')}>
             <ArrowLeft className="w-5 h-5" />
           </Link>
         </Button>
-        <PageHeader 
+        <PageHeader
+          className="mb-0 min-w-0 flex-1"
           title={t('inventoryAdjustments.details.title')} 
           description={adjustment?.adjustmentDate ? format(new Date(adjustment.adjustmentDate), 'dd.MM.yyyy', { locale: ru }) : t('inventoryAdjustments.details.noDate')}
         >
@@ -582,7 +583,7 @@ export default function InventoryAdjustmentDetails() {
       )}
 
       {/* Summary */}
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card className="col-span-4 md:col-span-2 dark:bg-slate-900 dark:border-slate-800">
           <CardContent className="pt-6">
             <div className="flex items-center gap-2 mb-2">
@@ -671,7 +672,7 @@ export default function InventoryAdjustmentDetails() {
 
       {/* Items */}
       <div className="space-y-4">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
             {t('inventoryAdjustments.details.itemsTitle')} ({enrichedItems.length})
           </h2>
@@ -763,7 +764,7 @@ export default function InventoryAdjustmentDetails() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="receiptQty">{t('inventoryAdjustments.details.receiptLabel')}</Label>
                 <Input

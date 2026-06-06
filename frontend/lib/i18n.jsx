@@ -1099,10 +1099,53 @@ const translations = {
         email: 'Email',
         name: 'Имя',
         surname: 'Фамилия',
+        patronymic: 'Отчество',
         role: 'Роль',
         fallbackName: 'Пользователь',
         fallbackInitial: 'П',
         defaultRole: 'пользователь',
+      },
+      access: {
+        title: 'Доступные модули',
+        description: 'Функции системы, доступные вашей роли. Уровень доступа определяет просмотр и изменение данных.',
+        roleSummary: 'Описание роли',
+        modulesCount: 'модулей',
+        modulesAvailable: '{count} из {total} модулей',
+        groups: {
+          overview: 'Обзор',
+          catalog: 'Справочники и каталог',
+          stock: 'Остатки и учёт',
+          operations: 'Операции',
+          finance: 'Финансы',
+          admin: 'Администрирование',
+        },
+        levels: {
+          full: 'Полный доступ',
+          read: 'Просмотр',
+          partial: 'Частичный',
+          none: 'Нет доступа',
+        },
+        capabilities: {
+          stockOur: 'Остатки наших складов',
+          stockMarketplace: 'Остатки WB и Ozon',
+          procurementManage: 'Создание и редактирование заказов',
+          deliveryReceive: 'Приёмка и обновление позиций',
+        },
+        roles: {
+          administrator:
+            'Полный доступ ко всем разделам: каталог, склады, остатки, закупки, отгрузки, инвентаризация, финансы и администрирование.',
+          procurement:
+            'Управление товарами и заказами поставщикам, просмотр складов и остатков. Без отгрузок на маркетплейсы и финансовых периодов.',
+          delivery:
+            'Приёмка заказов поставщикам и обновление позиций. Просмотр остатков и движений без создания заказов и правок каталога.',
+          warehouse:
+            'Складские операции: остатки, снимки, движения, инвентаризация. Без закупок, отгрузок МП и себестоимости.',
+          finance:
+            'Финансовый контур: себестоимость и просмотр остатков. Без операционных изменений в заказах и складах.',
+          marketplace:
+            'Работа с маркетплейсами: отгрузки, магазины, остатки WB/Ozon. Без закупок и инвентаризации.',
+          default: 'Доступ определяется назначенной ролью. Обратитесь к администратору при необходимости расширения прав.',
+        },
       },
       appearance: {
         title: 'Внешний вид',
@@ -2367,10 +2410,53 @@ const translations = {
         email: 'Email',
         name: 'Name',
         surname: 'Surname',
+        patronymic: 'Patronymic',
         role: 'Role',
         fallbackName: 'User',
         fallbackInitial: 'U',
         defaultRole: 'user',
+      },
+      access: {
+        title: 'Available modules',
+        description: 'System areas your role can use. Access level reflects view and edit capabilities.',
+        roleSummary: 'Role overview',
+        modulesCount: 'modules',
+        modulesAvailable: '{count} of {total} modules',
+        groups: {
+          overview: 'Overview',
+          catalog: 'Catalog',
+          stock: 'Stock & inventory',
+          operations: 'Operations',
+          finance: 'Finance',
+          admin: 'Administration',
+        },
+        levels: {
+          full: 'Full access',
+          read: 'View only',
+          partial: 'Partial',
+          none: 'No access',
+        },
+        capabilities: {
+          stockOur: 'Our warehouse stock',
+          stockMarketplace: 'Wildberries & Ozon stock',
+          procurementManage: 'Create and edit supplier orders',
+          deliveryReceive: 'Receive goods and update line items',
+        },
+        roles: {
+          administrator:
+            'Full access to catalog, warehouses, stock, procurement, marketplace shipments, inventory, finance, and administration.',
+          procurement:
+            'Manage products and supplier orders, view warehouses and stock. No marketplace shipments or product cost periods.',
+          delivery:
+            'Receive supplier orders and update line items. View stock and movements without creating orders or editing catalog.',
+          warehouse:
+            'Warehouse operations: stock, snapshots, movements, and inventory adjustments. No procurement, MP shipments, or finance.',
+          finance:
+            'Finance scope: product costs and stock viewing. No operational changes to orders or warehouses.',
+          marketplace:
+            'Marketplace work: shipments, stores, and WB/Ozon stock. No procurement or inventory adjustments.',
+          default: 'Access is defined by your assigned role. Contact an administrator to request expanded permissions.',
+        },
       },
       appearance: {
         title: 'Appearance',

@@ -455,7 +455,7 @@ export default function Shipments() {
                 {error}
               </div>
             )}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="shipmentNumber">{t('shipments.form.shipmentNumber')} *</Label>
                 <Input
@@ -485,7 +485,7 @@ export default function Shipments() {
                 </Select>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="storeId">{t('shipments.form.store')}</Label>
                 <Select
@@ -527,7 +527,7 @@ export default function Shipments() {
                 </Select>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="mpWarehouseId">{t('shipments.form.marketplaceWarehouse')} *</Label>
                 <Select
@@ -550,7 +550,7 @@ export default function Shipments() {
               </div>
               <div />
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="shipmentDate">{t('shipments.form.shipmentDate')}</Label>
                 <Input
@@ -584,7 +584,7 @@ export default function Shipments() {
                 />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="logisticsCost">{t('shipments.form.logisticsCost')}</Label>
                 <Input

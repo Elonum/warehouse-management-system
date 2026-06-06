@@ -422,8 +422,8 @@ export default function Warehouses() {
       />
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <div className="flex items-center justify-between mb-4">
-          <TabsList>
+        <div className="mb-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <TabsList className="w-full sm:w-auto">
             <TabsTrigger value="warehouses" className="flex items-center gap-2">
               <Warehouse className="w-4 h-4" />
               {t('warehouses.tabs.warehouses')}

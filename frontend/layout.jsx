@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { createPageUrl } from './utils';
 import { api } from '@/api';
 import {
@@ -17,8 +17,10 @@ import {
   Settings,
   BookOpen,
   Lock,
+  Menu,
   PanelLeftClose,
   PanelLeftOpen,
+  X,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -62,8 +64,10 @@ function readSidebarCollapsed() {
 
 export default function Layout({ children, currentPageName }) {
   const { t } = useI18n();
+  const location = useLocation();
   const [darkMode, setDarkMode] = useState(() => localStorage.getItem('darkMode') === 'true');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(readSidebarCollapsed);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const { data: authProfile } = useAuthProfile();
 
@@ -100,11 +104,24 @@ export default function Layout({ children, currentPageName }) {
     localStorage.setItem(SIDEBAR_STORAGE_KEY, String(sidebarCollapsed));
   }, [sidebarCollapsed]);
 
+  useEffect(() => {
+    setMobileNavOpen(false);
+  }, [location.pathname]);
+
+  useEffect(() => {
+    if (!mobileNavOpen) return undefined;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = previous;
+    };
+  }, [mobileNavOpen]);
+
   const toggleSidebar = () => setSidebarCollapsed((prev) => !prev);
+  const closeMobileNav = () => setMobileNavOpen(false);
 
   const handleLogout = () => {
     api.auth.logout();
-    setUser(null);
   };
 
   const sidebarToggleLabel = sidebarCollapsed
@@ -128,30 +145,48 @@ export default function Layout({ children, currentPageName }) {
         }
       `}</style>
 
+      {mobileNavOpen ? (
+        <button
+          type="button"
+          className="fixed inset-0 z-40 bg-slate-900/50 backdrop-blur-[1px] lg:hidden"
+          aria-label={t('layout.sidebarCollapse')}
+          onClick={closeMobileNav}
+        />
+      ) : null}
+
       <aside
         aria-label={t('layout.appName')}
         className={cn(
-          'fixed inset-y-0 left-0 z-30 flex h-screen flex-col border-r transition-[width] duration-300 ease-in-out',
-          sidebarCollapsed ? 'w-[4.75rem]' : SIDEBAR_WIDTH_EXPANDED,
+          'fixed inset-y-0 left-0 z-50 flex h-screen flex-col border-r transition-[transform,width] duration-300 ease-in-out',
+          'w-[min(20rem,88vw)] max-lg:shadow-xl',
+          mobileNavOpen ? 'max-lg:translate-x-0' : 'max-lg:-translate-x-full',
+          'lg:translate-x-0',
+          sidebarCollapsed ? 'lg:w-[4.75rem]' : 'lg:w-80',
           darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200',
         )}
       >
         <div
           className={cn(
             'shrink-0 border-b border-slate-200 dark:border-slate-800',
-            sidebarCollapsed ? 'flex flex-col items-center gap-2 px-2 py-3' : 'px-5 py-5',
+            sidebarCollapsed
+              ? 'flex flex-col items-center gap-2 px-2 py-3 max-lg:px-5 max-lg:py-5'
+              : 'px-5 py-5',
           )}
         >
           <div
             className={cn(
               'flex w-full min-w-0',
-              sidebarCollapsed ? 'flex-col items-center gap-2' : 'items-start gap-3',
+              sidebarCollapsed
+                ? 'max-lg:items-start max-lg:gap-3 flex-col items-center gap-2 lg:flex-col lg:items-center'
+                : 'items-start gap-3',
             )}
           >
             <div
               className={cn(
                 'flex items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 font-bold text-white shadow-lg',
-                sidebarCollapsed ? COLLAPSED_SLOT : 'h-12 w-12 shrink-0 text-base',
+                sidebarCollapsed
+                  ? cn(COLLAPSED_SLOT, 'max-lg:h-12 max-lg:w-12 max-lg:text-base')
+                  : 'h-12 w-12 shrink-0 text-base',
               )}
               title={sidebarCollapsed ? t('layout.appName') : undefined}
             >
@@ -160,7 +195,9 @@ export default function Layout({ children, currentPageName }) {
             <div
               className={cn(
                 'min-w-0 flex-1 overflow-hidden transition-all duration-300',
-                sidebarCollapsed ? 'max-h-0 max-w-0 opacity-0' : 'max-h-20 opacity-100',
+                sidebarCollapsed
+                  ? 'max-lg:max-h-20 max-lg:max-w-none max-lg:opacity-100 max-h-0 max-w-0 opacity-0'
+                  : 'max-h-20 opacity-100',
               )}
             >
               <h1 className="truncate text-xl font-bold tracking-tight">{t('layout.appName')}</h1>
@@ -177,11 +214,18 @@ export default function Layout({ children, currentPageName }) {
               type="button"
               variant="ghost"
               size="icon"
-              onClick={toggleSidebar}
+              onClick={() => {
+                if (window.matchMedia('(max-width: 1023px)').matches) {
+                  closeMobileNav();
+                } else {
+                  toggleSidebar();
+                }
+              }}
               aria-label={sidebarToggleLabel}
               title={sidebarToggleLabel}
               className={cn(
                 sidebarCollapsed ? COLLAPSED_SLOT : 'h-9 w-9 shrink-0',
+                'max-lg:hidden',
                 darkMode
                   ? 'text-slate-400 hover:bg-slate-800 hover:text-slate-100'
                   : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900',
@@ -193,6 +237,21 @@ export default function Layout({ children, currentPageName }) {
                 <PanelLeftClose className="h-5 w-5" />
               )}
             </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              onClick={closeMobileNav}
+              aria-label={t('layout.sidebarCollapse')}
+              className={cn(
+                'h-9 w-9 shrink-0 lg:hidden',
+                darkMode
+                  ? 'text-slate-400 hover:bg-slate-800 hover:text-slate-100'
+                  : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900',
+              )}
+            >
+              <X className="h-5 w-5" />
+            </Button>
           </div>
         </div>
 
@@ -200,7 +259,7 @@ export default function Layout({ children, currentPageName }) {
           className={cn(
             'min-h-0 flex-1 overflow-x-hidden overflow-y-auto',
             sidebarCollapsed
-              ? 'flex flex-col items-center gap-2 px-2 py-3'
+              ? 'flex flex-col items-center gap-2 px-2 py-3 max-lg:space-y-3 max-lg:px-5 max-lg:py-5 max-lg:items-stretch'
               : 'space-y-3 px-5 py-5',
           )}
         >
@@ -215,11 +274,14 @@ export default function Layout({ children, currentPageName }) {
               <Link
                 key={item.page}
                 to={createPageUrl(item.page)}
+                onClick={closeMobileNav}
                 title={sidebarCollapsed ? linkTitle : undefined}
                 aria-label={linkTitle}
                 className={cn(
                   'group flex items-center rounded-lg transition-all duration-200',
-                  sidebarCollapsed ? COLLAPSED_SLOT : 'gap-4 px-4 py-3',
+                  sidebarCollapsed
+                    ? cn(COLLAPSED_SLOT, 'max-lg:w-auto max-lg:gap-4 max-lg:px-4 max-lg:py-3 max-lg:mx-0')
+                    : 'gap-4 px-4 py-3',
                   isActive
                     ? darkMode
                       ? 'bg-indigo-500/20 text-indigo-400'
@@ -236,7 +298,7 @@ export default function Layout({ children, currentPageName }) {
                 <Icon
                   className={cn(
                     'shrink-0',
-                    sidebarCollapsed ? 'h-5 w-5' : 'h-6 w-6',
+                    sidebarCollapsed ? 'h-5 w-5 max-lg:h-6 max-lg:w-6' : 'h-6 w-6',
                     restricted && 'opacity-70',
                     !isActive && !sidebarCollapsed && !restricted && 'transition-transform group-hover:scale-110',
                   )}
@@ -245,13 +307,19 @@ export default function Layout({ children, currentPageName }) {
                   className={cn(
                     'font-medium',
                     sidebarCollapsed
-                      ? 'sr-only'
+                      ? 'sr-only max-lg:not-sr-only max-lg:flex max-lg:min-w-0 max-lg:flex-1 max-lg:items-center max-lg:gap-2 max-lg:text-base'
                       : 'flex min-w-0 flex-1 items-center gap-2 text-base whitespace-nowrap',
                   )}
                 >
                   <span className="truncate">{item.name}</span>
-                  {restricted && !sidebarCollapsed ? (
-                    <Lock className="h-3.5 w-3.5 shrink-0 opacity-60" aria-hidden />
+                  {restricted ? (
+                    <Lock
+                      className={cn(
+                        'h-3.5 w-3.5 shrink-0 opacity-60',
+                        sidebarCollapsed ? 'hidden max-lg:inline-flex' : 'inline-flex',
+                      )}
+                      aria-hidden
+                    />
                   ) : null}
                 </span>
               </Link>
@@ -263,14 +331,16 @@ export default function Layout({ children, currentPageName }) {
           className={cn(
             'shrink-0 border-t border-slate-200 dark:border-slate-800',
             sidebarCollapsed
-              ? 'flex flex-col items-center gap-2 px-2 py-3'
+              ? 'flex flex-col items-center gap-2 px-2 py-3 max-lg:p-4'
               : 'p-4',
           )}
         >
           <div
             className={cn(
               'flex items-center',
-              sidebarCollapsed ? 'w-full flex-col items-center gap-2' : 'gap-3',
+              sidebarCollapsed
+                ? 'w-full max-lg:flex-row max-lg:gap-3 flex-col items-center gap-2'
+                : 'gap-3',
             )}
           >
             <Avatar
@@ -291,7 +361,9 @@ export default function Layout({ children, currentPageName }) {
             <div
               className={cn(
                 'min-w-0 flex-1 overflow-hidden text-left transition-all duration-300',
-                sidebarCollapsed ? 'max-h-0 max-w-0 opacity-0' : 'opacity-100',
+                sidebarCollapsed
+                  ? 'max-lg:max-h-none max-lg:max-w-none max-lg:opacity-100 max-h-0 max-w-0 opacity-0'
+                  : 'opacity-100',
               )}
             >
               <p className="truncate text-sm font-medium">{user?.full_name || 'User'}</p>
@@ -325,17 +397,54 @@ export default function Layout({ children, currentPageName }) {
 
       <main
         className={cn(
-          'min-h-screen w-full transition-[padding-left] duration-300 ease-in-out',
-          sidebarCollapsed ? 'pl-[4.75rem]' : SIDEBAR_MAIN_OFFSET_EXPANDED,
+          'min-h-screen w-full min-w-0 transition-[padding-left] duration-300 ease-in-out',
+          'pl-0',
+          sidebarCollapsed ? 'lg:pl-[4.75rem]' : 'lg:pl-80',
         )}
       >
-        <div className="p-6">{children}</div>
+        <div
+          className={cn(
+            'sticky top-0 z-20 flex items-center gap-3 border-b px-4 py-3 lg:hidden',
+            darkMode
+              ? 'border-slate-800 bg-slate-950/95 backdrop-blur'
+              : 'border-slate-200 bg-slate-50/95 backdrop-blur',
+          )}
+        >
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="h-10 w-10 shrink-0"
+            aria-label={t('layout.sidebarExpand')}
+            onClick={() => setMobileNavOpen(true)}
+          >
+            <Menu className="h-5 w-5" />
+          </Button>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-semibold">{t('layout.appName')}</p>
+            <p className="truncate text-xs capitalize text-slate-500 dark:text-slate-400">
+              {user?.role || t('settings.user.defaultRole')}
+            </p>
+          </div>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="h-10 w-10 shrink-0"
+            aria-label={t('layout.settings')}
+            onClick={() => setSettingsOpen(true)}
+          >
+            <Settings className="h-5 w-5" />
+          </Button>
+        </div>
+        <div className="min-w-0 p-4 sm:p-6">{children}</div>
       </main>
 
       <SettingsDialog
         open={settingsOpen}
         onOpenChange={setSettingsOpen}
         user={user}
+        profile={authProfile}
         darkMode={darkMode}
         onDarkModeChange={setDarkMode}
         onLogout={handleLogout}

@@ -45,7 +45,7 @@ function ProductFormDialog({
               {error}
             </div>
           )}
-          <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="article">{t('products.form.article')} *</Label>
               <Input
@@ -65,7 +65,7 @@ function ProductFormDialog({
               />
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="unitWeight">{t('products.form.weight')} *</Label>
               <Input
@@ -88,7 +88,7 @@ function ProductFormDialog({
               />
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2 col-span-2">
               <Label htmlFor="purchasePrice">{t('products.form.purchasePrice')} (¥)</Label>
               <Input

@@ -400,7 +400,7 @@ export default function SupplierOrders() {
                 {error}
               </div>
             )}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="orderNumber">{t('supplierOrders.form.orderNumber')}</Label>
               <Input
@@ -446,7 +446,7 @@ export default function SupplierOrders() {
                 maxLength={255}
               />
             </div>
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
               <div className="space-y-2">
                 <Label htmlFor="purchaseDate">{t('supplierOrders.form.purchaseDate')}</Label>
                 <Input
@@ -477,7 +477,7 @@ export default function SupplierOrders() {
             </div>
             {/* Aggregated fields (positions, quantity, cost, weight) рассчитываются на бэкенде и в деталях,
                 поэтому здесь не редактируются и не отображаются, чтобы не вводить пользователя в заблуждение. */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="logisticsChinaMsk">{t('supplierOrders.form.logisticsChinaMsk')}</Label>
                 <Input
@@ -513,7 +513,7 @@ export default function SupplierOrders() {
                 />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="logisticsAdditional">{t('supplierOrders.form.logisticsAdditional')}</Label>
                 <Input

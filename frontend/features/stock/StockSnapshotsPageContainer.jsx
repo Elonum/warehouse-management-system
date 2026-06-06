@@ -281,7 +281,7 @@ export default function StockSnapshotsPageContainer() {
                 </span>
               </div>
 
-              <div className="relative w-72">
+              <div className="relative w-full min-w-[12rem] flex-1 sm:w-72 sm:flex-none">
                 <Input
                   value={q}
                   onChange={(e) => setQ(e.target.value)}
@@ -312,7 +312,7 @@ export default function StockSnapshotsPageContainer() {
                   resetPage();
                 }}
               >
-                <SelectTrigger className="w-52" aria-label={t('stockSnapshots.filters.view')}>
+                <SelectTrigger className="w-full min-w-[10rem] sm:w-52" aria-label={t('stockSnapshots.filters.view')}>
                   <SelectValue>{viewModeLabel}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
@@ -328,7 +328,7 @@ export default function StockSnapshotsPageContainer() {
                   resetPage();
                 }}
               >
-                <SelectTrigger className="w-48" aria-label={t('stockSnapshots.filters.product')}>
+                <SelectTrigger className="w-full min-w-[10rem] sm:w-48" aria-label={t('stockSnapshots.filters.product')}>
                   <SelectValue>{productFilterLabel}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
@@ -348,7 +348,7 @@ export default function StockSnapshotsPageContainer() {
                   resetPage();
                 }}
               >
-                <SelectTrigger className="w-48" aria-label={t('stockSnapshots.filters.warehouse')}>
+                <SelectTrigger className="w-full min-w-[10rem] sm:w-48" aria-label={t('stockSnapshots.filters.warehouse')}>
                   <SelectValue>{warehouseFilterLabel}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
@@ -373,7 +373,7 @@ export default function StockSnapshotsPageContainer() {
                     resetPage();
                   }}
                   aria-label={t('stockSnapshots.filters.fromDate')}
-                  className="w-40"
+                  className="w-full min-w-[9rem] sm:w-40"
                 />
               </div>
 
@@ -389,7 +389,7 @@ export default function StockSnapshotsPageContainer() {
                     resetPage();
                   }}
                   aria-label={t('stockSnapshots.filters.toDate')}
-                  className="w-40"
+                  className="w-full min-w-[9rem] sm:w-40"
                 />
               </div>
 

@@ -479,13 +479,14 @@ export default function ShipmentDetails() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" asChild>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start lg:items-center">
+        <Button variant="ghost" size="icon" className="self-start shrink-0" asChild>
           <Link to={createPageUrl('Shipments')}>
             <ArrowLeft className="w-5 h-5" />
           </Link>
         </Button>
         <PageHeader
+          className="mb-0 min-w-0 flex-1"
           title={shipment?.shipmentNumber || t('common.loading')}
           description={
             shipment
@@ -552,7 +553,7 @@ export default function ShipmentDetails() {
         </Card>
         <Card className="dark:bg-slate-900 dark:border-slate-800">
           <CardContent className="pt-6">
-            <div className="mb-2 grid grid-cols-2 gap-4">
+            <div className="mb-2 grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="flex items-center gap-2">
                 <Warehouse className="w-4 h-4 text-slate-400" />
                 <p className="text-sm text-slate-500">
@@ -566,7 +567,7 @@ export default function ShipmentDetails() {
                 </p>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <p className="text-lg font-semibold text-slate-900 dark:text-slate-100">
                 {maps.warehouseMap.get(shipment?.mainWarehouseId)?.name ||
                   shipment?.mainWarehouseId ||
@@ -684,7 +685,7 @@ export default function ShipmentDetails() {
 
       {/* Items */}
       <div className="space-y-4">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
             {t('shipmentDetails.itemsTitle')} ({enrichedItems.length})
           </h2>
@@ -762,7 +763,7 @@ export default function ShipmentDetails() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="sentQty">
                   {t('shipmentDetails.form.sentQty')} *

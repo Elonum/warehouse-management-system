@@ -1224,13 +1224,14 @@ export default function SupplierOrderDetails() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" asChild>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start lg:items-center">
+        <Button variant="ghost" size="icon" className="self-start shrink-0" asChild>
           <Link to={createPageUrl('SupplierOrders')}>
             <ArrowLeft className="w-5 h-5" />
           </Link>
         </Button>
-        <PageHeader 
+        <PageHeader
+          className="mb-0 min-w-0 flex-1" 
           title={order.orderNumber || t('supplierOrderDetails.title')}
           description={order.buyer || ''}
         >
@@ -1404,8 +1405,8 @@ export default function SupplierOrderDetails() {
       </div>
 
       <Tabs defaultValue="items" onValueChange={setActiveTab}>
-        <div className="flex items-center justify-between mb-4">
-          <TabsList>
+        <div className="mb-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <TabsList className="w-full sm:w-auto">
             <TabsTrigger value="items">
               {t('supplierOrderDetails.tabsItems')} ({orderItems.length})
             </TabsTrigger>
@@ -1413,7 +1414,7 @@ export default function SupplierOrderDetails() {
               {t('supplierOrderDetails.tabsDocuments')} ({orderDocuments.length})
             </TabsTrigger>
           </TabsList>
-          <div className="flex items-center gap-2">
+          <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:justify-end">
             {activeTab === 'items' && !isFinalStatus ? (
               <>
                 <GuardedButton
@@ -1566,7 +1567,7 @@ export default function SupplierOrderDetails() {
                 {error}
               </div>
             )}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="productId">
                   {t('supplierOrderDetails.itemForm.product')} *
@@ -1634,7 +1635,7 @@ export default function SupplierOrderDetails() {
                 </Select>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="orderedQty">
                   {t('supplierOrderDetails.itemForm.orderedQty')} *
@@ -1687,7 +1688,7 @@ export default function SupplierOrderDetails() {
                 />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="purchasePrice">
                   {t('supplierOrderDetails.itemForm.purchasePrice')} (₽)
@@ -2045,8 +2046,8 @@ export default function SupplierOrderDetails() {
                     {t('supplierOrderDetails.subOrder.noItems')}
                   </p>
                 ) : (
-                  <div className="overflow-hidden border shadow-sm rounded-xl bg-white/70 dark:bg-slate-900/60 dark:border-slate-800">
-                    <table className="min-w-full text-xs border-collapse table-fixed">
+                  <div className="overflow-x-auto rounded-xl border bg-white/70 shadow-sm dark:border-slate-800 dark:bg-slate-900/60">
+                    <table className="min-w-[880px] w-full border-collapse text-xs">
                       <thead>
                         <tr className="border-b bg-slate-50 text-[11px] uppercase tracking-wide text-slate-500 dark:border-slate-800 dark:bg-slate-900/70 dark:text-slate-400">
                           <th className="w-56 px-4 py-2 text-left">

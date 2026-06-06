@@ -3,12 +3,14 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 
 	"warehouse-backend/internal/config"
 	"warehouse-backend/internal/dto"
 	"warehouse-backend/internal/integration/integrationlog"
+	"warehouse-backend/internal/integration/upstream"
 	"warehouse-backend/internal/integration/wildberries"
 
 	"github.com/rs/zerolog/log"
@@ -37,16 +39,36 @@ func (s *WildberriesStockService) List(ctx context.Context, req dto.WildberriesS
 	if err != nil {
 		return nil, ErrWbStockListInvalidDateFrom
 	}
-	client := wildberries.NewStatisticsClient(s.cfg.WbStatisticsBaseURL, s.cfg.WbStatisticsToken)
-	raw, err := client.FetchAllSupplierStocks(ctx, dateFrom)
+
+	cacheKey := fmt.Sprintf("wildberries:stocks:%s", dateFrom)
+	out, cacheHit, err := upstream.GetOrFetch(upstream.Stocks, ctx, cacheKey, func(ctx context.Context) (*dto.WildberriesStockListResponse, error) {
+		return s.fetchUpstream(ctx, dateFrom)
+	})
 	if err != nil {
-		log.Warn().
-			Str("integration", "wildberries").
-			Err(err).
+		call := wildberries.SupplierStocksCall(s.cfg.WbStatisticsBaseURL)
+		integrationlog.LogExternalCall(log.Warn().Err(err), call).
 			Str("date_from", dateFrom).
+			Bool("cache_hit", cacheHit).
 			Str("error_detail", integrationlog.Truncate(err.Error(), 500)).
 			Dur("duration", time.Since(startedAt)).
 			Msg("wildberries stocks fetch failed")
+		return nil, err
+	}
+
+	call := wildberries.SupplierStocksCall(s.cfg.WbStatisticsBaseURL)
+	integrationlog.LogExternalCall(log.Info(), call).
+		Str("date_from", dateFrom).
+		Bool("cache_hit", cacheHit).
+		Int("items", len(out.Items)).
+		Dur("duration", time.Since(startedAt)).
+		Msg("wildberries stocks fetch completed")
+	return out, nil
+}
+
+func (s *WildberriesStockService) fetchUpstream(ctx context.Context, dateFrom string) (*dto.WildberriesStockListResponse, error) {
+	client := wildberries.NewStatisticsClient(s.cfg.WbStatisticsBaseURL, s.cfg.WbStatisticsToken)
+	raw, err := client.FetchAllSupplierStocks(ctx, dateFrom)
+	if err != nil {
 		return nil, err
 	}
 	merged := wildberries.DedupeSupplierStocks(raw)
@@ -64,13 +86,5 @@ func (s *WildberriesStockService) List(ctx context.Context, req dto.WildberriesS
 			LastChangeDate:  strings.TrimSpace(r.LastChangeDate),
 		})
 	}
-	log.Info().
-		Str("integration", "wildberries").
-		Str("date_from", dateFrom).
-		Int("raw_rows", len(raw)).
-		Int("deduped_rows", len(merged)).
-		Int("items", len(items)).
-		Dur("duration", time.Since(startedAt)).
-		Msg("wildberries stocks fetch completed")
 	return &dto.WildberriesStockListResponse{Items: items, Total: len(items)}, nil
 }

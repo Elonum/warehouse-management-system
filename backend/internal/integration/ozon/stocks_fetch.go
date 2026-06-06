@@ -11,29 +11,37 @@ func (c *Client) FetchAllStockRows(ctx context.Context) (rows []StockRow, meta F
 		return nil, meta, ErrCredentialsMissing
 	}
 
+	if rows, meta, ok := c.fetchPreferredStockSource(ctx); ok {
+		rememberStockSource(meta.Source)
+		return rows, meta, nil
+	}
+
 	rows, stat, err := c.fetchProductInfoStocks(ctx)
-	meta.record("v4/product/info/stocks", stat, err)
+	meta.record(c.baseURL, "/v4/product/info/stocks", stat, err)
 	if err == nil && len(rows) > 0 {
 		meta.Source = "v4/product/info/stocks"
+		rememberStockSource(meta.Source)
 		return rows, meta, nil
 	}
 
 	rows, stat, err = c.fetchStockOnWarehousesV2(ctx)
-	meta.record("v2/analytics/stock_on_warehouses", stat, err)
+	meta.record(c.baseURL, "/v2/analytics/stock_on_warehouses", stat, err)
 	if err == nil && len(rows) > 0 {
 		meta.Source = "v2/analytics/stock_on_warehouses"
+		rememberStockSource(meta.Source)
 		return rows, meta, nil
 	}
 
 	rows, stat, err = c.fetchStocksViaProductInfoList(ctx)
-	meta.record("v3/product/info/list", stat, err)
+	meta.record(c.baseURL, "/v3/product/info/list", stat, err)
 	if err == nil && len(rows) > 0 {
 		meta.Source = "v3/product/info/list"
+		rememberStockSource(meta.Source)
 		return rows, meta, nil
 	}
 
 	catalog, stat, err := c.fetchCatalogWithSKUs(ctx)
-	meta.record("v3/product/list+info/list (catalog)", stat, err)
+	meta.record(c.baseURL, "/v3/product/list", stat, err)
 	if err != nil {
 		return nil, meta, fmt.Errorf("catalog: %w", err)
 	}
@@ -55,7 +63,7 @@ func (c *Client) FetchAllStockRows(ctx context.Context) (rows []StockRow, meta F
 	}
 
 	rows, stat, err = c.fetchAnalyticsStocksBatched(ctx, skuStrings, bySKU)
-	meta.record("v1/analytics/stocks", stat, err)
+	meta.record(c.baseURL, "/v1/analytics/stocks", stat, err)
 	if err != nil {
 		return nil, meta, fmt.Errorf("ozon: all stock sources failed (%s)", meta.Summary())
 	}
@@ -63,7 +71,45 @@ func (c *Client) FetchAllStockRows(ctx context.Context) (rows []StockRow, meta F
 		return nil, meta, fmt.Errorf("ozon: no stock rows after all sources (%s)", meta.Summary())
 	}
 	meta.Source = "v1/analytics/stocks"
+	rememberStockSource(meta.Source)
 	return rows, meta, nil
+}
+
+func (c *Client) fetchPreferredStockSource(ctx context.Context) ([]StockRow, FetchMeta, bool) {
+	source, ok := preferredStockSourcePath()
+	if !ok {
+		return nil, FetchMeta{}, false
+	}
+
+	var (
+		rows []StockRow
+		stat stageStat
+		err  error
+		path string
+	)
+	switch source {
+	case "v4/product/info/stocks":
+		path = "/v4/product/info/stocks"
+		rows, stat, err = c.fetchProductInfoStocks(ctx)
+	case "v2/analytics/stock_on_warehouses":
+		path = "/v2/analytics/stock_on_warehouses"
+		rows, stat, err = c.fetchStockOnWarehousesV2(ctx)
+	case "v3/product/info/list":
+		path = "/v3/product/info/list"
+		rows, stat, err = c.fetchStocksViaProductInfoList(ctx)
+	default:
+		clearPreferredStockSource()
+		return nil, FetchMeta{}, false
+	}
+
+	var meta FetchMeta
+	meta.record(c.baseURL, path, stat, err)
+	if err != nil || len(rows) == 0 {
+		clearPreferredStockSource()
+		return nil, FetchMeta{}, false
+	}
+	meta.Source = source
+	return rows, meta, true
 }
 
 // fetchStockOnWarehousesV2 — POST /v2/analytics/stock_on_warehouses (FBO/FBS отчёт по складам).
@@ -75,9 +121,6 @@ func (c *Client) fetchStockOnWarehousesV2(ctx context.Context) ([]StockRow, stag
 	for page := 0; page < 500; page++ {
 		if err := ctx.Err(); err != nil {
 			return nil, stat, err
-		}
-		if page > 0 {
-			sleepBatch(ctx, analyticsBatchDelay)
 		}
 		body := map[string]interface{}{
 			"limit":          pageLimit,
@@ -144,9 +187,6 @@ func (c *Client) fetchProductInfoStocks(ctx context.Context) ([]StockRow, stageS
 	for page := 0; page < 500; page++ {
 		if err := ctx.Err(); err != nil {
 			return nil, stat, err
-		}
-		if page > 0 {
-			sleepBatch(ctx, analyticsBatchDelay)
 		}
 		body := map[string]interface{}{
 			"cursor": cursor,
@@ -219,9 +259,6 @@ func (c *Client) fetchStocksViaProductInfoList(ctx context.Context) ([]StockRow,
 	for i := 0; i < len(productIDs); i += infoListBatchSize {
 		if err := ctx.Err(); err != nil {
 			return out, stat, err
-		}
-		if i > 0 {
-			sleepBatch(ctx, analyticsBatchDelay)
 		}
 		end := i + infoListBatchSize
 		if end > len(productIDs) {

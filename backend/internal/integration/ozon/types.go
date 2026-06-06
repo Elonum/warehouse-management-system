@@ -1,11 +1,8 @@
 package ozon
 
-import "time"
-
 const (
 	productListPageSize   = 1000
 	analyticsSKUBatchSize = 500
-	analyticsBatchDelay   = 250 * time.Millisecond
 )
 
 // CatalogSKU maps Ozon SKU to seller offer_id / product_id.

@@ -10,14 +10,20 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"warehouse-backend/internal/integration/integrationlog"
+	"warehouse-backend/internal/integration/upstream"
+
+	"github.com/rs/zerolog/log"
 )
 
 const (
+	// SupplierStocksAPIPath — GET остатков в WB Statistics API (отдельный хост statistics-api.wildberries.ru).
+	SupplierStocksAPIPath = "/api/v1/supplier/stocks"
+
 	statisticsHTTPTimeout = 120 * time.Second
 	// WB Statistics: максимум строк за один запрос; дальше сдвигают dateFrom по lastChangeDate последней записи.
 	supplierStocksMaxRowsPerRequest = 60_000
-	// Пауза между страницами: песочница ~1 rps; в бою снижает риск 429.
-	supplierStocksPageDelay = 400 * time.Millisecond
 )
 
 // StatisticsClient вызывает Statistics API WB (остатки, отчёты). Токен — отдельная категория в кабинете («Статистика»).
@@ -25,6 +31,13 @@ type StatisticsClient struct {
 	baseURL    string
 	token      string
 	httpClient *http.Client
+	limiter    *upstream.Limiter
+	retry      upstream.RetryPolicy
+}
+
+// SupplierStocksCall describes the upstream WB Statistics stocks endpoint.
+func SupplierStocksCall(baseURL string) integrationlog.ExternalCall {
+	return integrationlog.WildberriesGET(baseURL, SupplierStocksAPIPath)
 }
 
 func NewStatisticsClient(baseURL, token string) *StatisticsClient {
@@ -34,6 +47,8 @@ func NewStatisticsClient(baseURL, token string) *StatisticsClient {
 		httpClient: &http.Client{
 			Timeout: statisticsHTTPTimeout,
 		},
+		limiter: upstream.Wildberries,
+		retry:   upstream.Retry,
 	}
 }
 
@@ -60,13 +75,6 @@ func (c *StatisticsClient) FetchAllSupplierStocks(ctx context.Context, dateFromR
 		if err := ctx.Err(); err != nil {
 			return nil, err
 		}
-		if page > 0 {
-			select {
-			case <-ctx.Done():
-				return nil, ctx.Err()
-			case <-time.After(supplierStocksPageDelay):
-			}
-		}
 		rows, err := c.fetchSupplierStocksPage(ctx, cursor)
 		if err != nil {
 			return nil, err
@@ -87,8 +95,15 @@ func (c *StatisticsClient) FetchAllSupplierStocks(ctx context.Context, dateFromR
 	return all, nil
 }
 
+func (c *StatisticsClient) waitThrottle(ctx context.Context) error {
+	if c.limiter == nil {
+		return nil
+	}
+	return c.limiter.Wait(ctx)
+}
+
 func (c *StatisticsClient) fetchSupplierStocksPage(ctx context.Context, dateFrom string) ([]SupplierStockRow, error) {
-	u, err := url.Parse(c.baseURL + "/api/v1/supplier/stocks")
+	u, err := url.Parse(c.baseURL + SupplierStocksAPIPath)
 	if err != nil {
 		return nil, err
 	}
@@ -96,30 +111,83 @@ func (c *StatisticsClient) fetchSupplierStocksPage(ctx context.Context, dateFrom
 	q.Set("dateFrom", dateFrom)
 	u.RawQuery = q.Encode()
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("Authorization", c.token)
+	call := SupplierStocksCall(c.baseURL)
+	policy := c.retry.Normalized()
+	var lastErr error
 
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-	body, err := io.ReadAll(io.LimitReader(resp.Body, 32<<20))
-	if err != nil {
-		return nil, err
-	}
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("wildberries statistics GET /supplier/stocks: status %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
+	for attempt := 0; attempt <= policy.MaxRetries; attempt++ {
+		if err := c.waitThrottle(ctx); err != nil {
+			return nil, err
+		}
+
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
+		if err != nil {
+			return nil, err
+		}
+		req.Header.Set("Authorization", c.token)
+
+		started := time.Now()
+		resp, err := c.httpClient.Do(req)
+		duration := time.Since(started)
+		if err != nil {
+			lastErr = err
+			integrationlog.LogExternalCall(log.Debug().Err(err).Dur("duration", duration).Str("date_from", dateFrom).Int("attempt", attempt), call).
+				Msg("wildberries upstream request failed")
+			if attempt < policy.MaxRetries {
+				if waitErr := policy.SleepBackoff(ctx, attempt, 0); waitErr != nil {
+					return nil, waitErr
+				}
+				continue
+			}
+			return nil, err
+		}
+
+		body, readErr := io.ReadAll(io.LimitReader(resp.Body, 32<<20))
+		_ = resp.Body.Close()
+		if readErr != nil {
+			return nil, readErr
+		}
+
+		if resp.StatusCode != http.StatusOK {
+			safeBody := integrationlog.Truncate(strings.TrimSpace(string(body)), 240)
+			lastErr = fmt.Errorf("wildberries statistics %s %s?dateFrom=%s: status %d: %s",
+				call.Method, call.FullURL(), url.QueryEscape(dateFrom), resp.StatusCode, safeBody)
+			integrationlog.LogExternalCall(log.Warn().
+				Int("http_status", resp.StatusCode).
+				Dur("duration", duration).
+				Str("date_from", dateFrom).
+				Str("request_url", u.String()).
+				Int("attempt", attempt), call).
+				Str("response_body", safeBody).
+				Msg("wildberries upstream request error status")
+			if upstream.RetryableStatus(resp.StatusCode) && attempt < policy.MaxRetries {
+				if waitErr := policy.SleepBackoff(ctx, attempt, upstream.ParseRetryAfter(resp)); waitErr != nil {
+					return nil, waitErr
+				}
+				continue
+			}
+			return nil, lastErr
+		}
+
+		integrationlog.LogExternalCall(log.Debug().
+			Int("http_status", resp.StatusCode).
+			Dur("duration", duration).
+			Str("date_from", dateFrom).
+			Str("request_url", u.String()).
+			Int("attempt", attempt), call).
+			Msg("wildberries upstream request")
+
+		rows, err := decodeSupplierStocksJSON(body)
+		if err != nil {
+			return nil, err
+		}
+		return rows, nil
 	}
 
-	rows, err := decodeSupplierStocksJSON(body)
-	if err != nil {
-		return nil, err
+	if lastErr != nil {
+		return nil, lastErr
 	}
-	return rows, nil
+	return nil, fmt.Errorf("wildberries statistics %s %s?dateFrom=%s: request failed", call.Method, call.FullURL(), url.QueryEscape(dateFrom))
 }
 
 // ParseStatisticsDateFrom нормализует dateFrom для WB (RFC3339 или YYYY-MM-DD). Пустая строка → полный охват с даты из документации WB.

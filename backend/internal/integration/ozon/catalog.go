@@ -3,7 +3,6 @@ package ozon
 import (
 	"context"
 	"fmt"
-	"time"
 )
 
 const infoListBatchSize = 1000
@@ -17,7 +16,7 @@ func (c *Client) fetchCatalogWithSKUs(ctx context.Context) ([]CatalogSKU, stageS
 		stat.detail = "product_ids=0"
 		return nil, stat, nil
 	}
-	stat.detail = fmt.Sprintf("product_ids=%d", len(productIDs))
+	stat.detail = fmt.Sprintf("product_ids=%d; also POST %s/v3/product/info/list", len(productIDs), c.baseURL)
 	catalog, err := c.fetchProductInfoByIDs(ctx, productIDs)
 	if err != nil {
 		return nil, stat, err
@@ -33,9 +32,6 @@ func (c *Client) fetchAllProductIDs(ctx context.Context) ([]int64, stageStat, er
 	for page := 0; page < 500; page++ {
 		if err := ctx.Err(); err != nil {
 			return nil, stat, err
-		}
-		if page > 0 {
-			sleepBatch(ctx, analyticsBatchDelay)
 		}
 		body := map[string]interface{}{
 			"filter": map[string]string{
@@ -85,9 +81,6 @@ func (c *Client) fetchProductInfoByIDs(ctx context.Context, productIDs []int64) 
 		if err := ctx.Err(); err != nil {
 			return nil, err
 		}
-		if i > 0 {
-			sleepBatch(ctx, analyticsBatchDelay)
-		}
 		end := i + infoListBatchSize
 		if end > len(productIDs) {
 			end = len(productIDs)
@@ -130,11 +123,4 @@ func (c *Client) fetchProductInfoByIDs(ctx context.Context, productIDs []int64) 
 		out = append(out, row)
 	}
 	return out, nil
-}
-
-func sleepBatch(ctx context.Context, d time.Duration) {
-	select {
-	case <-ctx.Done():
-	case <-time.After(d):
-	}
 }

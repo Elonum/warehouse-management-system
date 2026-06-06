@@ -1,6 +1,11 @@
 package ozon
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+
+	"warehouse-backend/internal/integration/integrationlog"
+)
 
 type stageStat struct {
 	apiItems   int
@@ -18,8 +23,9 @@ func (m FetchMeta) Summary() string {
 	return joinStages(m.Stages)
 }
 
-func (m *FetchMeta) record(endpoint string, stat stageStat, err error) {
-	line := fmt.Sprintf("%s: api_items=%d parsed_rows=%d", endpoint, stat.apiItems, stat.parsedRows)
+func (m *FetchMeta) record(baseURL, path string, stat stageStat, err error) {
+	call := integrationlog.OzonPOST(baseURL, path)
+	line := fmt.Sprintf("%s %s: api_items=%d parsed_rows=%d", call.Method, call.FullURL(), stat.apiItems, stat.parsedRows)
 	if stat.detail != "" {
 		line += " " + stat.detail
 	}
@@ -40,4 +46,13 @@ func joinStages(stages []string) string {
 		out += "; " + stages[i]
 	}
 	return out
+}
+
+// SourceExternalCall maps a successful fetch source label to the upstream Ozon endpoint.
+func SourceExternalCall(baseURL, source string) integrationlog.ExternalCall {
+	path := strings.TrimSpace(source)
+	if path != "" && !strings.HasPrefix(path, "/") {
+		path = "/" + path
+	}
+	return integrationlog.OzonPOST(baseURL, path)
 }

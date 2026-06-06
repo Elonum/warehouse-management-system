@@ -10,6 +10,7 @@ import (
 	"warehouse-backend/internal/db"
 	"warehouse-backend/internal/httpapi/handlers"
 	"warehouse-backend/internal/httpapi/middleware"
+	"warehouse-backend/internal/integration/upstream"
 	"warehouse-backend/internal/repository"
 	"warehouse-backend/internal/service"
 
@@ -27,6 +28,7 @@ func NewRouter(pg *db.Postgres, cfg config.Config) *chi.Mux {
 	r.Use(middleware.Recovery)
 	r.Use(middleware.Logger)
 	middleware.ConfigureRateLimitProxyTrust(cfg.TrustProxyHeaders)
+	upstream.Init(cfg)
 
 	jwtManager := auth.NewJWTManager(cfg.JWTSecret)
 
@@ -223,12 +225,14 @@ func NewRouter(pg *db.Postgres, cfg config.Config) *chi.Mux {
 				})
 			})
 
-			r.Route("/integrations/wildberries", func(r chi.Router) {
-				r.Post("/stocks/list", wildberriesStocksListHandler.List)
-			})
-
-			r.Route("/integrations/ozon", func(r chi.Router) {
-				r.Post("/stocks/list", ozonStocksListHandler.List)
+			integrationRateLimiter := middleware.NewRateLimiter(6, time.Minute)
+			r.With(middleware.RateLimitMiddleware(integrationRateLimiter)).Route("/integrations", func(r chi.Router) {
+				r.Route("/wildberries", func(r chi.Router) {
+					r.Post("/stocks/list", wildberriesStocksListHandler.List)
+				})
+				r.Route("/ozon", func(r chi.Router) {
+					r.Post("/stocks/list", ozonStocksListHandler.List)
+				})
 			})
 
 			r.Route("/mp-shipment-items", func(r chi.Router) {

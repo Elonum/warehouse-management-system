@@ -3,7 +3,9 @@ package config
 import (
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/joho/godotenv"
 	"github.com/rs/zerolog/log"
@@ -33,6 +35,18 @@ type Config struct {
 	OzonClientID string
 	OzonAPIKey   string
 	OzonBaseURL  string
+
+	// Upstream marketplace guards (rate limits, cache, retries).
+	IntegrationStocksCacheTTL     time.Duration
+	IntegrationUpstreamMaxRetries int
+	IntegrationUpstreamRetryBase  time.Duration
+	IntegrationUpstreamRetryMax   time.Duration
+	WbUpstreamBurst               int
+	WbUpstreamRefillInterval      time.Duration
+	WbUpstreamMinInterval         time.Duration
+	OzonUpstreamBurst             int
+	OzonUpstreamRefillInterval    time.Duration
+	OzonUpstreamMinInterval       time.Duration
 
 	// HTTP hardening / proxy settings
 	AllowedOrigins       []string
@@ -71,6 +85,19 @@ func Load() Config {
 		OzonAPIKey:   getEnv("OZON_API_KEY", ""),
 		OzonBaseURL:  getEnv("OZON_BASE_URL", "https://api-seller.ozon.ru"),
 
+		IntegrationStocksCacheTTL:     durationEnv("INTEGRATION_STOCKS_CACHE_TTL", 90*time.Second),
+		IntegrationUpstreamMaxRetries: intEnv("INTEGRATION_UPSTREAM_MAX_RETRIES", 3),
+		IntegrationUpstreamRetryBase:  durationEnv("INTEGRATION_UPSTREAM_RETRY_BASE", time.Second),
+		IntegrationUpstreamRetryMax:   durationEnv("INTEGRATION_UPSTREAM_RETRY_MAX", 30*time.Second),
+		// WB Statistics personal token: burst 10 / min, sustained ~1 / min.
+		WbUpstreamBurst:          intEnv("WB_UPSTREAM_BURST", 10),
+		WbUpstreamRefillInterval: durationEnv("WB_UPSTREAM_REFILL_INTERVAL", time.Minute),
+		WbUpstreamMinInterval:    durationEnv("WB_UPSTREAM_MIN_INTERVAL", 6*time.Second),
+		// Ozon: conservative defaults (no published hard limits).
+		OzonUpstreamBurst:          intEnv("OZON_UPSTREAM_BURST", 5),
+		OzonUpstreamRefillInterval: durationEnv("OZON_UPSTREAM_REFILL_INTERVAL", 2*time.Second),
+		OzonUpstreamMinInterval:    durationEnv("OZON_UPSTREAM_MIN_INTERVAL", 350*time.Millisecond),
+
 		AllowedOrigins:       getCSVEnv("ALLOWED_ORIGINS", "http://localhost:5173,http://localhost:5174,http://localhost:3000,http://127.0.0.1:5173,http://127.0.0.1:5174,http://127.0.0.1:3000"),
 		TrustProxyHeaders:    getEnv("TRUST_PROXY_HEADERS", "false") == "true",
 		CSPAllowUnsafeInline: getEnv("CSP_ALLOW_UNSAFE_INLINE", "true") == "true",
@@ -96,6 +123,32 @@ func getEnv(key, defaultValue string) string {
 		return value
 	}
 	return defaultValue
+}
+
+func intEnv(key string, defaultValue int) int {
+	raw := strings.TrimSpace(os.Getenv(key))
+	if raw == "" {
+		return defaultValue
+	}
+	v, err := strconv.Atoi(raw)
+	if err != nil || v < 0 {
+		log.Warn().Str("key", key).Str("value", raw).Int("default", defaultValue).Msg("invalid int env, using default")
+		return defaultValue
+	}
+	return v
+}
+
+func durationEnv(key string, defaultValue time.Duration) time.Duration {
+	raw := strings.TrimSpace(os.Getenv(key))
+	if raw == "" {
+		return defaultValue
+	}
+	d, err := time.ParseDuration(raw)
+	if err != nil || d <= 0 {
+		log.Warn().Str("key", key).Str("value", raw).Dur("default", defaultValue).Msg("invalid duration env, using default")
+		return defaultValue
+	}
+	return d
 }
 
 func getCSVEnv(key, defaultValue string) []string {

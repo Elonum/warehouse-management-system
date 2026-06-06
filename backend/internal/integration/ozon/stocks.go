@@ -8,15 +8,14 @@ import (
 
 var ErrOzonStocksEmpty = errors.New("ozon returned zero stock rows")
 
+var analyticsStocksBodyIndex = -1
+
 func (c *Client) fetchAnalyticsStocksBatched(ctx context.Context, skus []string, bySKU map[int64]CatalogSKU) ([]StockRow, stageStat, error) {
 	stat := stageStat{detail: fmt.Sprintf("skus=%d", len(skus))}
 	var all []StockRow
 	for i := 0; i < len(skus); i += analyticsSKUBatchSize {
 		if err := ctx.Err(); err != nil {
 			return all, stat, err
-		}
-		if i > 0 {
-			sleepBatch(ctx, analyticsBatchDelay)
 		}
 		end := i + analyticsSKUBatchSize
 		if end > len(skus) {
@@ -52,7 +51,19 @@ func (c *Client) fetchAnalyticsStocksOnce(ctx context.Context, skus []string, by
 	}
 
 	var lastErr error
-	for _, body := range attempts {
+	tryOrder := make([]int, 0, len(attempts))
+	if analyticsStocksBodyIndex >= 0 && analyticsStocksBodyIndex < len(attempts) {
+		tryOrder = append(tryOrder, analyticsStocksBodyIndex)
+	}
+	for i := range attempts {
+		if analyticsStocksBodyIndex >= 0 && i == analyticsStocksBodyIndex {
+			continue
+		}
+		tryOrder = append(tryOrder, i)
+	}
+
+	for _, idx := range tryOrder {
+		body := attempts[idx]
 		raw, _, err := c.postJSON(ctx, "/v1/analytics/stocks", body, 32<<20)
 		if err != nil {
 			lastErr = err
@@ -66,6 +77,7 @@ func (c *Client) fetchAnalyticsStocksOnce(ctx context.Context, skus []string, by
 		stat.apiItems += len(payload.Items)
 		rows := mapAnalyticsItems(payload.Items, bySKU)
 		if len(rows) > 0 {
+			analyticsStocksBodyIndex = idx
 			stat.parsedRows = len(rows)
 			return rows, stat, nil
 		}

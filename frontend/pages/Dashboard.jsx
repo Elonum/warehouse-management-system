@@ -78,7 +78,7 @@ export default function Dashboard() {
     queryFn: () => fetchMarketplaceStock({ source: 'wildberries' }),
     staleTime: 90_000,
     gcTime: 300_000,
-    retry: 1,
+    retry: false,
   });
 
   const {
@@ -91,7 +91,7 @@ export default function Dashboard() {
     queryFn: () => fetchMarketplaceStock({ source: 'ozon' }),
     staleTime: 90_000,
     gcTime: 300_000,
-    retry: 1,
+    retry: false,
   });
 
   const { data: lowStockRows = [], isLoading: loadingLowStock } = useQuery({

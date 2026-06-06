@@ -164,6 +164,9 @@ function StockPageContainer() {
   } = useQuery({
     queryKey: ['stock-marketplace', stockSource],
     enabled: isMarketplaceMode,
+    staleTime: 90_000,
+    gcTime: 300_000,
+    retry: false,
     queryFn: async () => {
       const data = await fetchMarketplaceStock({ source: stockSource });
       return data;

@@ -16,6 +16,7 @@ function ProductFormDialog({
   onSubmit,
   isSubmitting,
   onResetForm,
+  canWriteProducts = false,
 }) {
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -113,6 +114,7 @@ function ProductFormDialog({
             }}
             productId={currentProduct?.productId || null}
             maxImages={10}
+            allowed={canWriteProducts}
           />
 
           <DialogFooter>

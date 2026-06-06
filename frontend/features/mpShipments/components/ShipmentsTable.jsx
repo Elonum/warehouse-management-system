@@ -11,6 +11,7 @@ import {
   Filter,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { GuardedButton, GuardedMenuItem } from '@/components/auth/PermissionControls';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -38,6 +39,7 @@ function ShipmentsTable({
   t,
   shipments,
   isLoading,
+  canWriteMarketplace = false,
   onCreateShipment,
   onEditShipment,
   onRequestDelete,
@@ -216,18 +218,19 @@ function ShipmentsTable({
               </DropdownMenuItem>
               {!row.original.statusIsFinal ? (
                 <>
-                  <DropdownMenuItem onClick={() => onEditShipment(row.original)}>
+                  <GuardedMenuItem allowed={canWriteMarketplace} onClick={() => onEditShipment(row.original)}>
                     <Edit2 className="w-4 h-4 mr-2" />
                     {t('common.edit')}
-                  </DropdownMenuItem>
+                  </GuardedMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem
+                  <GuardedMenuItem
+                    allowed={canWriteMarketplace}
                     onClick={() => onRequestDelete(row.original)}
                     className="text-red-600"
                   >
                     <Trash2 className="w-4 h-4 mr-2" />
                     {t('common.delete')}
-                  </DropdownMenuItem>
+                  </GuardedMenuItem>
                 </>
               ) : null}
             </DropdownMenuContent>
@@ -235,7 +238,7 @@ function ShipmentsTable({
         ),
       },
     ],
-    [t, onEditShipment, onRequestDelete, formatDate],
+    [t, canWriteMarketplace, onEditShipment, onRequestDelete, formatDate],
   );
 
   return (
@@ -244,10 +247,10 @@ function ShipmentsTable({
         title={t('shipments.title')}
         description={t('shipments.description')}
       >
-        <Button onClick={onCreateShipment}>
+        <GuardedButton allowed={canWriteMarketplace} onClick={onCreateShipment}>
           <Plus className="w-4 h-4 mr-2" />
           {t('shipments.addShipment')}
-        </Button>
+        </GuardedButton>
       </PageHeader>
 
       <Card className="dark:border-slate-800 dark:bg-slate-900">

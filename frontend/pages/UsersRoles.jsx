@@ -17,6 +17,8 @@ import {
   Check,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { GuardedButton, GuardedMenuItem } from '@/components/auth/PermissionControls';
+import { usePermissions } from '@/hooks/usePermissions';
 import {
   Dialog,
   DialogContent,
@@ -73,6 +75,7 @@ const formatNameInput = (value) => {
 
 export default function UsersRoles() {
   const { t } = useI18n();
+  const { canAdmin } = usePermissions();
   const queryClient = useQueryClient();
   const createEditModal = useModalState(null);
   const deleteModal = useModalState(null);
@@ -494,18 +497,19 @@ export default function UsersRoles() {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => handleOpenDialog(row.original)}>
+            <GuardedMenuItem allowed={canAdmin} onClick={() => handleOpenDialog(row.original)}>
               <Edit2 className="w-4 h-4 mr-2" />
               {t('common.edit')}
-            </DropdownMenuItem>
+            </GuardedMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem 
+            <GuardedMenuItem
+              allowed={canAdmin}
               onClick={() => handleDelete(row.original)}
               className="text-red-600 dark:text-red-400"
             >
               <Trash2 className="w-4 h-4 mr-2" />
               {t('common.delete')}
-            </DropdownMenuItem>
+            </GuardedMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       ),
@@ -529,10 +533,10 @@ export default function UsersRoles() {
         title={t('users.title')}
         description={t('users.description')}
       >
-        <Button onClick={() => handleOpenDialog()}>
+        <GuardedButton allowed={canAdmin} onClick={() => handleOpenDialog()}>
           <Plus className="w-4 h-4 mr-2" />
           {t('users.addUser')}
-        </Button>
+        </GuardedButton>
       </PageHeader>
 
       <div className="grid grid-cols-2 gap-4">

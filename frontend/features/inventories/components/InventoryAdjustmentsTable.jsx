@@ -11,6 +11,7 @@ import {
   Filter,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { GuardedButton, GuardedMenuItem } from '@/components/auth/PermissionControls';
 import {
   Select,
   SelectContent,
@@ -38,6 +39,7 @@ function InventoryAdjustmentsTable({
   onStatusFilterChange,
   inventories,
   isLoading,
+  canWriteInventory = false,
   onCreateAdjustment,
   onEditAdjustment,
   onRequestDelete,
@@ -187,18 +189,19 @@ function InventoryAdjustmentsTable({
             </DropdownMenuItem>
             {!row.original.statusIsFinal ? (
               <>
-                <DropdownMenuItem onClick={() => onEditAdjustment(row.original)}>
+                <GuardedMenuItem allowed={canWriteInventory} onClick={() => onEditAdjustment(row.original)}>
                   <Edit2 className="w-4 h-4 mr-2" />
                   {t('common.edit')}
-                </DropdownMenuItem>
+                </GuardedMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem
+                <GuardedMenuItem
+                  allowed={canWriteInventory}
                   onClick={() => onRequestDelete(row.original)}
                   className="text-red-600"
                 >
                   <Trash2 className="w-4 h-4 mr-2" />
                   {t('common.delete')}
-                </DropdownMenuItem>
+                </GuardedMenuItem>
               </>
             ) : null}
           </DropdownMenuContent>
@@ -213,10 +216,10 @@ function InventoryAdjustmentsTable({
         title={t('inventoryAdjustments.title')}
         description={t('inventoryAdjustments.description')}
       >
-        <Button onClick={onCreateAdjustment}>
+        <GuardedButton allowed={canWriteInventory} onClick={onCreateAdjustment}>
           <Plus className="w-4 h-4 mr-2" />
           {t('inventoryAdjustments.addAdjustment')}
-        </Button>
+        </GuardedButton>
       </PageHeader>
 
       <Card className="dark:border-slate-800 dark:bg-slate-900">

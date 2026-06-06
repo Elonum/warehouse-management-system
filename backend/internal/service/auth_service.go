@@ -11,6 +11,7 @@ import (
 
 	"github.com/google/uuid"
 	"warehouse-backend/internal/auth"
+	"warehouse-backend/internal/dto"
 	"warehouse-backend/internal/repository"
 	"warehouse-backend/internal/validation"
 
@@ -20,6 +21,7 @@ import (
 var (
 	ErrInvalidCredentials        = errors.New("invalid email or password")
 	ErrInvalidRole               = errors.New("invalid role")
+	ErrRegistrationRoleForbidden = errors.New("registration role not allowed")
 	ErrPasswordResetTokenInvalid = errors.New("password reset token is invalid or expired")
 	ErrPasswordResetTokenExpired = errors.New("password reset token expired")
 	ErrPasswordResetTokenUsed    = errors.New("password reset token has already been used")
@@ -155,13 +157,16 @@ func (s *AuthService) Register(ctx context.Context, email, password string, role
 		return nil, ErrInvalidRole
 	}
 
-	// Verify role exists
-	_, err = s.roleRepo.GetByID(ctx, roleID)
+	// Verify role exists and is allowed for self-registration.
+	role, err := s.roleRepo.GetByID(ctx, roleID)
 	if err != nil {
 		if errors.Is(err, repository.ErrRoleNotFound) {
 			return nil, ErrInvalidRole
 		}
 		return nil, err
+	}
+	if !auth.CanSelfRegister(role.Name) {
+		return nil, ErrRegistrationRoleForbidden
 	}
 
 	// Hash password
@@ -189,6 +194,26 @@ func (s *AuthService) GetCurrentUser(ctx context.Context, userID uuid.UUID) (*re
 		return nil, err
 	}
 	return user, nil
+}
+
+func (s *AuthService) BuildUserResponse(ctx context.Context, user *repository.User) (dto.UserResponse, error) {
+	if user == nil {
+		return dto.UserResponse{}, repository.ErrUserNotFound
+	}
+	role, err := s.roleRepo.GetByID(ctx, user.RoleID)
+	if err != nil {
+		return dto.UserResponse{}, err
+	}
+	return dto.UserResponse{
+		UserID:      user.UserID.String(),
+		Email:       user.Email,
+		Name:        user.Name,
+		Surname:     user.Surname,
+		Patronymic:  user.Patronymic,
+		RoleID:      user.RoleID.String(),
+		RoleName:    role.Name,
+		Permissions: auth.PermissionStrings(role.Name),
+	}, nil
 }
 
 // RequestPasswordReset requests a password reset for the given email

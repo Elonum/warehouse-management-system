@@ -1,12 +1,14 @@
 package dto
 
 type UserResponse struct {
-	UserID     string  `json:"userId"`
-	Email      string  `json:"email"`
-	Name       *string `json:"name,omitempty"`
-	Surname    *string `json:"surname,omitempty"`
-	Patronymic *string `json:"patronymic,omitempty"`
-	RoleID     string  `json:"roleId"`
+	UserID      string   `json:"userId"`
+	Email       string   `json:"email"`
+	Name        *string  `json:"name,omitempty"`
+	Surname     *string  `json:"surname,omitempty"`
+	Patronymic  *string  `json:"patronymic,omitempty"`
+	RoleID      string   `json:"roleId"`
+	RoleName    string   `json:"roleName,omitempty"`
+	Permissions []string `json:"permissions,omitempty"`
 }
 
 type UserCreateRequest struct {

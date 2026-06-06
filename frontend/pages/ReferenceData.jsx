@@ -18,6 +18,8 @@ import {
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { GuardedButton, GuardedMenuItem } from '@/components/auth/PermissionControls';
+import { usePermissions } from '@/hooks/usePermissions';
 import {
   Dialog,
   DialogContent,
@@ -51,6 +53,7 @@ import { cn } from '@/lib/utils';
 
 export default function ReferenceData() {
   const { t } = useI18n();
+  const { canAdmin } = usePermissions();
   const queryClient = useQueryClient();
   const [selectedSection, setSelectedSection] = useState(null);
   const [roleDialogOpen, setRoleDialogOpen] = useState(false);
@@ -553,18 +556,19 @@ export default function ReferenceData() {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => handleOpenShipmentStatusDialog(row.original)}>
+            <GuardedMenuItem allowed={canAdmin} onClick={() => handleOpenShipmentStatusDialog(row.original)}>
               <Edit2 className="w-4 h-4 mr-2" />
               {t('common.edit')}
-            </DropdownMenuItem>
+            </GuardedMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem 
+            <GuardedMenuItem
+              allowed={canAdmin}
               onClick={() => handleDeleteShipmentStatus(row.original)}
               className="text-red-600 dark:text-red-400"
             >
               <Trash2 className="w-4 h-4 mr-2" />
               {t('common.delete')}
-            </DropdownMenuItem>
+            </GuardedMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       ),
@@ -738,18 +742,19 @@ export default function ReferenceData() {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => handleOpenInventoryStatusDialog(row.original)}>
+            <GuardedMenuItem allowed={canAdmin} onClick={() => handleOpenInventoryStatusDialog(row.original)}>
               <Edit2 className="w-4 h-4 mr-2" />
               {t('common.edit')}
-            </DropdownMenuItem>
+            </GuardedMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem 
+            <GuardedMenuItem
+              allowed={canAdmin}
               onClick={() => handleDeleteInventoryStatus(row.original)}
               className="text-red-600 dark:text-red-400"
             >
               <Trash2 className="w-4 h-4 mr-2" />
               {t('common.delete')}
-            </DropdownMenuItem>
+            </GuardedMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       ),
@@ -914,18 +919,19 @@ export default function ReferenceData() {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => handleOpenWarehouseTypeDialog(row.original)}>
+            <GuardedMenuItem allowed={canAdmin} onClick={() => handleOpenWarehouseTypeDialog(row.original)}>
               <Edit2 className="w-4 h-4 mr-2" />
               {t('common.edit')}
-            </DropdownMenuItem>
+            </GuardedMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem 
+            <GuardedMenuItem
+              allowed={canAdmin}
               onClick={() => handleDeleteWarehouseType(row.original)}
               className="text-red-600 dark:text-red-400"
             >
               <Trash2 className="w-4 h-4 mr-2" />
               {t('common.delete')}
-            </DropdownMenuItem>
+            </GuardedMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       ),
@@ -975,18 +981,19 @@ export default function ReferenceData() {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => handleOpenOrderStatusDialog(row.original)}>
+            <GuardedMenuItem allowed={canAdmin} onClick={() => handleOpenOrderStatusDialog(row.original)}>
               <Edit2 className="w-4 h-4 mr-2" />
               {t('common.edit')}
-            </DropdownMenuItem>
+            </GuardedMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem 
+            <GuardedMenuItem
+              allowed={canAdmin}
               onClick={() => handleDeleteOrderStatus(row.original)}
               className="text-red-600 dark:text-red-400"
             >
               <Trash2 className="w-4 h-4 mr-2" />
               {t('common.delete')}
-            </DropdownMenuItem>
+            </GuardedMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       ),
@@ -1020,18 +1027,19 @@ export default function ReferenceData() {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => handleOpenRoleDialog(row.original)}>
+            <GuardedMenuItem allowed={canAdmin} onClick={() => handleOpenRoleDialog(row.original)}>
               <Edit2 className="w-4 h-4 mr-2" />
               {t('common.edit')}
-            </DropdownMenuItem>
+            </GuardedMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem 
+            <GuardedMenuItem
+              allowed={canAdmin}
               onClick={() => handleDeleteRole(row.original)}
               className="text-red-600 dark:text-red-400"
             >
               <Trash2 className="w-4 h-4 mr-2" />
               {t('common.delete')}
-            </DropdownMenuItem>
+            </GuardedMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       ),
@@ -1176,10 +1184,10 @@ export default function ReferenceData() {
               </p>
             </div>
           </div>
-          <Button onClick={() => handleOpenRoleDialog()}>
+          <GuardedButton allowed={canAdmin} onClick={() => handleOpenRoleDialog()}>
             <Plus className="w-4 h-4 mr-2" />
             {t('referenceData.roles.addRole')}
-          </Button>
+          </GuardedButton>
         </div>
 
         <DataTable
@@ -1303,10 +1311,10 @@ export default function ReferenceData() {
               </p>
             </div>
           </div>
-          <Button onClick={() => handleOpenOrderStatusDialog()}>
+          <GuardedButton allowed={canAdmin} onClick={() => handleOpenOrderStatusDialog()}>
             <Plus className="w-4 h-4 mr-2" />
             {t('referenceData.orderStatuses.addStatus')}
-          </Button>
+          </GuardedButton>
         </div>
 
         <DataTable
@@ -1447,10 +1455,10 @@ export default function ReferenceData() {
               </p>
             </div>
           </div>
-          <Button onClick={() => handleOpenShipmentStatusDialog()}>
+          <GuardedButton allowed={canAdmin} onClick={() => handleOpenShipmentStatusDialog()}>
             <Plus className="w-4 h-4 mr-2" />
             {t('referenceData.shipmentStatuses.addStatus')}
-          </Button>
+          </GuardedButton>
         </div>
 
         <DataTable
@@ -1591,10 +1599,10 @@ export default function ReferenceData() {
               </p>
             </div>
           </div>
-          <Button onClick={() => handleOpenInventoryStatusDialog()}>
+          <GuardedButton allowed={canAdmin} onClick={() => handleOpenInventoryStatusDialog()}>
             <Plus className="w-4 h-4 mr-2" />
             {t('referenceData.inventoryStatuses.addStatus')}
-          </Button>
+          </GuardedButton>
         </div>
 
         <DataTable

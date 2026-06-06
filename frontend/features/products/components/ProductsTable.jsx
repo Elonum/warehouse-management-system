@@ -21,6 +21,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { GuardedMenuItem } from '@/components/auth/PermissionControls';
 
 function ProductsTable({
   t,
@@ -29,6 +30,7 @@ function ProductsTable({
   imageIndices,
   onChangeImageIndex,
   onOpenImageViewer,
+  canWriteProducts = false,
   onEditProduct,
   onRequestDelete,
 }) {
@@ -229,23 +231,24 @@ function ProductsTable({
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => onEditProduct(row.original)}>
+              <GuardedMenuItem allowed={canWriteProducts} onClick={() => onEditProduct(row.original)}>
                 <Pencil className="w-4 h-4 mr-2" />
                 {t('common.edit')}
-              </DropdownMenuItem>
-              <DropdownMenuItem
+              </GuardedMenuItem>
+              <GuardedMenuItem
+                allowed={canWriteProducts}
                 onClick={() => onRequestDelete(row.original)}
                 className="text-red-600"
               >
                 <Trash2 className="w-4 h-4 mr-2" />
                 {t('common.delete')}
-              </DropdownMenuItem>
+              </GuardedMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         ),
       },
     ];
-  }, [t, imageIndices, onChangeImageIndex, onOpenImageViewer, onEditProduct, onRequestDelete]);
+  }, [t, imageIndices, onChangeImageIndex, onOpenImageViewer, canWriteProducts, onEditProduct, onRequestDelete]);
 
   return (
     <DataTable

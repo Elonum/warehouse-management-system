@@ -58,6 +58,8 @@ import { ru } from 'date-fns/locale';
 import { Link, useLocation } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import { useI18n } from '@/lib/i18n';
+import { GuardedButton, GuardedMenuItem } from '@/components/auth/PermissionControls';
+import { usePermissions } from '@/hooks/usePermissions';
 
 const emptyItem = {
   productId: null,
@@ -69,6 +71,7 @@ const emptyItem = {
 
 export default function InventoryAdjustmentDetails() {
   const { t } = useI18n();
+  const { canWriteInventory } = usePermissions();
   const location = useLocation();
   const urlParams = new URLSearchParams(location.search);
   const adjustmentIdParam = urlParams.get('id');
@@ -496,12 +499,13 @@ export default function InventoryAdjustmentDetails() {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => handleEditItem(row.original)}>
+              <GuardedMenuItem allowed={canWriteInventory} onClick={() => handleEditItem(row.original)}>
                 <Edit2 className="w-4 h-4 mr-2" />
                 {t('inventoryAdjustments.details.editItem')}
-              </DropdownMenuItem>
+              </GuardedMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem
+              <GuardedMenuItem
+                allowed={canWriteInventory}
                 onClick={() => {
                   setCurrentItem(row.original);
                   setDeleteItemDialogOpen(true);
@@ -510,7 +514,7 @@ export default function InventoryAdjustmentDetails() {
               >
                 <Trash2 className="w-4 h-4 mr-2" />
                 {t('inventoryAdjustments.details.deleteItemTitle')}
-              </DropdownMenuItem>
+              </GuardedMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         ),
@@ -518,7 +522,7 @@ export default function InventoryAdjustmentDetails() {
     }
 
     return baseColumns;
-  }, [isFinalStatus, t]);
+  }, [isFinalStatus, t, canWriteInventory]);
 
   if (!adjustmentId) {
     return (
@@ -552,7 +556,8 @@ export default function InventoryAdjustmentDetails() {
               className={isFinalStatus ? 'border-emerald-300 bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400' : ''}
             />
             {!isFinalStatus && finalStatus && (
-              <Button
+              <GuardedButton
+                allowed={canWriteInventory}
                 type="button"
                 size="sm"
                 variant="outline"
@@ -564,7 +569,7 @@ export default function InventoryAdjustmentDetails() {
                 {completeMutation.isPending
                   ? t('inventoryAdjustments.details.completing')
                   : t('inventoryAdjustments.details.completeButton')}
-              </Button>
+              </GuardedButton>
             )}
           </div>
         </PageHeader>
@@ -671,10 +676,18 @@ export default function InventoryAdjustmentDetails() {
             {t('inventoryAdjustments.details.itemsTitle')} ({enrichedItems.length})
           </h2>
           {!isFinalStatus && (
-          <Button onClick={() => { setCurrentItem(null); setItemForm({ ...emptyItem, warehouseId: adjustment?.warehouseId || null }); setError(''); setItemDialogOpen(true); }}>
+            <GuardedButton
+              allowed={canWriteInventory}
+              onClick={() => {
+                setCurrentItem(null);
+                setItemForm({ ...emptyItem, warehouseId: adjustment?.warehouseId || null });
+                setError('');
+                setItemDialogOpen(true);
+              }}
+            >
               <Plus className="w-4 h-4 mr-2" />
-            {t('inventoryAdjustments.details.addItem')}
-            </Button>
+              {t('inventoryAdjustments.details.addItem')}
+            </GuardedButton>
           )}
         </div>
         <DataTable

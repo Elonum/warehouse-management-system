@@ -36,6 +36,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { EmptyState } from '@/components/common/EmptyState';
 import { createPageUrl } from '@/utils';
+import { useAuthProfile } from '@/hooks/useAuthProfile';
+import { hasPermission, PERM } from '@/lib/rbac';
 
 const COLORS = ['#6366f1', '#8b5cf6', '#a855f7', '#d946ef', '#ec4899'];
 
@@ -43,9 +45,11 @@ const LOW_STOCK_DASHBOARD_LIMIT = 10;
 
 export default function Dashboard() {
   const { t } = useI18n();
-  
+  const { data: profile } = useAuthProfile();
+
   const { data: products = [], isLoading: loadingProducts } = useQuery({
     queryKey: ['products'],
+    enabled: hasPermission(profile, PERM.PRODUCTS_READ),
     queryFn: async () => {
       const response = await api.products.list({ limit: 1000, offset: 0 });
       return Array.isArray(response) ? response : [];
@@ -54,6 +58,7 @@ export default function Dashboard() {
 
   const { data: warehouses = [], isLoading: loadingWarehouses } = useQuery({
     queryKey: ['warehouses'],
+    enabled: hasPermission(profile, PERM.WAREHOUSES_READ),
     queryFn: async () => {
       const response = await api.warehouses.list({ limit: 1000, offset: 0 });
       return Array.isArray(response) ? response : [];
@@ -62,6 +67,7 @@ export default function Dashboard() {
 
   const { data: stock = [], isLoading: loadingStock } = useQuery({
     queryKey: ['stock-current'],
+    enabled: hasPermission(profile, PERM.STOCK_READ),
     queryFn: async () => {
       const { items } = await api.stock.getCurrent({});
       return items;
@@ -75,6 +81,7 @@ export default function Dashboard() {
     isFetching: loadingDashboardWbStock,
   } = useQuery({
     queryKey: ['dashboard-wildberries-stocks'],
+    enabled: hasPermission(profile, PERM.INTEGRATIONS_READ),
     queryFn: () => fetchMarketplaceStock({ source: 'wildberries' }),
     staleTime: 90_000,
     gcTime: 300_000,
@@ -88,6 +95,7 @@ export default function Dashboard() {
     isFetching: loadingDashboardOzonStock,
   } = useQuery({
     queryKey: ['dashboard-ozon-stocks'],
+    enabled: hasPermission(profile, PERM.INTEGRATIONS_READ),
     queryFn: () => fetchMarketplaceStock({ source: 'ozon' }),
     staleTime: 90_000,
     gcTime: 300_000,
@@ -96,6 +104,7 @@ export default function Dashboard() {
 
   const { data: lowStockRows = [], isLoading: loadingLowStock } = useQuery({
     queryKey: ['stock-current-low', LOW_STOCK_DASHBOARD_LIMIT],
+    enabled: hasPermission(profile, PERM.STOCK_READ),
     queryFn: async () => {
       const { items } = await api.stock.getCurrent({
         levelFilter: 'below_reorder',
@@ -108,6 +117,7 @@ export default function Dashboard() {
 
   const { data: supplierOrders = [], isLoading: loadingOrders } = useQuery({
     queryKey: ['supplierOrders'],
+    enabled: hasPermission(profile, PERM.PROCUREMENT_READ),
     queryFn: async () => {
       const response = await api.supplierOrders.list({ limit: 50, offset: 0 });
       return Array.isArray(response) ? response : [];
@@ -116,6 +126,7 @@ export default function Dashboard() {
 
   const { data: shipments = [], isLoading: loadingShipments } = useQuery({
     queryKey: ['mpShipments'],
+    enabled: hasPermission(profile, PERM.MARKETPLACE_READ),
     queryFn: async () => {
       const response = await api.mpShipments.list({ limit: 50, offset: 0 });
       return Array.isArray(response) ? response : [];
@@ -124,6 +135,7 @@ export default function Dashboard() {
 
   const { data: orderStatuses = [] } = useQuery({
     queryKey: ['orderStatuses'],
+    enabled: hasPermission(profile, PERM.REFERENCE_READ),
     queryFn: async () => {
       const response = await api.orderStatuses.list({ limit: 100, offset: 0 });
       return Array.isArray(response) ? response : [];
@@ -132,6 +144,7 @@ export default function Dashboard() {
 
   const { data: shipmentStatuses = [] } = useQuery({
     queryKey: ['shipmentStatuses'],
+    enabled: hasPermission(profile, PERM.REFERENCE_READ),
     queryFn: async () => {
       const response = await api.shipmentStatuses.list({ limit: 100, offset: 0 });
       return Array.isArray(response) ? response : [];
@@ -140,6 +153,7 @@ export default function Dashboard() {
 
   const { data: recentMovementsPayload, isLoading: loadingMovements } = useQuery({
     queryKey: ['stock-movements-dashboard'],
+    enabled: hasPermission(profile, PERM.STOCK_MOVEMENTS_READ),
     queryFn: async () =>
       api.stock.listMovements({
         limit: 5,

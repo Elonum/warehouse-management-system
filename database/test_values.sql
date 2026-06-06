@@ -6,17 +6,26 @@
 
 INSERT INTO user_roles (role_id, name) VALUES
 ('11111111-1111-1111-1111-111111111111', 'Администратор'),
-('22222222-2222-2222-2222-222222222222', 'Менеджер'),
-('33333333-3333-3333-3333-333333333333', 'Кладовщик')
-ON CONFLICT (role_id) DO NOTHING;
+('22222222-2222-2222-2222-222222222222', 'Менеджер по закупкам'),
+('33333333-3333-3333-3333-333333333333', 'Сотрудник склада'),
+('44444444-4444-4444-4444-444444444444', 'Менеджер по поставкам'),
+('55555555-5555-5555-5555-555555555555', 'Финансовый менеджер'),
+('66666666-6666-6666-6666-666666666666', 'Менеджер маркетплейса')
+ON CONFLICT (role_id) DO UPDATE SET name = EXCLUDED.name;
 
 -- Пароль для всех тестовых пользователей: "password123" (bcrypt hash)
 -- Хеш сгенерирован с помощью: go run cmd/hash_password/main.go password123
 INSERT INTO users (user_id, email, name, surname, patronymic, password_hash, role_id) VALUES
 ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'admin@warehouse.ru', 'Иван', 'Иванов', 'Иванович', '$2a$10$Uzc0U9fn4WIC9UeNRBf7J.vRTjChZSIOUnWuGPxp5gY9DpqzWCKna', '11111111-1111-1111-1111-111111111111'),
-('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'manager@warehouse.ru', 'Петр', 'Петров', 'Петрович', '$2a$10$Uzc0U9fn4WIC9UeNRBf7J.vRTjChZSIOUnWuGPxp5gY9DpqzWCKna', '22222222-2222-2222-2222-222222222222'),
-('cccccccc-cccc-cccc-cccc-cccccccccccc', 'storekeeper@warehouse.ru', 'Сергей', 'Сергеев', 'Сергеевич', '$2a$10$Uzc0U9fn4WIC9UeNRBf7J.vRTjChZSIOUnWuGPxp5gY9DpqzWCKna', '33333333-3333-3333-3333-333333333333')
-ON CONFLICT (user_id) DO UPDATE SET password_hash = EXCLUDED.password_hash;
+('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'procurement@warehouse.ru', 'Петр', 'Петров', 'Петрович', '$2a$10$Uzc0U9fn4WIC9UeNRBf7J.vRTjChZSIOUnWuGPxp5gY9DpqzWCKna', '22222222-2222-2222-2222-222222222222'),
+('cccccccc-cccc-cccc-cccc-cccccccccccc', 'warehouse@warehouse.ru', 'Сергей', 'Сергеев', 'Сергеевич', '$2a$10$Uzc0U9fn4WIC9UeNRBf7J.vRTjChZSIOUnWuGPxp5gY9DpqzWCKna', '33333333-3333-3333-3333-333333333333'),
+('dddddddd-dddd-dddd-dddd-dddddddddddd', 'delivery@warehouse.ru', 'Алексей', 'Алексеев', 'Алексеевич', '$2a$10$Uzc0U9fn4WIC9UeNRBf7J.vRTjChZSIOUnWuGPxp5gY9DpqzWCKna', '44444444-4444-4444-4444-444444444444'),
+('eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee', 'finance@warehouse.ru', 'Мария', 'Мариева', 'Мариевна', '$2a$10$Uzc0U9fn4WIC9UeNRBf7J.vRTjChZSIOUnWuGPxp5gY9DpqzWCKna', '55555555-5555-5555-5555-555555555555'),
+('ffffffff-ffff-ffff-ffff-ffffffffffff', 'marketplace@warehouse.ru', 'Ольга', 'Ольгова', 'Ольговна', '$2a$10$Uzc0U9fn4WIC9UeNRBf7J.vRTjChZSIOUnWuGPxp5gY9DpqzWCKna', '66666666-6666-6666-6666-666666666666')
+ON CONFLICT (user_id) DO UPDATE SET
+  email = EXCLUDED.email,
+  password_hash = EXCLUDED.password_hash,
+  role_id = EXCLUDED.role_id;
 
 -- ===== Справочники =====
 

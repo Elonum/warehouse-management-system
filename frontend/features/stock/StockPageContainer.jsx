@@ -5,7 +5,10 @@ import { api, ApiError } from '@/api';
 import { useServerOffsetPagination } from '@/hooks/useServerOffsetPagination';
 import { useServerSearchQuery } from '@/hooks/useServerSearchQuery';
 import { useI18n } from '@/lib/i18n';
-import { Filter, X, Database } from 'lucide-react';
+import { Filter, X, Database, Lock } from 'lucide-react';
+import { usePermissions } from '@/hooks/usePermissions';
+import { AccessRestrictedNotice } from '@/components/auth/AccessRestrictedNotice';
+import { permissionDisabledTitle } from '@/components/auth/PermissionControls';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import { Button } from '@/components/ui/button';
@@ -42,8 +45,15 @@ function StatCard({ label, value, valueClassName = 'text-slate-900 dark:text-sla
   );
 }
 
+function isForbiddenError(err) {
+  return err instanceof ApiError && (err.status === 403 || err.code === 'FORBIDDEN');
+}
+
 function messageForMarketplaceStockError(err, t) {
   if (err instanceof ApiError) {
+    if (isForbiddenError(err)) {
+      return null;
+    }
     if (err.code === 'WB_STATISTICS_TOKEN_MISSING' || err.code === 'OZON_CREDENTIALS_MISSING') {
       return t('stock.marketplaceConfigNeeded');
     }
@@ -55,6 +65,12 @@ function messageForMarketplaceStockError(err, t) {
     }
   }
   return t('stock.marketplaceLoadError');
+}
+
+function marketplaceSourceLabel(source, t) {
+  return source === 'wildberries'
+    ? t('stock.sources.wildberries')
+    : t('stock.sources.ozon');
 }
 
 function readFiltersFromSearchParams(searchParams) {
@@ -71,6 +87,7 @@ function readFiltersFromSearchParams(searchParams) {
 
 function StockPageContainer() {
   const { t } = useI18n();
+  const { canReadIntegrations, profile } = usePermissions();
   const [searchParams] = useSearchParams();
 
   const initial = useMemo(() => readFiltersFromSearchParams(searchParams), [searchParams]);
@@ -104,6 +121,8 @@ function StockPageContainer() {
   });
   const isOwnStockMode = stockSource === 'our';
   const isMarketplaceMode = !isOwnStockMode;
+  const marketplaceAccessRestricted = isMarketplaceMode && !canReadIntegrations;
+  const activeMarketplaceSourceLabel = marketplaceSourceLabel(stockSource, t);
 
   const selectedLevelLabel = useMemo(() => {
     switch (levelFilter) {
@@ -163,7 +182,7 @@ function StockPageContainer() {
     error: marketplaceStockErrorObj,
   } = useQuery({
     queryKey: ['stock-marketplace', stockSource],
-    enabled: isMarketplaceMode,
+    enabled: isMarketplaceMode && canReadIntegrations,
     staleTime: 90_000,
     gcTime: 300_000,
     retry: false,
@@ -248,17 +267,41 @@ function StockPageContainer() {
   const isLoadingStats =
     isLoadingFilterOptions ||
     (isOwnStockMode && !ownStockPayload && loadingOwnStock) ||
-    (isMarketplaceMode && !marketplaceStockPayload && loadingMarketplaceStock);
+    (isMarketplaceMode && canReadIntegrations && !marketplaceStockPayload && loadingMarketplaceStock);
 
   const showTableLoading = loadingStock && stock.length === 0;
   const isRefreshingStock = fetchingStock && stock.length > 0;
 
   const marketplaceBlockingErrorMessage = useMemo(() => {
-    if (!isMarketplaceMode || !marketplaceStockQueryError || !marketplaceStockErrorObj) {
+    if (
+      !isMarketplaceMode ||
+      !canReadIntegrations ||
+      !marketplaceStockQueryError ||
+      !marketplaceStockErrorObj
+    ) {
+      return null;
+    }
+    if (isForbiddenError(marketplaceStockErrorObj)) {
       return null;
     }
     return messageForMarketplaceStockError(marketplaceStockErrorObj, t);
-  }, [isMarketplaceMode, marketplaceStockQueryError, marketplaceStockErrorObj, t]);
+  }, [
+    isMarketplaceMode,
+    canReadIntegrations,
+    marketplaceStockQueryError,
+    marketplaceStockErrorObj,
+    t,
+  ]);
+
+  const marketplaceAccessDeniedByApi =
+    isMarketplaceMode &&
+    canReadIntegrations &&
+    marketplaceStockQueryError &&
+    marketplaceStockErrorObj &&
+    isForbiddenError(marketplaceStockErrorObj);
+
+  const showMarketplaceAccessDenied =
+    marketplaceAccessRestricted || marketplaceAccessDeniedByApi;
 
   const productsMap = useMemo(() => {
     const map = new Map();
@@ -418,7 +461,14 @@ function StockPageContainer() {
           className={
             stockSource === 'wildberries'
               ? 'border-transparent bg-gradient-to-r from-purple-600 to-fuchsia-600 text-white hover:from-purple-600 hover:to-fuchsia-600'
-              : ''
+              : !canReadIntegrations
+                ? 'opacity-70'
+                : ''
+          }
+          title={
+            !canReadIntegrations
+              ? permissionDisabledTitle(t, false, t('stock.marketplaceSourceRestrictedHint'))
+              : undefined
           }
           onClick={() => {
             setStockSource('wildberries');
@@ -428,6 +478,7 @@ function StockPageContainer() {
             resetPage();
           }}
         >
+          {!canReadIntegrations ? <Lock className="mr-2 h-4 w-4 opacity-70" aria-hidden /> : null}
           {t('stock.sources.wildberries')}
         </Button>
         <Button
@@ -435,7 +486,14 @@ function StockPageContainer() {
           className={
             stockSource === 'ozon'
               ? 'border-transparent bg-gradient-to-r from-sky-600 to-blue-700 text-white hover:from-sky-600 hover:to-blue-700'
-              : ''
+              : !canReadIntegrations
+                ? 'opacity-70'
+                : ''
+          }
+          title={
+            !canReadIntegrations
+              ? permissionDisabledTitle(t, false, t('stock.marketplaceSourceRestrictedHint'))
+              : undefined
           }
           onClick={() => {
             setStockSource('ozon');
@@ -445,10 +503,32 @@ function StockPageContainer() {
             resetPage();
           }}
         >
+          {!canReadIntegrations ? <Lock className="mr-2 h-4 w-4 opacity-70" aria-hidden /> : null}
           {t('stock.sources.ozon')}
         </Button>
       </div>
 
+      {showMarketplaceAccessDenied ? (
+        <AccessRestrictedNotice
+          title={t('stock.marketplaceAccessDeniedTitle')}
+          body={t('stock.marketplaceAccessDeniedBody', { source: activeMarketplaceSourceLabel })}
+          roleName={profile?.roleName}
+        >
+          <Button
+            variant="outline"
+            onClick={() => {
+              setStockSource('our');
+              setProductFilter('all');
+              setWarehouseFilter('all');
+              setLevelFilter('all');
+              resetPage();
+            }}
+          >
+            {t('stock.sources.our')}
+          </Button>
+        </AccessRestrictedNotice>
+      ) : (
+        <>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {isLoadingStats ? (
           <>
@@ -693,6 +773,8 @@ function StockPageContainer() {
             showHistoryAction={isOwnStockMode}
           />
         </Card>
+      )}
+        </>
       )}
     </div>
   );

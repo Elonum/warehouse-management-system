@@ -56,17 +56,17 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	userDTO, err := h.service.BuildUserResponse(r.Context(), user)
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to build login user profile")
+		writeError(w, http.StatusInternalServerError, "LOGIN_FAILED", "an error occurred during login")
+		return
+	}
+
 	response := dto.APIResponse[dto.LoginResponse]{
 		Data: dto.LoginResponse{
 			Token: token,
-			User: dto.UserResponse{
-				UserID:     user.UserID.String(),
-				Email:      user.Email,
-				Name:       user.Name,
-				Surname:    user.Surname,
-				Patronymic: user.Patronymic,
-				RoleID:     user.RoleID.String(),
-			},
+			User:  userDTO,
 		},
 	}
 
@@ -104,6 +104,10 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusBadRequest, "INVALID_ROLE", "specified role does not exist")
 			return
 		}
+		if err == service.ErrRegistrationRoleForbidden {
+			writeError(w, http.StatusForbidden, "REGISTRATION_ROLE_FORBIDDEN", "selected role cannot be used for self-registration")
+			return
+		}
 
 		// Check for validation errors
 		if err == validation.ErrInvalidEmail {
@@ -136,15 +140,15 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	userDTO, err := h.service.BuildUserResponse(r.Context(), user)
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to build registered user profile")
+		writeError(w, http.StatusInternalServerError, "REGISTER_FAILED", "failed to register user")
+		return
+	}
+
 	response := dto.APIResponse[dto.UserResponse]{
-		Data: dto.UserResponse{
-			UserID:     user.UserID.String(),
-			Email:      user.Email,
-			Name:       user.Name,
-			Surname:    user.Surname,
-			Patronymic: user.Patronymic,
-			RoleID:     user.RoleID.String(),
-		},
+		Data: userDTO,
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -171,15 +175,15 @@ func (h *AuthHandler) GetMe(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	userDTO, err := h.service.BuildUserResponse(r.Context(), user)
+	if err != nil {
+		log.Error().Err(err).Str("userId", userID.String()).Msg("Failed to build user profile")
+		writeError(w, http.StatusInternalServerError, "USER_LOAD_FAILED", "failed to load user")
+		return
+	}
+
 	response := dto.APIResponse[dto.UserResponse]{
-		Data: dto.UserResponse{
-			UserID:     user.UserID.String(),
-			Email:      user.Email,
-			Name:       user.Name,
-			Surname:    user.Surname,
-			Patronymic: user.Patronymic,
-			RoleID:     user.RoleID.String(),
-		},
+		Data: userDTO,
 	}
 
 	w.Header().Set("Content-Type", "application/json")

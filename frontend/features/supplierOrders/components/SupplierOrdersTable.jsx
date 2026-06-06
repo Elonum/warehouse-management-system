@@ -15,6 +15,7 @@ import {
   Filter,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { GuardedButton, GuardedMenuItem } from '@/components/auth/PermissionControls';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -49,6 +50,10 @@ function SupplierOrdersTable({
   isLoading,
   getOrderStatusName,
   isOrderFinal,
+  canCreateOrder = false,
+  canEditOrder = false,
+  canCreateSubOrder = false,
+  canDeleteOrder = false,
   onCreateOrder,
   onEditOrder,
   onCreateSubOrder,
@@ -400,24 +405,25 @@ function SupplierOrdersTable({
                 </DropdownMenuItem>
                 {!isOrderFinal(order) ? (
                   <>
-                    <DropdownMenuItem onClick={() => onEditOrder(order)}>
+                    <GuardedMenuItem allowed={canEditOrder} onClick={() => onEditOrder(order)}>
                       <Edit2 className="w-4 h-4 mr-2" />
                       {t('common.edit')}
-                    </DropdownMenuItem>
+                    </GuardedMenuItem>
                     {!isChild ? (
-                      <DropdownMenuItem onClick={() => onCreateSubOrder(order)}>
+                      <GuardedMenuItem allowed={canCreateSubOrder} onClick={() => onCreateSubOrder(order)}>
                         <Copy className="w-4 h-4 mr-2" />
                         {t('supplierOrders.createSubOrder')}
-                      </DropdownMenuItem>
+                      </GuardedMenuItem>
                     ) : null}
                     <DropdownMenuSeparator />
-                    <DropdownMenuItem
+                    <GuardedMenuItem
+                      allowed={canDeleteOrder}
                       onClick={() => onRequestDelete(order)}
                       className="text-red-600"
                     >
                       <Trash2 className="w-4 h-4 mr-2" />
                       {t('common.delete')}
-                    </DropdownMenuItem>
+                    </GuardedMenuItem>
                   </>
                 ) : null}
               </DropdownMenuContent>
@@ -439,10 +445,10 @@ function SupplierOrdersTable({
         title={t('supplierOrders.title')}
         description={t('supplierOrders.description')}
       >
-        <Button onClick={onCreateOrder}>
+        <GuardedButton allowed={canCreateOrder} onClick={onCreateOrder}>
           <Plus className="w-4 h-4 mr-2" />
           {t('supplierOrders.addOrder')}
-        </Button>
+        </GuardedButton>
       </PageHeader>
 
       <Card className="dark:border-slate-800 dark:bg-slate-900">

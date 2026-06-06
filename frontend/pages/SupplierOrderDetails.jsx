@@ -62,6 +62,8 @@ import { useI18n } from '@/lib/i18n';
 import { format } from 'date-fns';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
+import { GuardedButton, GuardedMenuItem } from '@/components/auth/PermissionControls';
+import { usePermissions } from '@/hooks/usePermissions';
 
 const emptyItem = {
   productId: null,
@@ -124,6 +126,14 @@ const getPositionsLabelKey = (language, count) => {
 
 export default function SupplierOrderDetails() {
   const { t, language } = useI18n();
+  const {
+    canMutateProcurementOrder,
+    canCreateProcurementOrder,
+    canCreateProcurementItem,
+    canMutateProcurementItem,
+    canDeleteProcurementItem,
+    canWriteProcurement,
+  } = usePermissions();
   const urlParams = new URLSearchParams(window.location.search);
   const orderIdParam = urlParams.get('id');
   const orderId = orderIdParam || null;
@@ -986,11 +996,12 @@ export default function SupplierOrderDetails() {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={() => handleEditItem(row.original)}>
+                  <GuardedMenuItem allowed={canMutateProcurementItem} onClick={() => handleEditItem(row.original)}>
                     <Edit2 className="w-4 h-4 mr-2" />
                     {t('common.edit')}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
+                  </GuardedMenuItem>
+                  <GuardedMenuItem
+                    allowed={canDeleteProcurementItem}
                     onClick={() => {
                       setCurrentItem(row.original);
                       setDeleteItemError('');
@@ -1000,7 +1011,7 @@ export default function SupplierOrderDetails() {
                   >
                     <Trash2 className="w-4 h-4 mr-2" />
                     {t('common.delete')}
-                  </DropdownMenuItem>
+                  </GuardedMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             ),
@@ -1229,7 +1240,8 @@ export default function SupplierOrderDetails() {
               className={isFinalStatus ? 'border-emerald-300 bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400' : ''}
             />
             {!isFinalStatus && finalStatus && (
-              <Button
+              <GuardedButton
+                allowed={canMutateProcurementOrder}
                 type="button"
                 size="sm"
                 variant="outline"
@@ -1241,7 +1253,7 @@ export default function SupplierOrderDetails() {
                 {completeOrderMutation.isPending
                   ? t('supplierOrderDetails.completing')
                   : t('supplierOrderDetails.completeButton')}
-              </Button>
+              </GuardedButton>
             )}
           </div>
         </PageHeader>
@@ -1404,7 +1416,8 @@ export default function SupplierOrderDetails() {
           <div className="flex items-center gap-2">
             {activeTab === 'items' && !isFinalStatus ? (
               <>
-                <Button
+                <GuardedButton
+                  allowed={canCreateProcurementOrder}
                   variant="outline"
                   onClick={() => {
                     setSubOrderError('');
@@ -1415,8 +1428,9 @@ export default function SupplierOrderDetails() {
                 >
                   <Copy className="w-4 h-4 mr-2" />
                   {t('supplierOrders.createSubOrder')}
-                </Button>
-                <Button
+                </GuardedButton>
+                <GuardedButton
+                  allowed={canCreateProcurementItem}
                   onClick={() => {
                     resetItemForm();
                     setItemDialogOpen(true);
@@ -1424,11 +1438,12 @@ export default function SupplierOrderDetails() {
                 >
                   <Plus className="w-4 h-4 mr-2" />
                   {t('supplierOrderDetails.addItem')}
-                </Button>
+                </GuardedButton>
               </>
             ) : null}
             {activeTab === 'documents' && !isFinalStatus ? (
-              <Button
+              <GuardedButton
+                allowed={canWriteProcurement}
                 onClick={() => {
                   resetDocumentForm();
                   setDocumentDialogOpen(true);
@@ -1436,7 +1451,7 @@ export default function SupplierOrderDetails() {
               >
                 <Upload className="w-4 h-4 mr-2" />
                 {t('supplierOrderDetails.documents.upload')}
-              </Button>
+              </GuardedButton>
             ) : null}
           </div>
         </div>
@@ -1502,7 +1517,8 @@ export default function SupplierOrderDetails() {
                             <ExternalLink className="w-4 h-4" />
                           </Button>
                           {!isFinalStatus ? (
-                            <Button
+                            <GuardedButton
+                              allowed={canWriteProcurement}
                               variant="ghost"
                               size="icon"
                               onClick={() => {
@@ -1513,7 +1529,7 @@ export default function SupplierOrderDetails() {
                               disabled={deleteDocumentMutation.isPending}
                             >
                               <Trash2 className="w-4 h-4 text-red-500" />
-                            </Button>
+                            </GuardedButton>
                           ) : null}
                         </>
                       )}

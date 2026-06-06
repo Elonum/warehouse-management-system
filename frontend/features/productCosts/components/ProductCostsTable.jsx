@@ -10,6 +10,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
+import { GuardedMenuItem } from '@/components/auth/PermissionControls';
 import { Edit2, HelpCircle, MoreHorizontal, Trash2 } from 'lucide-react';
 
 function formatMoney(value) {
@@ -24,6 +25,7 @@ export default function ProductCostsTable({
   rows,
   isLoading,
   serverPagination,
+  canWriteFinance = false,
   onEdit,
   onDelete,
 }) {
@@ -175,24 +177,25 @@ export default function ProductCostsTable({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => onEdit(row.original)}>
+              <GuardedMenuItem allowed={canWriteFinance} onClick={() => onEdit(row.original)}>
                 <Edit2 className="mr-2 h-4 w-4" />
                 {t('common.edit')}
-              </DropdownMenuItem>
+              </GuardedMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem
+              <GuardedMenuItem
+                allowed={canWriteFinance}
                 onClick={() => onDelete(row.original)}
                 className="text-red-600"
               >
                 <Trash2 className="mr-2 h-4 w-4" />
                 {t('common.delete')}
-              </DropdownMenuItem>
+              </GuardedMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         ),
       },
     ],
-    [t, formatDate, onEdit, onDelete],
+    [t, formatDate, canWriteFinance, onEdit, onDelete],
   );
 
   return (

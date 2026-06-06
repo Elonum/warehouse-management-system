@@ -35,6 +35,7 @@ const translations = {
       deleting: 'Удаление...',
       notSpecified: 'Не указан',
       noData: 'Нет данных',
+      forbidden: 'Недостаточно прав для этого действия',
       calculated: 'Расчётные значения',
       units: 'шт.',
       unitGrams: 'г',
@@ -139,6 +140,17 @@ const translations = {
       productCosts: 'Себестоимость',
       usersRoles: 'Пользователи',
       referenceData: 'Справочники',
+    },
+    rbac: {
+      moduleFallback: 'Раздел системы',
+      pageDescription: 'Доступ к разделу ограничен вашей ролью',
+      accessDeniedTitle: 'Доступ ограничен',
+      accessDeniedBody: 'У вашей роли нет прав для работы с разделом «{module}».',
+      currentRole: 'Текущая роль: {role}',
+      contactAdmin: 'Для расширения прав обратитесь к администратору системы.',
+      backToDashboard: 'На панель управления',
+      navRestrictedHint: 'ограниченный доступ',
+      actionDisabled: 'Недостаточно прав для этого действия',
     },
     referenceData: {
       title: 'Справочники',
@@ -619,6 +631,10 @@ const translations = {
       emptyMessage: 'Остатки не найдены',
       marketplaceEmptyMessage: 'Нет данных остатков маркетплейса',
       marketplaceLoadError: 'Не удалось загрузить остатки маркетплейса.',
+      marketplaceAccessDeniedTitle: 'Доступ к остаткам маркетплейса ограничен',
+      marketplaceAccessDeniedBody:
+        'У вашей роли нет прав на просмотр остатков {source}. Доступны только остатки наших складов.',
+      marketplaceSourceRestrictedHint: 'Недостаточно прав для просмотра',
       marketplaceConfigNeeded:
         'Интеграция с маркетплейсом не настроена на сервере. Обратитесь к администратору.',
       marketplaceUpstreamError:
@@ -1290,6 +1306,7 @@ const translations = {
       deleting: 'Deleting...',
       notSpecified: 'Not specified',
       noData: 'No data',
+      forbidden: 'You do not have permission for this action',
       calculated: 'Calculated values',
       units: 'pcs',
       unitGrams: 'g',
@@ -1394,6 +1411,17 @@ const translations = {
       productCosts: 'Product Costs',
       usersRoles: 'Users & Roles',
       referenceData: 'Reference Data',
+    },
+    rbac: {
+      moduleFallback: 'System section',
+      pageDescription: 'Access to this section is limited by your role',
+      accessDeniedTitle: 'Access restricted',
+      accessDeniedBody: 'Your role does not include permissions for "{module}".',
+      currentRole: 'Current role: {role}',
+      contactAdmin: 'Contact a system administrator if you need expanded access.',
+      backToDashboard: 'Back to dashboard',
+      navRestrictedHint: 'restricted access',
+      actionDisabled: 'You do not have permission for this action',
     },
     referenceData: {
       title: 'Reference Data',
@@ -1874,6 +1902,10 @@ const translations = {
       emptyMessage: 'No stock found',
       marketplaceEmptyMessage: 'No marketplace stock data',
       marketplaceLoadError: 'Could not load marketplace stock.',
+      marketplaceAccessDeniedTitle: 'Marketplace stock access is restricted',
+      marketplaceAccessDeniedBody:
+        'Your role cannot view {source} stock. Only our warehouse stock is available to you.',
+      marketplaceSourceRestrictedHint: 'Insufficient permissions to view',
       marketplaceConfigNeeded:
         'Marketplace integration is not configured on the server. Contact your administrator.',
       marketplaceUpstreamError: 'Marketplace data is temporarily unavailable. Please try again later.',

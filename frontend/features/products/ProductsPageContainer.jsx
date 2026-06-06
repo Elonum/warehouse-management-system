@@ -3,7 +3,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError } from '@/api';
 import { useI18n } from '@/lib/i18n';
 import { Plus, FileSpreadsheet } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { GuardedButton } from '@/components/auth/PermissionControls';
+import { usePermissions } from '@/hooks/usePermissions';
 import PageHeader from '@/components/ui/PageHeader';
 import {
   AlertDialog,
@@ -33,6 +34,7 @@ const emptyProduct = {
 
 function ProductsPageContainer() {
   const { t } = useI18n();
+  const { canWriteProducts } = usePermissions();
   const queryClient = useQueryClient();
 
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -301,7 +303,8 @@ function ProductsPageContainer() {
     <div className="space-y-6">
       <PageHeader title={t('products.title')} description={t('products.description')}>
         <div className="flex flex-wrap gap-2">
-          <Button
+          <GuardedButton
+            allowed={canWriteProducts}
             variant="outline"
             onClick={() => {
               setChinaOrderDialogOpen(true);
@@ -309,8 +312,9 @@ function ProductsPageContainer() {
           >
             <FileSpreadsheet className="w-4 h-4 mr-2" />
             {t('products.orderExport.open')}
-          </Button>
-          <Button
+          </GuardedButton>
+          <GuardedButton
+            allowed={canWriteProducts}
             onClick={() => {
               resetForm();
               setDialogOpen(true);
@@ -318,7 +322,7 @@ function ProductsPageContainer() {
           >
             <Plus className="w-4 h-4 mr-2" />
             {t('products.addProduct')}
-          </Button>
+          </GuardedButton>
         </div>
       </PageHeader>
 
@@ -329,6 +333,7 @@ function ProductsPageContainer() {
         imageIndices={imageIndices}
         onChangeImageIndex={handleChangeImageIndex}
         onOpenImageViewer={handleOpenImageViewer}
+        canWriteProducts={canWriteProducts}
         onEditProduct={handleEdit}
         onRequestDelete={handleDelete}
       />
@@ -344,6 +349,7 @@ function ProductsPageContainer() {
         onSubmit={handleSubmit}
         isSubmitting={isSubmitting}
         onResetForm={resetForm}
+        canWriteProducts={canWriteProducts}
       />
 
       <ChinaOrderExportDialog

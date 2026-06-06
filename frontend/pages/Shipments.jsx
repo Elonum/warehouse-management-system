@@ -39,6 +39,7 @@ import {
 import { format } from 'date-fns';
 import ShipmentsTable from '@/features/mpShipments/components/ShipmentsTable';
 import { useModalState } from '@/hooks/useModalState';
+import { usePermissions } from '@/hooks/usePermissions';
 
 const emptyShipment = {
   shipmentNumber: '',
@@ -54,6 +55,7 @@ const emptyShipment = {
 
 export default function Shipments() {
   const { t } = useI18n();
+  const { canWriteMarketplace } = usePermissions();
   const queryClient = useQueryClient();
   const createEditModal = useModalState(null);
   const deleteModal = useModalState(null);
@@ -417,6 +419,7 @@ export default function Shipments() {
         shipments={enrichedShipments}
         isLoading={isLoading}
         shipmentStatuses={shipmentStatuses}
+        canWriteMarketplace={canWriteMarketplace}
         onCreateShipment={() => {
           resetForm();
           createEditModal.open();

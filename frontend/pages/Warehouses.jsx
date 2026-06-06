@@ -4,6 +4,8 @@ import { api, ApiError } from '@/api';
 import { useI18n } from '@/lib/i18n';
 import { Plus, Edit2, Trash2, Warehouse, Store, MoreHorizontal, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { GuardedButton, GuardedMenuItem } from '@/components/auth/PermissionControls';
+import { usePermissions } from '@/hooks/usePermissions';
 import {
   Dialog,
   DialogContent,
@@ -49,6 +51,7 @@ const emptyStore = {
 
 export default function Warehouses() {
   const { t } = useI18n();
+  const { canWriteWarehouses, canWriteStores } = usePermissions();
   const location = useLocation();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState('warehouses');
@@ -348,17 +351,18 @@ export default function Warehouses() {
               </Link>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => handleEditWarehouse(row.original)}>
+            <GuardedMenuItem allowed={canWriteWarehouses} onClick={() => handleEditWarehouse(row.original)}>
               <Edit2 className="w-4 h-4 mr-2" />
               {t('common.edit')}
-            </DropdownMenuItem>
-            <DropdownMenuItem 
+            </GuardedMenuItem>
+            <GuardedMenuItem
+              allowed={canWriteWarehouses}
               onClick={() => handleDelete(row.original, 'warehouse')}
               className="text-red-600"
             >
               <Trash2 className="w-4 h-4 mr-2" />
               {t('common.delete')}
-            </DropdownMenuItem>
+            </GuardedMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       ),
@@ -392,17 +396,18 @@ export default function Warehouses() {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => handleEditStore(row.original)}>
+            <GuardedMenuItem allowed={canWriteStores} onClick={() => handleEditStore(row.original)}>
               <Edit2 className="w-4 h-4 mr-2" />
               {t('common.edit')}
-            </DropdownMenuItem>
-            <DropdownMenuItem 
+            </GuardedMenuItem>
+            <GuardedMenuItem
+              allowed={canWriteStores}
               onClick={() => handleDelete(row.original, 'store')}
               className="text-red-600"
             >
               <Trash2 className="w-4 h-4 mr-2" />
               {t('common.delete')}
-            </DropdownMenuItem>
+            </GuardedMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       ),
@@ -430,7 +435,8 @@ export default function Warehouses() {
           </TabsList>
           
           {activeTab === 'warehouses' ? (
-            <Button
+            <GuardedButton
+              allowed={canWriteWarehouses}
               onClick={() => {
                 setCurrentItem(null);
                 setWarehouseForm(emptyWarehouse);
@@ -440,9 +446,10 @@ export default function Warehouses() {
             >
               <Plus className="w-4 h-4 mr-2" />
               {t('warehouses.addWarehouse')}
-            </Button>
+            </GuardedButton>
           ) : (
-            <Button
+            <GuardedButton
+              allowed={canWriteStores}
               onClick={() => {
                 setCurrentItem(null);
                 setStoreForm(emptyStore);
@@ -452,7 +459,7 @@ export default function Warehouses() {
             >
               <Plus className="w-4 h-4 mr-2" />
               {t('warehouses.addStore')}
-            </Button>
+            </GuardedButton>
           )}
         </div>
 

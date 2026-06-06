@@ -4,6 +4,7 @@ import { api } from '@/api';
 import { useI18n } from '@/lib/i18n';
 import { Upload, X, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { GuardedButton, permissionDisabledTitle } from '@/components/auth/PermissionControls';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
@@ -17,8 +18,10 @@ export default function ProductImageUpload({
   onImagesChange,
   productId = null,
   maxImages = 10,
+  allowed = true,
 }) {
   const { t } = useI18n();
+  const blocked = !allowed;
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState('');
   const [viewerOpen, setViewerOpen] = useState(false);
@@ -97,6 +100,7 @@ export default function ProductImageUpload({
   };
 
   const handleFileSelect = useCallback(async (e) => {
+    if (blocked) return;
     const file = e.target.files?.[0];
     if (!file) return;
     if (images.length >= maxImages) {
@@ -115,7 +119,7 @@ export default function ProductImageUpload({
     setPendingFile(file);
     setCropOpen(true);
     e.target.value = '';
-  }, [t, images.length, maxImages]);
+  }, [blocked, t, images.length, maxImages]);
 
   const handleDragOver = useCallback((e) => {
     e.preventDefault();
@@ -125,6 +129,7 @@ export default function ProductImageUpload({
   const handleDrop = useCallback(async (e) => {
     e.preventDefault();
     e.stopPropagation();
+    if (blocked) return;
 
     const file = e.dataTransfer.files?.[0];
     if (!file) return;
@@ -142,9 +147,10 @@ export default function ProductImageUpload({
     setUploadError('');
     setPendingFile(file);
     setCropOpen(true);
-  }, [t, images.length, maxImages]);
+  }, [blocked, t, images.length, maxImages]);
 
   const handleDeleteImage = useCallback(async (image) => {
+    if (!allowed) return;
     const confirmMessage = `${t('products.images.deleteConfirm')}\n\n${t('products.images.deleteWarning')}`;
     const confirmed = window.confirm(confirmMessage);
     if (!confirmed) {
@@ -161,7 +167,7 @@ export default function ProductImageUpload({
     }
     
     deleteImageMutation.mutate({ productId, imageId: image.imageId });
-  }, [productId, images, onImagesChange, deleteImageMutation, t]);
+  }, [allowed, productId, images, onImagesChange, deleteImageMutation, t]);
 
 
   const getImageUrl = (image) => {
@@ -205,28 +211,30 @@ export default function ProductImageUpload({
         <Label>{t('products.form.images')}</Label>
         
         <div
-          onDragOver={handleDragOver}
-          onDrop={handleDrop}
+          onDragOver={blocked ? undefined : handleDragOver}
+          onDrop={blocked ? undefined : handleDrop}
+          title={permissionDisabledTitle(t, allowed)}
           className={cn(
             "border-2 border-dashed rounded-lg p-6 text-center transition-colors",
-            "hover:border-slate-400 dark:hover:border-slate-600",
+            !blocked && "hover:border-slate-400 dark:hover:border-slate-600",
             "border-slate-300 dark:border-slate-700",
-            uploading && "opacity-50 cursor-not-allowed"
+            (uploading || blocked) && "opacity-50 cursor-not-allowed"
           )}
         >
           <input
             type="file"
             accept={ALLOWED_TYPES.join(',')}
             onChange={handleFileSelect}
-            disabled={uploading || cropOpen}
+            disabled={uploading || cropOpen || blocked}
             className="hidden"
             id="product-image-upload"
           />
           <label
-            htmlFor="product-image-upload"
+            htmlFor={blocked ? undefined : 'product-image-upload'}
             className={cn(
-              "cursor-pointer flex flex-col items-center gap-2",
-              uploading && "cursor-not-allowed"
+              "flex flex-col items-center gap-2",
+              !blocked && !uploading && "cursor-pointer",
+              (uploading || blocked) && "cursor-not-allowed"
             )}
           >
             {uploading ? (
@@ -291,7 +299,8 @@ export default function ProductImageUpload({
                 />
                 
                 <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 rounded-lg">
-                  <Button
+                  <GuardedButton
+                    allowed={allowed}
                     type="button"
                     size="sm"
                     variant="destructive"
@@ -303,7 +312,7 @@ export default function ProductImageUpload({
                     title={t('common.delete')}
                   >
                     <X className="w-3 h-3" />
-                  </Button>
+                  </GuardedButton>
                 </div>
               </div>
             );

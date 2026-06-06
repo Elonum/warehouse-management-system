@@ -8,6 +8,8 @@ import { useServerSearchQuery } from '@/hooks/useServerSearchQuery';
 import { useI18n } from '@/lib/i18n';
 import { createPageUrl } from '@/utils';
 import { Button } from '@/components/ui/button';
+import { GuardedButton } from '@/components/auth/PermissionControls';
+import { usePermissions } from '@/hooks/usePermissions';
 import {
   Select,
   SelectContent,
@@ -69,6 +71,7 @@ function toInputDate(value) {
 
 export default function ProductCostsPageContainer() {
   const { t, formatDate } = useI18n();
+  const { canWriteFinance } = usePermissions();
   const queryClient = useQueryClient();
   const [searchParams] = useSearchParams();
   const initial = useMemo(() => readFiltersFromSearchParams(searchParams), [searchParams]);
@@ -400,10 +403,10 @@ export default function ProductCostsPageContainer() {
             <Button variant="outline" asChild>
               <Link to={missingLink}>{t('productCosts.missing.openReport')}</Link>
             </Button>
-            <Button onClick={handleOpenCreate}>
+            <GuardedButton allowed={canWriteFinance} onClick={handleOpenCreate}>
               <Plus className="mr-2 h-4 w-4" />
               {t('productCosts.addPeriod')}
-            </Button>
+            </GuardedButton>
           </div>
         )}
       </PageHeader>
@@ -642,6 +645,7 @@ export default function ProductCostsPageContainer() {
             rows={rows}
             isLoading={showTableLoading}
             serverPagination={serverPagination}
+            canWriteFinance={canWriteFinance}
             onEdit={handleEdit}
             onDelete={(row) => {
               setCurrentRow(row);

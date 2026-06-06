@@ -33,6 +33,7 @@ import {
 } from '@/components/ui/select';
 import InventoryAdjustmentsTable from '@/features/inventories/components/InventoryAdjustmentsTable';
 import { useModalState } from '@/hooks/useModalState';
+import { usePermissions } from '@/hooks/usePermissions';
 
 const emptyAdjustment = {
   adjustmentDate: null,
@@ -42,6 +43,7 @@ const emptyAdjustment = {
 
 function InventoryAdjustmentsPageContainer() {
   const { t } = useI18n();
+  const { canWriteInventory } = usePermissions();
   const queryClient = useQueryClient();
 
   const createEditModal = useModalState(null);
@@ -278,6 +280,7 @@ function InventoryAdjustmentsPageContainer() {
         onStatusFilterChange={setStatusFilter}
         inventories={enrichedInventories}
         isLoading={isLoading}
+        canWriteInventory={canWriteInventory}
         onCreateAdjustment={() => {
           resetForm();
           createEditModal.open();

@@ -34,6 +34,7 @@ import { format } from 'date-fns';
 import { createPageUrl } from '@/utils';
 import SupplierOrdersTable from '@/features/supplierOrders/components/SupplierOrdersTable';
 import { useModalState } from '@/hooks/useModalState';
+import { usePermissions } from '@/hooks/usePermissions';
 
 const sanitizeMoneyInput = (value) => {
   if (value == null) return '';
@@ -96,6 +97,11 @@ export default function SupplierOrders() {
   const { t, language } = useI18n();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const {
+    canCreateProcurementOrder,
+    canMutateProcurementOrder,
+    canDeleteProcurementOrder,
+  } = usePermissions();
   const createEditModal = useModalState(null);
   const deleteModal = useModalState(null);
   const [deleteErrorDialogOpen, setDeleteErrorDialogOpen] = useState(false);
@@ -355,6 +361,10 @@ export default function SupplierOrders() {
         isLoading={isLoading}
         getOrderStatusName={getOrderStatusName}
         isOrderFinal={isOrderFinal}
+        canCreateOrder={canCreateProcurementOrder}
+        canEditOrder={canMutateProcurementOrder}
+        canCreateSubOrder={canCreateProcurementOrder}
+        canDeleteOrder={canDeleteProcurementOrder}
         onCreateOrder={() => {
           resetForm();
           createEditModal.open();

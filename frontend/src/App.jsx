@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react'
 import { Routes, Route, useLocation, Navigate } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
 import { I18nProvider, useI18n } from '@/lib/i18n'
 import Layout from '../layout.jsx'
 import Login from '../pages/Login'
@@ -22,6 +21,9 @@ import ProductCosts from '../pages/ProductCosts'
 import UsersRoles from '../pages/UsersRoles'
 import ReferenceData from '../pages/ReferenceData'
 import { api } from '@/api'
+import { canAccessRoute, routeNavKey } from '@/lib/rbac'
+import { useAuthProfile } from '@/hooks/useAuthProfile'
+import { AccessDenied } from '@/components/auth/AccessDenied'
 
 const pageNameMap = {
   '/': 'Dashboard',
@@ -48,12 +50,7 @@ function currentPageNameFromPath(pathname) {
 function ProtectedRoute({ children }) {
   const { t } = useI18n();
   const token = localStorage.getItem('auth_token')
-  const { data: user, isLoading } = useQuery({
-    queryKey: ['auth', 'me'],
-    queryFn: () => api.auth.me(),
-    enabled: !!token,
-    retry: false,
-  })
+  const { data: user, isLoading } = useAuthProfile()
 
   if (!token) {
     return <Navigate to="/login" replace />
@@ -70,6 +67,30 @@ function ProtectedRoute({ children }) {
   if (!user) {
     localStorage.removeItem('auth_token')
     return <Navigate to="/login" replace />
+  }
+
+  return children
+}
+
+function PermissionRoute({ path, children }) {
+  const { t } = useI18n()
+  const { data: user, isLoading } = useAuthProfile()
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-slate-600 dark:text-slate-400">{t('common.loading')}</div>
+      </div>
+    )
+  }
+
+  if (!canAccessRoute(user, path)) {
+    return (
+      <AccessDenied
+        navKey={routeNavKey(path)}
+        roleName={user?.roleName}
+      />
+    )
   }
 
   return children
@@ -92,22 +113,22 @@ function App() {
               <Layout currentPageName={currentPageName}>
                 <Routes>
                   <Route path="/" element={<Dashboard />} />
-                  <Route path="/products" element={<Products />} />
-                  <Route path="/products/details" element={<Products />} />
-                  <Route path="/warehouses" element={<Warehouses />} />
-                  <Route path="/warehouses/details" element={<Warehouses />} />
-                  <Route path="/stock" element={<Stock />} />
-                  <Route path="/stock-snapshots" element={<StockSnapshots />} />
-                  <Route path="/stock-movements" element={<StockMovements />} />
-                  <Route path="/supplier-orders" element={<SupplierOrders />} />
-                  <Route path="/supplier-orders/details" element={<SupplierOrderDetails />} />
-                  <Route path="/shipments" element={<Shipments />} />
-                  <Route path="/shipments/details" element={<ShipmentDetails />} />
-                  <Route path="/inventory-adjustments" element={<InventoryAdjustments />} />
-                  <Route path="/inventory-adjustments/details" element={<InventoryAdjustmentDetails />} />
-                  <Route path="/product-costs" element={<ProductCosts />} />
-                  <Route path="/users-roles" element={<UsersRoles />} />
-                  <Route path="/reference-data" element={<ReferenceData />} />
+                  <Route path="/products" element={<PermissionRoute path="/products"><Products /></PermissionRoute>} />
+                  <Route path="/products/details" element={<PermissionRoute path="/products/details"><Products /></PermissionRoute>} />
+                  <Route path="/warehouses" element={<PermissionRoute path="/warehouses"><Warehouses /></PermissionRoute>} />
+                  <Route path="/warehouses/details" element={<PermissionRoute path="/warehouses/details"><Warehouses /></PermissionRoute>} />
+                  <Route path="/stock" element={<PermissionRoute path="/stock"><Stock /></PermissionRoute>} />
+                  <Route path="/stock-snapshots" element={<PermissionRoute path="/stock-snapshots"><StockSnapshots /></PermissionRoute>} />
+                  <Route path="/stock-movements" element={<PermissionRoute path="/stock-movements"><StockMovements /></PermissionRoute>} />
+                  <Route path="/supplier-orders" element={<PermissionRoute path="/supplier-orders"><SupplierOrders /></PermissionRoute>} />
+                  <Route path="/supplier-orders/details" element={<PermissionRoute path="/supplier-orders/details"><SupplierOrderDetails /></PermissionRoute>} />
+                  <Route path="/shipments" element={<PermissionRoute path="/shipments"><Shipments /></PermissionRoute>} />
+                  <Route path="/shipments/details" element={<PermissionRoute path="/shipments/details"><ShipmentDetails /></PermissionRoute>} />
+                  <Route path="/inventory-adjustments" element={<PermissionRoute path="/inventory-adjustments"><InventoryAdjustments /></PermissionRoute>} />
+                  <Route path="/inventory-adjustments/details" element={<PermissionRoute path="/inventory-adjustments/details"><InventoryAdjustmentDetails /></PermissionRoute>} />
+                  <Route path="/product-costs" element={<PermissionRoute path="/product-costs"><ProductCosts /></PermissionRoute>} />
+                  <Route path="/users-roles" element={<PermissionRoute path="/users-roles"><UsersRoles /></PermissionRoute>} />
+                  <Route path="/reference-data" element={<PermissionRoute path="/reference-data"><ReferenceData /></PermissionRoute>} />
                 </Routes>
               </Layout>
             </ProtectedRoute>

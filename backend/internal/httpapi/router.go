@@ -2,7 +2,6 @@ package httpapi
 
 import (
 	"context"
-	"net/http"
 	"time"
 
 	"warehouse-backend/internal/auth"
@@ -126,9 +125,9 @@ func NewRouter(pg *db.Postgres, cfg config.Config) *chi.Mux {
 
 	// Rate limiters for auth endpoints
 	loginLimiter, registerLimiter, passwordResetLimiter := buildAuthRateLimiters()
-	// Note: General API rate limiting can be added later if needed
-	// apiLimiter := middleware.NewRateLimiter(100, 1*time.Minute)
-	adminOnly := buildAdminOnlyMiddleware(roleRepo)
+
+	productImageUploadHandler := handlers.NewProductImageUploadHandler()
+	productImageHandler := handlers.NewProductImageHandler(productImageRepo)
 
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Get("/health", healthHandler.DBHealth)
@@ -143,188 +142,32 @@ func NewRouter(pg *db.Postgres, cfg config.Config) *chi.Mux {
 		// Product images are public; documents require auth (enforced in ServeFile).
 		r.Get("/files", uploadHandler.ServeFile)
 
-		r.Group(func(r chi.Router) {
-			r.Use(middleware.AuthMiddleware(jwtManager))
-
-			r.Get("/auth/me", authHandler.GetMe)
-			r.Get("/stock/current", stockHandler.GetCurrentStock)
-			r.Get("/stock/movements", stockMovementHandler.List)
-
-			// File upload endpoints (require auth)
-			r.Post("/upload", uploadHandler.Upload)
-
-			productImageUploadHandler := handlers.NewProductImageUploadHandler()
-			r.Post("/products/images/upload", productImageUploadHandler.UploadProductImage)
-
-			productImageHandler := handlers.NewProductImageHandler(productImageRepo)
-
-			r.Route("/products", func(r chi.Router) {
-				r.Get("/", productHandler.List)
-				r.Post("/", productHandler.Create)
-				r.Get("/{id}", productHandler.GetByID)
-				r.Put("/{id}", productHandler.Update)
-				r.Delete("/{id}", productHandler.Delete)
-
-				// Product images endpoints
-				r.Get("/{productId}/images", productImageHandler.GetByProductID)
-				r.Delete("/{productId}/images/{imageId}", productImageHandler.Delete)
-				r.Put("/{productId}/images/{imageId}/order", productImageHandler.UpdateDisplayOrder)
-			})
-
-			r.Route("/warehouses", func(r chi.Router) {
-				r.Get("/", warehouseHandler.List)
-				r.Post("/", warehouseHandler.Create)
-				r.Get("/{id}", warehouseHandler.GetByID)
-				r.Put("/{id}", warehouseHandler.Update)
-				r.Delete("/{id}", warehouseHandler.Delete)
-			})
-
-			r.Route("/stores", func(r chi.Router) {
-				r.Get("/", storeHandler.List)
-				r.Post("/", storeHandler.Create)
-				r.Get("/{id}", storeHandler.GetByID)
-				r.Put("/{id}", storeHandler.Update)
-				r.Delete("/{id}", storeHandler.Delete)
-			})
-
-			r.Route("/supplier-orders", func(r chi.Router) {
-				r.Get("/", supplierOrderHandler.List)
-				r.Post("/", supplierOrderHandler.Create)
-				r.Get("/{id}", supplierOrderHandler.GetByID)
-				r.Put("/{id}", supplierOrderHandler.Update)
-				r.Delete("/{id}", supplierOrderHandler.Delete)
-
-				r.Route("/{orderId}/items", func(r chi.Router) {
-					r.Get("/", supplierOrderItemHandler.GetByOrderID)
-				})
-
-				r.Route("/{orderId}/documents", func(r chi.Router) {
-					r.Get("/", supplierOrderDocumentHandler.GetByOrderID)
-				})
-
-				// Sub-orders: create a child order and optionally transfer items into it.
-				r.Post("/{orderId}/suborders", supplierOrderHandler.CreateSubOrder)
-			})
-
-			r.Route("/supplier-order-items", func(r chi.Router) {
-				r.Get("/{id}", supplierOrderItemHandler.GetByID)
-				r.Post("/", supplierOrderItemHandler.Create)
-				r.Put("/{id}", supplierOrderItemHandler.Update)
-				r.Delete("/{id}", supplierOrderItemHandler.Delete)
-			})
-
-			r.Route("/mp-shipments", func(r chi.Router) {
-				r.Get("/", mpShipmentHandler.List)
-				r.Post("/", mpShipmentHandler.Create)
-				r.Get("/{id}", mpShipmentHandler.GetByID)
-				r.Put("/{id}", mpShipmentHandler.Update)
-				r.Delete("/{id}", mpShipmentHandler.Delete)
-
-				r.Route("/{shipmentId}/items", func(r chi.Router) {
-					r.Get("/", mpShipmentItemHandler.GetByShipmentID)
-				})
-			})
-
-			integrationRateLimiter := middleware.NewRateLimiter(6, time.Minute)
-			r.With(middleware.RateLimitMiddleware(integrationRateLimiter)).Route("/integrations", func(r chi.Router) {
-				r.Route("/wildberries", func(r chi.Router) {
-					r.Post("/stocks/list", wildberriesStocksListHandler.List)
-				})
-				r.Route("/ozon", func(r chi.Router) {
-					r.Post("/stocks/list", ozonStocksListHandler.List)
-				})
-			})
-
-			r.Route("/mp-shipment-items", func(r chi.Router) {
-				r.Get("/{id}", mpShipmentItemHandler.GetByID)
-				r.Post("/", mpShipmentItemHandler.Create)
-				r.Put("/{id}", mpShipmentItemHandler.Update)
-				r.Delete("/{id}", mpShipmentItemHandler.Delete)
-			})
-
-			r.With(adminOnly).Route("/order-statuses", func(r chi.Router) {
-				r.Get("/", orderStatusHandler.List)
-				r.Post("/", orderStatusHandler.Create)
-				r.Get("/{id}", orderStatusHandler.GetByID)
-				r.Put("/{id}", orderStatusHandler.Update)
-				r.Delete("/{id}", orderStatusHandler.Delete)
-			})
-
-			r.With(adminOnly).Route("/shipment-statuses", func(r chi.Router) {
-				r.Get("/", shipmentStatusHandler.List)
-				r.Post("/", shipmentStatusHandler.Create)
-				r.Get("/{id}", shipmentStatusHandler.GetByID)
-				r.Put("/{id}", shipmentStatusHandler.Update)
-				r.Delete("/{id}", shipmentStatusHandler.Delete)
-			})
-
-			r.Route("/supplier-order-documents", func(r chi.Router) {
-				r.Get("/{id}", supplierOrderDocumentHandler.GetByID)
-				r.Post("/", supplierOrderDocumentHandler.Create)
-				r.Put("/{id}", supplierOrderDocumentHandler.Update)
-				r.Delete("/{id}", supplierOrderDocumentHandler.Delete)
-			})
-
-			r.With(adminOnly).Route("/inventory-statuses", func(r chi.Router) {
-				r.Get("/", inventoryStatusHandler.List)
-				r.Post("/", inventoryStatusHandler.Create)
-				r.Get("/{id}", inventoryStatusHandler.GetByID)
-				r.Put("/{id}", inventoryStatusHandler.Update)
-				r.Delete("/{id}", inventoryStatusHandler.Delete)
-			})
-
-			r.Route("/inventories", func(r chi.Router) {
-				r.Get("/", inventoryHandler.List)
-				r.Post("/", inventoryHandler.Create)
-				r.Get("/{id}", inventoryHandler.GetByID)
-				r.Put("/{id}", inventoryHandler.Update)
-				r.Delete("/{id}", inventoryHandler.Delete)
-
-				r.Route("/{inventoryId}/items", func(r chi.Router) {
-					r.Get("/", inventoryItemHandler.GetByInventoryID)
-				})
-			})
-
-			r.Route("/inventory-items", func(r chi.Router) {
-				r.Get("/{id}", inventoryItemHandler.GetByID)
-				r.Post("/", inventoryItemHandler.Create)
-				r.Put("/{id}", inventoryItemHandler.Update)
-				r.Delete("/{id}", inventoryItemHandler.Delete)
-			})
-
-			r.Route("/product-costs", func(r chi.Router) {
-				r.Get("/", productCostHandler.List)
-				r.Get("/missing", productCostHandler.ListMissing)
-				r.Get("/data-quality", productCostHandler.GetDataQuality)
-				r.Post("/", productCostHandler.Create)
-				r.Get("/{id}", productCostHandler.GetByID)
-				r.Put("/{id}", productCostHandler.Update)
-				r.Delete("/{id}", productCostHandler.Delete)
-			})
-
-			r.Route("/stock-snapshots", func(r chi.Router) {
-				r.Get("/", stockSnapshotHandler.List)
-				r.Post("/", stockSnapshotHandler.Create)
-				r.Get("/{id}", stockSnapshotHandler.GetByID)
-				r.Put("/{id}", stockSnapshotHandler.Update)
-				r.Delete("/{id}", stockSnapshotHandler.Delete)
-			})
-
-			r.With(adminOnly).Route("/users", func(r chi.Router) {
-				r.Get("/", userHandler.List)
-				r.Post("/", userHandler.Create)
-				r.Get("/{id}", userHandler.GetByID)
-				r.Put("/{id}", userHandler.Update)
-				r.Delete("/{id}", userHandler.Delete)
-			})
-
-			r.With(adminOnly).Route("/roles", func(r chi.Router) {
-				r.Get("/", roleHandler.List)
-				r.Post("/", roleHandler.Create)
-				r.Get("/{id}", roleHandler.GetByID)
-				r.Put("/{id}", roleHandler.Update)
-				r.Delete("/{id}", roleHandler.Delete)
-			})
+		mountProtectedRoutes(r, jwtManager, roleRepo, protectedHandlers{
+			auth:                  authHandler,
+			stock:                 stockHandler,
+			stockMovement:         stockMovementHandler,
+			upload:                uploadHandler,
+			productImageUpload:    productImageUploadHandler,
+			productImage:          productImageHandler,
+			product:               productHandler,
+			warehouse:             warehouseHandler,
+			store:                 storeHandler,
+			supplierOrder:         supplierOrderHandler,
+			supplierOrderItem:     supplierOrderItemHandler,
+			supplierOrderDocument: supplierOrderDocumentHandler,
+			mpShipment:            mpShipmentHandler,
+			mpShipmentItem:        mpShipmentItemHandler,
+			wildberriesStocksList: wildberriesStocksListHandler,
+			ozonStocksList:        ozonStocksListHandler,
+			orderStatus:           orderStatusHandler,
+			shipmentStatus:        shipmentStatusHandler,
+			inventoryStatus:       inventoryStatusHandler,
+			inventory:             inventoryHandler,
+			inventoryItem:         inventoryItemHandler,
+			productCost:           productCostHandler,
+			stockSnapshot:         stockSnapshotHandler,
+			user:                  userHandler,
+			role:                  roleHandler,
 		})
 	})
 
@@ -341,6 +184,3 @@ func buildAuthRateLimiters() (login, register, passwordReset *middleware.RateLim
 	return
 }
 
-func buildAdminOnlyMiddleware(roleRepo *repository.RoleRepository) func(http.Handler) http.Handler {
-	return middleware.RequireRoleNames(roleRepo, "admin", "administrator", "superadmin", "owner", "администратор")
-}

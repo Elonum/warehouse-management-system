@@ -16,6 +16,7 @@ import {
   Users,
   Settings,
   BookOpen,
+  Lock,
   PanelLeftClose,
   PanelLeftOpen,
 } from 'lucide-react';
@@ -23,6 +24,8 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { SettingsDialog } from '@/components/SettingsDialog';
 import { useI18n } from '@/lib/i18n';
+import { canAccessNavItem } from '@/lib/rbac';
+import { useAuthProfile } from '@/hooks/useAuthProfile';
 import { cn } from '@/lib/utils';
 
 const SIDEBAR_STORAGE_KEY = 'sidebarCollapsed';
@@ -61,33 +64,27 @@ export default function Layout({ children, currentPageName }) {
   const { t } = useI18n();
   const [darkMode, setDarkMode] = useState(() => localStorage.getItem('darkMode') === 'true');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(readSidebarCollapsed);
-  const [user, setUser] = useState(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const { data: authProfile } = useAuthProfile();
+
+  const user = authProfile
+    ? {
+        id: authProfile.userId,
+        email: authProfile.email,
+        name: authProfile.name || '',
+        surname: authProfile.surname || '',
+        full_name:
+          `${authProfile.name || ''} ${authProfile.surname || ''}`.trim() || authProfile.email,
+        role: authProfile.roleName || '',
+        permissions: authProfile.permissions || [],
+      }
+    : null;
 
   const navItems = navItemsConfig.map((item) => ({
     ...item,
     name: t(`nav.${item.key}`),
+    allowed: canAccessNavItem(authProfile, item.key),
   }));
-
-  useEffect(() => {
-    const loadUser = async () => {
-      try {
-        const userData = await api.auth.me();
-        setUser({
-          id: userData.userId,
-          email: userData.email,
-          name: userData.name || '',
-          surname: userData.surname || '',
-          full_name:
-            `${userData.name || ''} ${userData.surname || ''}`.trim() || userData.email,
-          role: 'user',
-        });
-      } catch {
-        setUser(null);
-      }
-    };
-    loadUser();
-  }, []);
 
   useEffect(() => {
     if (darkMode) {
@@ -210,12 +207,16 @@ export default function Layout({ children, currentPageName }) {
           {navItems.map((item) => {
             const isActive = currentPageName === item.page;
             const Icon = item.icon;
+            const restricted = item.allowed === false;
+            const linkTitle = restricted
+              ? `${item.name} — ${t('rbac.navRestrictedHint')}`
+              : item.name;
             return (
               <Link
                 key={item.page}
                 to={createPageUrl(item.page)}
-                title={sidebarCollapsed ? item.name : undefined}
-                aria-label={item.name}
+                title={sidebarCollapsed ? linkTitle : undefined}
+                aria-label={linkTitle}
                 className={cn(
                   'group flex items-center rounded-lg transition-all duration-200',
                   sidebarCollapsed ? COLLAPSED_SLOT : 'gap-4 px-4 py-3',
@@ -223,16 +224,21 @@ export default function Layout({ children, currentPageName }) {
                     ? darkMode
                       ? 'bg-indigo-500/20 text-indigo-400'
                       : 'bg-indigo-50 text-indigo-700'
-                    : darkMode
-                      ? 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
-                      : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900',
+                    : restricted
+                      ? darkMode
+                        ? 'text-slate-500 hover:bg-slate-800/70 hover:text-slate-300'
+                        : 'text-slate-400 hover:bg-slate-100 hover:text-slate-600'
+                      : darkMode
+                        ? 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
+                        : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900',
                 )}
               >
                 <Icon
                   className={cn(
                     'shrink-0',
                     sidebarCollapsed ? 'h-5 w-5' : 'h-6 w-6',
-                    !isActive && !sidebarCollapsed && 'transition-transform group-hover:scale-110',
+                    restricted && 'opacity-70',
+                    !isActive && !sidebarCollapsed && !restricted && 'transition-transform group-hover:scale-110',
                   )}
                 />
                 <span
@@ -240,10 +246,13 @@ export default function Layout({ children, currentPageName }) {
                     'font-medium',
                     sidebarCollapsed
                       ? 'sr-only'
-                      : 'max-w-[12rem] text-base whitespace-nowrap',
+                      : 'flex min-w-0 flex-1 items-center gap-2 text-base whitespace-nowrap',
                   )}
                 >
-                  {item.name}
+                  <span className="truncate">{item.name}</span>
+                  {restricted && !sidebarCollapsed ? (
+                    <Lock className="h-3.5 w-3.5 shrink-0 opacity-60" aria-hidden />
+                  ) : null}
                 </span>
               </Link>
             );

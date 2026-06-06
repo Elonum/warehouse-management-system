@@ -56,6 +56,8 @@ import StatusBadge from '@/components/ui/StatusBadge';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { useI18n } from '@/lib/i18n';
+import { GuardedButton, GuardedMenuItem } from '@/components/auth/PermissionControls';
+import { usePermissions } from '@/hooks/usePermissions';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import {
@@ -76,6 +78,7 @@ const emptyItem = {
 
 export default function ShipmentDetails() {
   const { t } = useI18n();
+  const { canWriteMarketplace } = usePermissions();
   const urlParams = new URLSearchParams(window.location.search);
   const shipmentIdParam = urlParams.get('id');
   const shipmentId = shipmentIdParam || null;
@@ -436,12 +439,13 @@ export default function ShipmentDetails() {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={() => handleEditItem(row.original)}>
+                  <GuardedMenuItem allowed={canWriteMarketplace} onClick={() => handleEditItem(row.original)}>
                     <Edit2 className="w-4 h-4 mr-2" />
                     {t('common.edit')}
-                  </DropdownMenuItem>
+                  </GuardedMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem
+                  <GuardedMenuItem
+                    allowed={canWriteMarketplace}
                     onClick={() => {
                       setCurrentItem(row.original);
                       setDeleteItemDialogOpen(true);
@@ -450,7 +454,7 @@ export default function ShipmentDetails() {
                   >
                     <Trash2 className="w-4 h-4 mr-2" />
                     {t('common.delete')}
-                  </DropdownMenuItem>
+                  </GuardedMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             ),
@@ -498,7 +502,8 @@ export default function ShipmentDetails() {
               className={isFinalStatus ? FINAL_STATUS_BADGE_CLASS : undefined}
             />
             {shipment && !isFinalStatus && finalShipmentStatus && (
-              <Button
+              <GuardedButton
+                allowed={canWriteMarketplace}
                 type="button"
                 size="sm"
                 variant="outline"
@@ -510,7 +515,7 @@ export default function ShipmentDetails() {
                 {completeShipmentMutation.isPending
                   ? t('shipmentDetails.completing')
                   : t('shipmentDetails.completeButton')}
-              </Button>
+              </GuardedButton>
             )}
           </div>
         </PageHeader>
@@ -684,7 +689,8 @@ export default function ShipmentDetails() {
             {t('shipmentDetails.itemsTitle')} ({enrichedItems.length})
           </h2>
           {!isFinalStatus ? (
-            <Button
+            <GuardedButton
+              allowed={canWriteMarketplace}
               onClick={() => {
                 setCurrentItem(null);
                 setItemForm(emptyItem);
@@ -693,7 +699,7 @@ export default function ShipmentDetails() {
             >
               <Plus className="w-4 h-4 mr-2" />
               {t('shipmentDetails.addItem')}
-            </Button>
+            </GuardedButton>
           ) : null}
         </div>
         <DataTable

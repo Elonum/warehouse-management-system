@@ -1291,10 +1291,13 @@ const translations = {
         surname: 'Фамилия',
         patronymic: 'Отчество',
         generatePassword: 'Сгенерировать пароль',
+        selfRoleDemotionWarning:
+          'Вы понижаете свою роль администратора. После сохранения доступ к управлению пользователями будет закрыт.',
       },
       deleteConfirm: {
         title: 'Удалить пользователя',
         description: 'Вы уверены, что хотите удалить пользователя "{name}"? Это действие нельзя отменить.',
+        cannotDeleteSelf: 'Нельзя удалить свою учётную запись',
       },
       errors: {
         requiredFields: 'Заполните обязательные поля',
@@ -1313,6 +1316,10 @@ const translations = {
         nameNoSpaces: 'Пробелы не допускаются',
         nameNoDigits: 'Цифры не допускаются',
         nameOnlyLetters: 'Только буквы (кириллица или латиница)',
+        emailExists: 'Пользователь с таким email уже существует',
+        cannotDeleteSelf: 'Нельзя удалить свою учётную запись',
+        lastAdministrator: 'Нельзя удалить или понизить последнего администратора',
+        selfRoleDemoted: 'Роль обновлена. Доступ администратора снят.',
         createFailed: 'Ошибка создания пользователя',
         updateFailed: 'Ошибка обновления пользователя',
         deleteFailed: 'Ошибка удаления пользователя',
@@ -2602,10 +2609,13 @@ const translations = {
         surname: 'Surname',
         patronymic: 'Patronymic',
         generatePassword: 'Generate password',
+        selfRoleDemotionWarning:
+          'You are demoting yourself from administrator. After saving, user management will no longer be available.',
       },
       deleteConfirm: {
         title: 'Delete User',
         description: 'Are you sure you want to delete user "{name}"? This action cannot be undone.',
+        cannotDeleteSelf: 'You cannot delete your own account',
       },
       errors: {
         requiredFields: 'Please fill in required fields',
@@ -2624,6 +2634,10 @@ const translations = {
         nameNoSpaces: 'Spaces are not allowed',
         nameNoDigits: 'Digits are not allowed',
         nameOnlyLetters: 'Only letters (Cyrillic or Latin)',
+        emailExists: 'A user with this email already exists',
+        cannotDeleteSelf: 'You cannot delete your own account',
+        lastAdministrator: 'Cannot remove or demote the last administrator',
+        selfRoleDemoted: 'Role updated. Administrator access has been revoked.',
         createFailed: 'Failed to create user',
         updateFailed: 'Failed to update user',
         deleteFailed: 'Failed to delete user',

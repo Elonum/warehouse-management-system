@@ -24,6 +24,18 @@ func NewUserService(repo *repository.UserRepository, roleRepo *repository.RoleRe
 	}
 }
 
+func roleHasAdminPermission(roleName string) bool {
+	return auth.HasPermission(roleName, auth.PermAdmin)
+}
+
+func (s *UserService) isAdministratorRole(ctx context.Context, roleID uuid.UUID) (bool, error) {
+	role, err := s.roleRepo.GetByID(ctx, roleID)
+	if err != nil {
+		return false, err
+	}
+	return roleHasAdminPermission(role.Name), nil
+}
+
 func (s *UserService) GetByID(ctx context.Context, userID uuid.UUID) (*dto.UserResponse, error) {
 	user, err := s.repo.GetByID(ctx, userID)
 	if err != nil {
@@ -136,7 +148,7 @@ func (s *UserService) Create(ctx context.Context, req dto.UserCreateRequest) (*d
 	}, nil
 }
 
-func (s *UserService) Update(ctx context.Context, userID uuid.UUID, req dto.UserUpdateRequest) (*dto.UserResponse, error) {
+func (s *UserService) Update(ctx context.Context, actorUserID uuid.UUID, userID uuid.UUID, req dto.UserUpdateRequest) (*dto.UserResponse, error) {
 	// Validate email
 	if err := validation.ValidateEmail(req.Email); err != nil {
 		log.Warn().Str("email", req.Email).Err(err).Msg("Invalid email format")
@@ -178,7 +190,7 @@ func (s *UserService) Update(ctx context.Context, userID uuid.UUID, req dto.User
 		return nil, repository.ErrRoleNotFound
 	}
 
-	_, err = s.roleRepo.GetByID(ctx, roleID)
+	newRole, err := s.roleRepo.GetByID(ctx, roleID)
 	if err != nil {
 		if err == repository.ErrRoleNotFound {
 			log.Warn().Str("roleId", req.RoleID).Msg("Role not found")
@@ -186,6 +198,33 @@ func (s *UserService) Update(ctx context.Context, userID uuid.UUID, req dto.User
 		}
 		log.Error().Err(err).Str("roleId", req.RoleID).Msg("Failed to validate role")
 		return nil, err
+	}
+
+	targetUser, err := s.repo.GetByID(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	wasAdmin, err := s.isAdministratorRole(ctx, targetUser.RoleID)
+	if err != nil {
+		log.Error().Err(err).Str("userId", userID.String()).Msg("Failed to resolve current user role")
+		return nil, err
+	}
+
+	willBeAdmin := roleHasAdminPermission(newRole.Name)
+	if wasAdmin && !willBeAdmin {
+		count, err := s.repo.CountAdministrators(ctx)
+		if err != nil {
+			log.Error().Err(err).Msg("Failed to count administrators")
+			return nil, err
+		}
+		if count <= 1 {
+			log.Warn().
+				Str("actorUserId", actorUserID.String()).
+				Str("targetUserId", userID.String()).
+				Msg("Attempt to remove the last administrator")
+			return nil, repository.ErrLastAdministrator
+		}
 	}
 
 	var passwordHash *string
@@ -215,8 +254,36 @@ func (s *UserService) Update(ctx context.Context, userID uuid.UUID, req dto.User
 	}, nil
 }
 
-func (s *UserService) Delete(ctx context.Context, userID uuid.UUID) error {
-	err := s.repo.Delete(ctx, userID)
+func (s *UserService) Delete(ctx context.Context, actorUserID uuid.UUID, userID uuid.UUID) error {
+	if actorUserID != uuid.Nil && actorUserID == userID {
+		log.Warn().Str("userId", userID.String()).Msg("Attempt to delete own account")
+		return repository.ErrCannotDeleteSelf
+	}
+
+	targetUser, err := s.repo.GetByID(ctx, userID)
+	if err != nil {
+		return err
+	}
+
+	isAdmin, err := s.isAdministratorRole(ctx, targetUser.RoleID)
+	if err != nil {
+		log.Error().Err(err).Str("userId", userID.String()).Msg("Failed to resolve user role for deletion")
+		return err
+	}
+
+	if isAdmin {
+		count, err := s.repo.CountAdministrators(ctx)
+		if err != nil {
+			log.Error().Err(err).Msg("Failed to count administrators")
+			return err
+		}
+		if count <= 1 {
+			log.Warn().Str("userId", userID.String()).Msg("Attempt to delete the last administrator")
+			return repository.ErrLastAdministrator
+		}
+	}
+
+	err = s.repo.Delete(ctx, userID)
 	if err != nil {
 		log.Error().Err(err).Str("userId", userID.String()).Msg("Failed to delete user")
 		return err

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"warehouse-backend/internal/auth"
 	"warehouse-backend/internal/dto"
 	"warehouse-backend/internal/repository"
 	"warehouse-backend/internal/service"
@@ -185,7 +186,8 @@ func (h *UserHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := h.service.Update(r.Context(), userID, req)
+	actorUserID := auth.GetUserID(r.Context())
+	user, err := h.service.Update(r.Context(), actorUserID, userID, req)
 	if err != nil {
 		if err == repository.ErrUserNotFound {
 			log.Warn().Str("userId", userID.String()).Msg("User not found for update")
@@ -200,6 +202,11 @@ func (h *UserHandler) Update(w http.ResponseWriter, r *http.Request) {
 		if err == repository.ErrRoleNotFound {
 			log.Warn().Str("roleId", req.RoleID).Msg("Role not found")
 			writeError(w, http.StatusBadRequest, "ROLE_NOT_FOUND", "specified role does not exist")
+			return
+		}
+		if err == repository.ErrLastAdministrator {
+			log.Warn().Str("userId", userID.String()).Msg("Cannot remove the last administrator")
+			writeError(w, http.StatusConflict, "LAST_ADMINISTRATOR", "cannot remove the last administrator")
 			return
 		}
 		// Check for validation errors
@@ -241,11 +248,22 @@ func (h *UserHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = h.service.Delete(r.Context(), userID)
+	actorUserID := auth.GetUserID(r.Context())
+	err = h.service.Delete(r.Context(), actorUserID, userID)
 	if err != nil {
 		if err == repository.ErrUserNotFound {
 			log.Warn().Str("userId", userID.String()).Msg("User not found for deletion")
 			writeError(w, http.StatusNotFound, "USER_NOT_FOUND", "user not found")
+			return
+		}
+		if err == repository.ErrCannotDeleteSelf {
+			log.Warn().Str("userId", userID.String()).Msg("Cannot delete own account")
+			writeError(w, http.StatusForbidden, "CANNOT_DELETE_SELF", "cannot delete your own account")
+			return
+		}
+		if err == repository.ErrLastAdministrator {
+			log.Warn().Str("userId", userID.String()).Msg("Cannot delete the last administrator")
+			writeError(w, http.StatusConflict, "LAST_ADMINISTRATOR", "cannot delete the last administrator")
 			return
 		}
 		log.Error().Err(err).Str("userId", userID.String()).Msg("Failed to delete user")

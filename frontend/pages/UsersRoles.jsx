@@ -1,7 +1,10 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError } from '@/api';
 import { useI18n } from '@/lib/i18n';
+import { isAdminRoleName } from '@/lib/rbac';
+import { useAuthProfile } from '@/hooks/useAuthProfile';
 import { 
   Users, 
   Shield, 
@@ -73,15 +76,49 @@ const formatNameInput = (value) => {
   return value.replace(/[^А-Яа-яЁёA-Za-z]/g, '').slice(0, 50);
 };
 
+const NAME_PATTERN = /^[А-Яа-яЁёA-Za-z]+$/;
+const EMAIL_PATTERN = /^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$/;
+
+function validateNameField(name, t) {
+  if (!name) return null;
+  const trimmed = name.trim();
+  if (trimmed.length < 2) return t('users.errors.nameMinLength');
+  if (trimmed.length > 50) return t('users.errors.nameMaxLength');
+  if (/\s/.test(trimmed)) return t('users.errors.nameNoSpaces');
+  if (/\d/.test(trimmed)) return t('users.errors.nameNoDigits');
+  if (!NAME_PATTERN.test(trimmed)) return t('users.errors.nameOnlyLetters');
+  return null;
+}
+
+function mapUserApiError(err, t, fallback) {
+  if (!(err instanceof ApiError)) return fallback;
+
+  const codeMessages = {
+    USER_EXISTS: t('users.errors.emailExists'),
+    CANNOT_DELETE_SELF: t('users.errors.cannotDeleteSelf'),
+    LAST_ADMINISTRATOR: t('users.errors.lastAdministrator'),
+    INVALID_NAME: t('users.errors.nameValidation'),
+    NAME_REQUIRED: t('users.errors.nameValidation'),
+    WEAK_PASSWORD: t('users.errors.passwordWeak'),
+    INVALID_EMAIL: t('users.errors.invalidEmail'),
+    ROLE_NOT_FOUND: t('users.errors.roleRequired'),
+  };
+
+  return codeMessages[err.code] || err.message || fallback;
+}
+
 export default function UsersRoles() {
   const { t } = useI18n();
+  const navigate = useNavigate();
   const { canAdmin } = usePermissions();
+  const { data: authProfile } = useAuthProfile();
   const queryClient = useQueryClient();
   const createEditModal = useModalState(null);
   const deleteModal = useModalState(null);
   const [currentUser, setCurrentUser] = useState(null);
   const [formData, setFormData] = useState(emptyUser);
   const [error, setError] = useState('');
+  const [deleteError, setDeleteError] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [roleFilter, setRoleFilter] = useState('all');
   const [showPassword, setShowPassword] = useState(false);
@@ -173,7 +210,7 @@ export default function UsersRoles() {
     }
 
     setPasswordStrength({ score, feedback });
-  }, [formData.password]);
+  }, [formData.password, t]);
 
   const createMutation = useMutation({
     mutationFn: (data) => api.users.create(data),
@@ -184,46 +221,35 @@ export default function UsersRoles() {
       setError('');
     },
     onError: (err) => {
-      if (err instanceof ApiError) {
-        let errorMsg = err.message || t('users.errors.createFailed');
-        // Map backend validation errors to user-friendly messages
-        if (err.code === 'INVALID_NAME' || err.code === 'NAME_REQUIRED') {
-          errorMsg = t('users.errors.nameValidation');
-        } else if (err.code === 'WEAK_PASSWORD') {
-          errorMsg = t('users.errors.passwordWeak');
-        } else if (err.code === 'INVALID_EMAIL') {
-          errorMsg = t('users.errors.invalidEmail');
-        }
-        setError(errorMsg);
-      } else {
-        setError(t('users.errors.createFailed'));
-      }
+      setError(mapUserApiError(err, t, t('users.errors.createFailed')));
     },
   });
 
   const updateMutation = useMutation({
     mutationFn: ({ id, data }) => api.users.update(id, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['users'] });
+    onSuccess: async (_, variables) => {
+      await queryClient.invalidateQueries({ queryKey: ['users'] });
+
+      const editedUser = currentUser;
+      const isSelfEdit = authProfile?.userId && editedUser?.userId === authProfile.userId;
+      if (isSelfEdit) {
+        await queryClient.invalidateQueries({ queryKey: ['auth', 'me'] });
+        const oldRole = roles.find((role) => role.roleId === editedUser.roleId);
+        const newRole = roles.find((role) => role.roleId === variables.data.roleId);
+        const wasAdmin = isAdminRoleName(oldRole?.name);
+        const stillAdmin = isAdminRoleName(newRole?.name);
+        if (wasAdmin && !stillAdmin) {
+          navigate('/', { replace: true });
+          return;
+        }
+      }
+
       createEditModal.close();
       resetForm();
       setError('');
     },
     onError: (err) => {
-      if (err instanceof ApiError) {
-        let errorMsg = err.message || t('users.errors.updateFailed');
-        // Map backend validation errors to user-friendly messages
-        if (err.code === 'INVALID_NAME' || err.code === 'NAME_REQUIRED') {
-          errorMsg = t('users.errors.nameValidation');
-        } else if (err.code === 'WEAK_PASSWORD') {
-          errorMsg = t('users.errors.passwordWeak');
-        } else if (err.code === 'INVALID_EMAIL') {
-          errorMsg = t('users.errors.invalidEmail');
-        }
-        setError(errorMsg);
-      } else {
-        setError(t('users.errors.updateFailed'));
-      }
+      setError(mapUserApiError(err, t, t('users.errors.updateFailed')));
     },
   });
 
@@ -232,14 +258,10 @@ export default function UsersRoles() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['users'] });
       deleteModal.close();
-      setCurrentUser(null);
+      setDeleteError('');
     },
     onError: (err) => {
-      if (err instanceof ApiError) {
-        setError(err.message || t('users.errors.deleteFailed'));
-      } else {
-        setError(t('users.errors.deleteFailed'));
-      }
+      setDeleteError(mapUserApiError(err, t, t('users.errors.deleteFailed')));
     },
   });
 
@@ -293,12 +315,11 @@ export default function UsersRoles() {
     // Validate email
     const email = formData.email.trim();
     if (!email) {
-      errors.email = 'Email обязателен';
-    } else {
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(email)) {
-        errors.email = 'Некорректный email';
-      }
+      errors.email = t('users.errors.emailRequired');
+    } else if (email.length > 254) {
+      errors.email = t('users.errors.emailTooLong');
+    } else if (!EMAIL_PATTERN.test(email)) {
+      errors.email = t('users.errors.invalidEmail');
     }
 
     // Validate name (required)
@@ -368,16 +389,30 @@ export default function UsersRoles() {
     }
   };
 
+  const isSelfUser = useCallback(
+    (user) => Boolean(authProfile?.userId && user?.userId === authProfile.userId),
+    [authProfile?.userId],
+  );
+
   const handleDelete = (user) => {
-    setCurrentUser(user);
+    if (isSelfUser(user)) return;
+    setDeleteError('');
     deleteModal.open(user);
   };
 
   const confirmDelete = () => {
-    if (currentUser) {
-      deleteMutation.mutate(currentUser.userId);
+    const user = deleteModal.data;
+    if (user?.userId) {
+      deleteMutation.mutate(user.userId);
     }
   };
+
+  const showSelfDemotionWarning = useMemo(() => {
+    if (!currentUser || !isSelfUser(currentUser) || !formData.roleId) return false;
+    const oldRole = roles.find((role) => role.roleId === currentUser.roleId);
+    const newRole = roles.find((role) => role.roleId === formData.roleId);
+    return isAdminRoleName(oldRole?.name) && !isAdminRoleName(newRole?.name);
+  }, [currentUser, formData.roleId, isSelfUser, roles]);
 
   const getSelectedRoleName = () => {
     return getRoleName(formData.roleId);
@@ -503,9 +538,10 @@ export default function UsersRoles() {
             </GuardedMenuItem>
             <DropdownMenuSeparator />
             <GuardedMenuItem
-              allowed={canAdmin}
+              allowed={canAdmin && !isSelfUser(row.original)}
               onClick={() => handleDelete(row.original)}
               className="text-red-600 dark:text-red-400"
+              title={isSelfUser(row.original) ? t('users.deleteConfirm.cannotDeleteSelf') : undefined}
             >
               <Trash2 className="w-4 h-4 mr-2" />
               {t('common.delete')}
@@ -518,13 +554,10 @@ export default function UsersRoles() {
 
   const totalUsers = filteredUsers.length;
   
-  // Count administrators
-  const adminCount = filteredUsers.filter(u => {
-    if (!u.roleId) return false;
-    const role = roles.find(r => r.roleId === u.roleId);
-    if (!role || !role.name) return false;
-    const normalizedRoleName = role.name.trim().toLowerCase();
-    return normalizedRoleName === 'администратор' || normalizedRoleName === 'administrator';
+  const adminCount = users.filter((user) => {
+    if (!user.roleId) return false;
+    const role = roles.find((item) => item.roleId === user.roleId);
+    return isAdminRoleName(role?.name);
   }).length;
 
   return (
@@ -622,7 +655,12 @@ export default function UsersRoles() {
         emptyMessage={t('users.emptyMessage')}
       />
 
-      <Dialog open={createEditModal.isOpen} onOpenChange={handleCloseDialog}>
+      <Dialog
+        open={createEditModal.isOpen}
+        onOpenChange={(open) => {
+          if (!open) handleCloseDialog();
+        }}
+      >
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
@@ -634,6 +672,13 @@ export default function UsersRoles() {
               <div className="p-3 text-sm text-red-600 bg-red-50 rounded-lg dark:bg-red-900/20 dark:text-red-400 flex items-start gap-2">
                 <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
                 <span>{error}</span>
+              </div>
+            )}
+
+            {showSelfDemotionWarning && (
+              <div className="p-3 text-sm text-amber-800 bg-amber-50 rounded-lg dark:bg-amber-900/20 dark:text-amber-300 flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                <span>{t('users.form.selfRoleDemotionWarning')}</span>
               </div>
             )}
 
@@ -839,18 +884,34 @@ export default function UsersRoles() {
         </DialogContent>
       </Dialog>
 
-      <AlertDialog open={deleteModal.isOpen} onOpenChange={deleteModal.setIsOpen}>
+      <AlertDialog
+        open={deleteModal.isOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            deleteModal.close();
+            setDeleteError('');
+          }
+        }}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>{t('users.deleteConfirm.title')}</AlertDialogTitle>
             <AlertDialogDescription>
-              {t('users.deleteConfirm.description', { name: currentUser ? getFullName(currentUser) : '' })}
+              {t('users.deleteConfirm.description', {
+                name: deleteModal.data ? getFullName(deleteModal.data) : '',
+              })}
             </AlertDialogDescription>
           </AlertDialogHeader>
+          {deleteError && (
+            <div className="px-6 pb-2 text-sm text-red-600 dark:text-red-400 flex items-start gap-2">
+              <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+              <span>{deleteError}</span>
+            </div>
+          )}
           <AlertDialogFooter>
             <AlertDialogCancel onClick={() => {
-              setDeleteDialogOpen(false);
-              setCurrentUser(null);
+              deleteModal.close();
+              setDeleteError('');
             }}>
               {t('common.cancel')}
             </AlertDialogCancel>

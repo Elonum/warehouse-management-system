@@ -12,8 +12,10 @@ import (
 )
 
 var (
-	ErrUserNotFound = errors.New("user not found")
-	ErrUserExists   = errors.New("user already exists")
+	ErrUserNotFound        = errors.New("user not found")
+	ErrUserExists          = errors.New("user already exists")
+	ErrCannotDeleteSelf    = errors.New("cannot delete own account")
+	ErrLastAdministrator   = errors.New("cannot remove the last administrator")
 )
 
 type User struct {
@@ -250,6 +252,25 @@ func (r *UserRepository) UpdatePasswordHash(ctx context.Context, userID uuid.UUI
 		return ErrUserNotFound
 	}
 	return nil
+}
+
+func (r *UserRepository) CountAdministrators(ctx context.Context) (int, error) {
+	query := `
+		SELECT COUNT(*)
+		FROM users u
+		INNER JOIN user_roles r ON u.role_id = r.role_id
+		WHERE LOWER(TRIM(r.name)) IN ('администратор', 'administrator', 'admin', 'superadmin', 'owner')
+	`
+
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	var count int
+	if err := r.pool.QueryRow(ctx, query).Scan(&count); err != nil {
+		return 0, err
+	}
+
+	return count, nil
 }
 
 func (r *UserRepository) Delete(ctx context.Context, userID uuid.UUID) error {

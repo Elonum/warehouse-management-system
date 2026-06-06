@@ -77,6 +77,19 @@ const ROUTE_PERMISSIONS = {
   '/reference-data': [PERM.ADMIN],
 };
 
+const ADMIN_ROLE_NAMES = new Set([
+  'администратор',
+  'administrator',
+  'admin',
+  'superadmin',
+  'owner',
+]);
+
+export function isAdminRoleName(roleName) {
+  if (!roleName) return false;
+  return ADMIN_ROLE_NAMES.has(roleName.trim().toLowerCase());
+}
+
 export function hasPermission(profile, permission) {
   if (!permission) return true;
   const perms = profile?.permissions ?? [];

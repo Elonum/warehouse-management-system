@@ -398,30 +398,28 @@ function SupplierOrdersTable({
                     {t('common.details')}
                   </Link>
                 </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => onEditOrder(order)}
-                  disabled={isOrderFinal(order)}
-                >
-                  <Edit2 className="w-4 h-4 mr-2" />
-                  {t('common.edit')}
-                </DropdownMenuItem>
-                {!isChild && (
-                  <DropdownMenuItem
-                    onClick={() => onCreateSubOrder(order)}
-                    disabled={isOrderFinal(order)}
-                  >
-                    <Copy className="w-4 h-4 mr-2" />
-                    {t('supplierOrders.createSubOrder')}
-                  </DropdownMenuItem>
-                )}
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  onClick={() => onRequestDelete(order)}
-                  className="text-red-600"
-                >
-                  <Trash2 className="w-4 h-4 mr-2" />
-                  {t('common.delete')}
-                </DropdownMenuItem>
+                {!isOrderFinal(order) ? (
+                  <>
+                    <DropdownMenuItem onClick={() => onEditOrder(order)}>
+                      <Edit2 className="w-4 h-4 mr-2" />
+                      {t('common.edit')}
+                    </DropdownMenuItem>
+                    {!isChild ? (
+                      <DropdownMenuItem onClick={() => onCreateSubOrder(order)}>
+                        <Copy className="w-4 h-4 mr-2" />
+                        {t('supplierOrders.createSubOrder')}
+                      </DropdownMenuItem>
+                    ) : null}
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      onClick={() => onRequestDelete(order)}
+                      className="text-red-600"
+                    >
+                      <Trash2 className="w-4 h-4 mr-2" />
+                      {t('common.delete')}
+                    </DropdownMenuItem>
+                  </>
+                ) : null}
               </DropdownMenuContent>
             </DropdownMenu>
           </td>

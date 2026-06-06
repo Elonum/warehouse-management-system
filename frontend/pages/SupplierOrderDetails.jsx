@@ -680,11 +680,7 @@ export default function SupplierOrderDetails() {
   });
 
   const handleEditItem = (item) => {
-    if (isFinalStatus) {
-      setDeleteItemError(t('supplierOrderDetails.errors.cannotEditCompleted'));
-      setDeleteItemErrorDialogOpen(true);
-      return;
-    }
+    if (isFinalStatus) return;
     setCurrentItem(item);
 
     // Reverse-calculate the per-unit weight that was used when saving this item.
@@ -976,45 +972,41 @@ export default function SupplierOrderDetails() {
         );
       },
     },
-    {
-      id: 'actions',
-      header: '',
-      sortable: false,
-      cell: ({ row }) => (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="w-8 h-8">
-              <MoreHorizontal className="w-4 h-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem 
-              onClick={() => handleEditItem(row.original)}
-              disabled={isFinalStatus}
-            >
-              <Edit2 className="w-4 h-4 mr-2" />
-              {t('common.edit')}
-            </DropdownMenuItem>
-            <DropdownMenuItem 
-              onClick={() => {
-                if (isFinalStatus) {
-                  setDeleteItemError(t('supplierOrderDetails.errors.cannotEditCompleted'));
-                  setDeleteItemErrorDialogOpen(true);
-                  return;
-                }
-                setCurrentItem(row.original);
-                setDeleteItemError('');
-                setDeleteItemDialogOpen(true);
-              }}
-              className="text-red-600"
-            >
-              <Trash2 className="w-4 h-4 mr-2" />
-              {t('common.delete')}
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      ),
-    },
+    ...(!isFinalStatus
+      ? [
+          {
+            id: 'actions',
+            header: '',
+            sortable: false,
+            cell: ({ row }) => (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="w-8 h-8">
+                    <MoreHorizontal className="w-4 h-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => handleEditItem(row.original)}>
+                    <Edit2 className="w-4 h-4 mr-2" />
+                    {t('common.edit')}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => {
+                      setCurrentItem(row.original);
+                      setDeleteItemError('');
+                      setDeleteItemDialogOpen(true);
+                    }}
+                    className="text-red-600"
+                  >
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    {t('common.delete')}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ),
+          },
+        ]
+      : []),
   ];
 
   const orderTotals = useMemo(() => {
@@ -1410,59 +1402,42 @@ export default function SupplierOrderDetails() {
             </TabsTrigger>
           </TabsList>
           <div className="flex items-center gap-2">
-            {activeTab === 'items' && (
+            {activeTab === 'items' && !isFinalStatus ? (
               <>
                 <Button
                   variant="outline"
                   onClick={() => {
-                    if (isFinalStatus) {
-                      setDeleteItemError(t('supplierOrderDetails.errors.cannotEditCompleted'));
-                      setDeleteItemErrorDialogOpen(true);
-                      return;
-                    }
                     setSubOrderError('');
                     setSubOrderTransfers({});
                     setSubOrderDialogOpen(true);
                   }}
-                  disabled={orderItems.length === 0 || isFinalStatus}
+                  disabled={orderItems.length === 0}
                 >
                   <Copy className="w-4 h-4 mr-2" />
                   {t('supplierOrders.createSubOrder')}
                 </Button>
-                <Button 
+                <Button
                   onClick={() => {
-                    if (isFinalStatus) {
-                      setDeleteItemError(t('supplierOrderDetails.errors.cannotEditCompleted'));
-                      setDeleteItemErrorDialogOpen(true);
-                      return;
-                    }
                     resetItemForm();
                     setItemDialogOpen(true);
                   }}
-                  disabled={isFinalStatus}
                 >
                   <Plus className="w-4 h-4 mr-2" />
                   {t('supplierOrderDetails.addItem')}
                 </Button>
               </>
-            )}
-            {activeTab === 'documents' && (
-              <Button 
+            ) : null}
+            {activeTab === 'documents' && !isFinalStatus ? (
+              <Button
                 onClick={() => {
-                  if (isFinalStatus) {
-                    setDeleteDocumentError(t('supplierOrderDetails.errors.cannotEditCompleted'));
-                    setDeleteDocumentErrorDialogOpen(true);
-                    return;
-                  }
                   resetDocumentForm();
                   setDocumentDialogOpen(true);
                 }}
-                disabled={isFinalStatus}
               >
                 <Upload className="w-4 h-4 mr-2" />
                 {t('supplierOrderDetails.documents.upload')}
               </Button>
-            )}
+            ) : null}
           </div>
         </div>
 
@@ -1526,23 +1501,20 @@ export default function SupplierOrderDetails() {
                           >
                             <ExternalLink className="w-4 h-4" />
                           </Button>
-                          <Button 
-                            variant="ghost" 
-                            size="icon"
-                            onClick={() => {
-                              if (isFinalStatus) {
-                                setDeleteDocumentError(t('supplierOrderDetails.errors.cannotEditCompleted'));
-                                setDeleteDocumentErrorDialogOpen(true);
-                                return;
-                              }
-                              setCurrentDocument(doc);
-                              setDeleteDocumentError('');
-                              setDeleteDocumentDialogOpen(true);
-                            }}
-                            disabled={deleteDocumentMutation.isPending || isFinalStatus}
-                          >
-                            <Trash2 className="w-4 h-4 text-red-500" />
-                          </Button>
+                          {!isFinalStatus ? (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => {
+                                setCurrentDocument(doc);
+                                setDeleteDocumentError('');
+                                setDeleteDocumentDialogOpen(true);
+                              }}
+                              disabled={deleteDocumentMutation.isPending}
+                            >
+                              <Trash2 className="w-4 h-4 text-red-500" />
+                            </Button>
+                          ) : null}
                         </>
                       )}
                     </div>

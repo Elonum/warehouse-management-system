@@ -1,9 +1,10 @@
 import React, { useEffect, useLayoutEffect, useMemo, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
 import { Filter, X } from 'lucide-react';
 import { api } from '@/api';
 import { useServerOffsetPagination } from '@/hooks/useServerOffsetPagination';
+import { useServerSearchQuery } from '@/hooks/useServerSearchQuery';
 import { useI18n } from '@/lib/i18n';
 import { Button } from '@/components/ui/button';
 import {
@@ -66,7 +67,9 @@ export default function StockMovementsPageContainer() {
     resetPage();
   }, [searchParams, resetPage]);
 
-  const qNormalized = useMemo(() => q.trim().slice(0, 100), [q]);
+  const { forApi: qForApi, forUi: qForUi } = useServerSearchQuery(q, {
+    onDebouncedChange: resetPage,
+  });
 
   const {
     data: movementsPayload,
@@ -78,18 +81,19 @@ export default function StockMovementsPageContainer() {
       productFilter !== 'all' ? productFilter : null,
       warehouseFilter !== 'all' ? warehouseFilter : null,
       movementTypeFilter !== 'all' ? movementTypeFilter : null,
-      qNormalized || null,
+      qForApi || null,
       fromDate || null,
       toDate || null,
       limit,
       offset,
     ],
+    placeholderData: keepPreviousData,
     queryFn: async () => {
       const params = { limit, offset, ownWarehousesOnly: 'true' };
       if (productFilter !== 'all') params.productId = productFilter;
       if (warehouseFilter !== 'all') params.warehouseId = warehouseFilter;
       if (movementTypeFilter !== 'all') params.movementType = movementTypeFilter;
-      if (qNormalized) params.q = qNormalized;
+      if (qForApi) params.q = qForApi;
       if (fromDate) params.fromDate = fromDate;
       if (toDate) params.toDate = toDate;
       return api.stock.listMovements(params);
@@ -146,17 +150,21 @@ export default function StockMovementsPageContainer() {
     return t(`stockMovements.types.${movementTypeFilter}`);
   }, [movementTypeFilter, t]);
 
-  const isLoadingAny = loadingMovements || loadingProducts || loadingWarehouses;
+  const isLoadingFilterOptions =
+    (loadingProducts && products.length === 0) || (loadingWarehouses && warehouses.length === 0);
+  const isLoadingStats = isLoadingFilterOptions || (!movementsPayload && loadingMovements);
+  const showTableLoading = loadingMovements && rows.length === 0;
+  const isRefreshingList = fetchingMovements && rows.length > 0;
 
   const serverPagination = useMemo(
     () =>
       toDataTableServerPagination({
         totalRows: serverTotal,
         pageRowCount: rows.length,
-        isLoading: loadingMovements,
+        isLoading: fetchingMovements,
         ariaLabel: t('stockMovements.paginationNav'),
       }),
-    [toDataTableServerPagination, serverTotal, rows.length, loadingMovements, t],
+    [toDataTableServerPagination, serverTotal, rows.length, fetchingMovements, t],
   );
 
   const clearFilters = () => {
@@ -173,7 +181,7 @@ export default function StockMovementsPageContainer() {
     productFilter !== 'all' ||
     warehouseFilter !== 'all' ||
     movementTypeFilter !== 'all' ||
-    !!qNormalized ||
+    !!qForUi ||
     !!fromDate ||
     !!toDate;
 
@@ -185,7 +193,7 @@ export default function StockMovementsPageContainer() {
       />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {isLoadingAny ? (
+        {isLoadingStats ? (
           <>
             {[1, 2, 3, 4].map((i) => (
               <Card key={i} className="dark:border-slate-800 dark:bg-slate-900">
@@ -252,7 +260,7 @@ export default function StockMovementsPageContainer() {
 
       <Card className="dark:border-slate-800 dark:bg-slate-900">
         <CardContent className="pt-6">
-          {loadingProducts || loadingWarehouses ? (
+          {isLoadingFilterOptions ? (
             <LoadingState />
           ) : (
             <div className="flex flex-wrap items-center gap-4">
@@ -266,10 +274,7 @@ export default function StockMovementsPageContainer() {
               <div className="relative w-72">
                 <Input
                   value={q}
-                  onChange={(e) => {
-                    setQ(e.target.value);
-                    resetPage();
-                  }}
+                  onChange={(e) => setQ(e.target.value)}
                   placeholder={t('stockMovements.searchPlaceholder')}
                   aria-label={t('stockMovements.searchPlaceholder')}
                   className="pr-10"
@@ -393,24 +398,29 @@ export default function StockMovementsPageContainer() {
         </CardContent>
       </Card>
 
-      {isLoadingAny ? (
+      {showTableLoading ? (
         <Card className="dark:border-slate-800 dark:bg-slate-900">
           <CardContent className="pt-6">
             <LoadingState />
           </CardContent>
         </Card>
-      ) : rows.length === 0 && !loadingMovements ? (
+      ) : rows.length === 0 && !fetchingMovements ? (
         <Card className="dark:border-slate-800 dark:bg-slate-900">
           <CardContent className="pt-6">
             <EmptyState message={t('stockMovements.emptyMessage')} />
           </CardContent>
         </Card>
       ) : (
-        <Card className="overflow-hidden p-0 dark:border-slate-800 dark:bg-slate-900">
+        <Card
+          className={`overflow-hidden p-0 dark:border-slate-800 dark:bg-slate-900${
+            isRefreshingList ? ' opacity-80 transition-opacity duration-150' : ''
+          }`}
+          aria-busy={isRefreshingList || undefined}
+        >
           <StockMovementsTable
             t={t}
             rows={rows}
-            isLoading={loadingMovements}
+            isLoading={showTableLoading}
             serverPagination={serverPagination}
             showWarehouseColumn={warehouseFilter === 'all'}
           />

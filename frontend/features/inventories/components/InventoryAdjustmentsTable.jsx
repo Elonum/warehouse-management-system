@@ -185,18 +185,22 @@ function InventoryAdjustmentsTable({
                 {t('common.details')}
               </Link>
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => onEditAdjustment(row.original)}>
-              <Edit2 className="w-4 h-4 mr-2" />
-              {t('common.edit')}
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              onClick={() => onRequestDelete(row.original)}
-              className="text-red-600"
-            >
-              <Trash2 className="w-4 h-4 mr-2" />
-              {t('common.delete')}
-            </DropdownMenuItem>
+            {!row.original.statusIsFinal ? (
+              <>
+                <DropdownMenuItem onClick={() => onEditAdjustment(row.original)}>
+                  <Edit2 className="w-4 h-4 mr-2" />
+                  {t('common.edit')}
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={() => onRequestDelete(row.original)}
+                  className="text-red-600"
+                >
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  {t('common.delete')}
+                </DropdownMenuItem>
+              </>
+            ) : null}
           </DropdownMenuContent>
         </DropdownMenu>
       ),

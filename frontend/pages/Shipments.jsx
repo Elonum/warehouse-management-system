@@ -267,6 +267,8 @@ export default function Shipments() {
   };
 
   const handleEdit = (shipment) => {
+    if (shipment?.statusIsFinal) return;
+    setError('');
     setCurrentShipment(shipment);
     setFormData({
       shipmentNumber: shipment.shipmentNumber || '',
@@ -421,12 +423,9 @@ export default function Shipments() {
         }}
         onEditShipment={handleEdit}
         onRequestDelete={(shipment) => {
-          if (shipment?.statusIsFinal) {
-            setDeleteError(t('shipments.errors.cannotDeleteCompleted'));
-            setDeleteErrorDialogOpen(true);
-            return;
-          }
+          if (shipment?.statusIsFinal) return;
           setCurrentShipment(shipment);
+          setDeleteError('');
           deleteModal.open(shipment);
         }}
       />

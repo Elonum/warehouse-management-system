@@ -1,9 +1,10 @@
 import React, { useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { Filter, X, ArrowLeftRight, Layers } from 'lucide-react';
 import { api } from '@/api';
 import { useServerOffsetPagination } from '@/hooks/useServerOffsetPagination';
+import { useServerSearchQuery } from '@/hooks/useServerSearchQuery';
 import { useI18n } from '@/lib/i18n';
 import { createPageUrl } from '@/utils';
 import { Button } from '@/components/ui/button';
@@ -74,7 +75,9 @@ export default function StockSnapshotsPageContainer() {
     resetPage();
   }, [searchParams, resetPage]);
 
-  const qNormalized = useMemo(() => q.trim().slice(0, 100), [q]);
+  const { forApi: qForApi, forUi: qForUi } = useServerSearchQuery(q, {
+    onDebouncedChange: resetPage,
+  });
 
   const {
     data: snapshotsPayload,
@@ -86,12 +89,13 @@ export default function StockSnapshotsPageContainer() {
       productFilter !== 'all' ? productFilter : null,
       warehouseFilter !== 'all' ? warehouseFilter : null,
       viewMode,
-      qNormalized || null,
+      qForApi || null,
       fromDate || null,
       toDate || null,
       limit,
       offset,
     ],
+    placeholderData: keepPreviousData,
     queryFn: async () => {
       const params = {
         limit,
@@ -101,7 +105,7 @@ export default function StockSnapshotsPageContainer() {
       };
       if (productFilter !== 'all') params.productId = productFilter;
       if (warehouseFilter !== 'all') params.warehouseId = warehouseFilter;
-      if (qNormalized) params.q = qNormalized;
+      if (qForApi) params.q = qForApi;
       if (fromDate) params.fromDate = fromDate;
       if (toDate) params.toDate = toDate;
       return api.stockSnapshots.list(params);
@@ -162,12 +166,22 @@ export default function StockSnapshotsPageContainer() {
       ? t('stockSnapshots.viewLatest')
       : t('stockSnapshots.viewJournal');
 
-  const serverPagination = toDataTableServerPagination({
-    total: serverTotal,
-    ariaLabel: t('stockSnapshots.paginationNav'),
-  });
+  const isLoadingFilterOptions =
+    (loadingProducts && products.length === 0) || (loadingWarehouses && warehouses.length === 0);
+  const isLoadingStats = isLoadingFilterOptions || (!snapshotsPayload && loadingSnapshots);
+  const showTableLoading = loadingSnapshots && rows.length === 0;
+  const isRefreshingList = fetchingSnapshots && rows.length > 0;
 
-  const isLoadingAny = loadingSnapshots || loadingProducts || loadingWarehouses;
+  const serverPagination = useMemo(
+    () =>
+      toDataTableServerPagination({
+        totalRows: serverTotal,
+        pageRowCount: rows.length,
+        isLoading: fetchingSnapshots,
+        ariaLabel: t('stockSnapshots.paginationNav'),
+      }),
+    [toDataTableServerPagination, serverTotal, rows.length, fetchingSnapshots, t],
+  );
 
   const clearFilters = () => {
     setProductFilter('all');
@@ -183,7 +197,7 @@ export default function StockSnapshotsPageContainer() {
     productFilter !== 'all' ||
     warehouseFilter !== 'all' ||
     viewMode !== 'journal' ||
-    !!qNormalized ||
+    !!qForUi ||
     !!fromDate ||
     !!toDate;
 
@@ -200,7 +214,7 @@ export default function StockSnapshotsPageContainer() {
       />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {isLoadingAny && !snapshotsPayload ? (
+        {isLoadingStats ? (
           [1, 2, 3, 4].map((i) => (
             <Card key={i} className="dark:border-slate-800 dark:bg-slate-900">
               <CardContent className="pt-6">
@@ -256,7 +270,7 @@ export default function StockSnapshotsPageContainer() {
 
       <Card className="dark:border-slate-800 dark:bg-slate-900">
         <CardContent className="pt-6">
-          {loadingProducts || loadingWarehouses ? (
+          {isLoadingFilterOptions ? (
             <LoadingState />
           ) : (
             <div className="flex flex-wrap items-center gap-4">
@@ -270,10 +284,7 @@ export default function StockSnapshotsPageContainer() {
               <div className="relative w-72">
                 <Input
                   value={q}
-                  onChange={(e) => {
-                    setQ(e.target.value);
-                    resetPage();
-                  }}
+                  onChange={(e) => setQ(e.target.value)}
                   placeholder={t('stockSnapshots.searchPlaceholder')}
                   aria-label={t('stockSnapshots.searchPlaceholder')}
                   className="pr-10"
@@ -393,25 +404,30 @@ export default function StockSnapshotsPageContainer() {
         </CardContent>
       </Card>
 
-      {isLoadingAny && rows.length === 0 ? (
+      {showTableLoading ? (
         <Card className="dark:border-slate-800 dark:bg-slate-900">
           <CardContent className="pt-6">
             <LoadingState />
           </CardContent>
         </Card>
-      ) : rows.length === 0 && !loadingSnapshots ? (
+      ) : rows.length === 0 && !fetchingSnapshots ? (
         <Card className="dark:border-slate-800 dark:bg-slate-900">
           <CardContent className="pt-6">
             <EmptyState message={t('stockSnapshots.emptyMessage')} />
           </CardContent>
         </Card>
       ) : (
-        <Card className="overflow-hidden p-0 dark:border-slate-800 dark:bg-slate-900">
+        <Card
+          className={`overflow-hidden p-0 dark:border-slate-800 dark:bg-slate-900${
+            isRefreshingList ? ' opacity-80 transition-opacity duration-150' : ''
+          }`}
+          aria-busy={isRefreshingList || undefined}
+        >
           <StockSnapshotsTable
             t={t}
             formatDate={formatDate}
             rows={rows}
-            isLoading={loadingSnapshots}
+            isLoading={showTableLoading}
             serverPagination={serverPagination}
             showWarehouseColumn={warehouseFilter === 'all'}
             onOpenDetail={setDetailRow}

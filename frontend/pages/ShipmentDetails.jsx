@@ -277,10 +277,7 @@ export default function ShipmentDetails() {
   });
 
   const handleEditItem = (item) => {
-    if (isFinalStatus) {
-      setError(t('shipmentDetails.errors.cannotEditCompleted'));
-      return;
-    }
+    if (isFinalStatus) return;
     setCurrentItem(item);
     setItemForm({
       productId: item.productId || null,
@@ -425,38 +422,41 @@ export default function ShipmentDetails() {
         );
       },
     },
-    {
-      id: 'actions',
-      header: '',
-      sortable: false,
-      cell: ({ row }) => (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="w-8 h-8">
-              <MoreHorizontal className="w-4 h-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem
-              onClick={() => handleEditItem(row.original)}
-              disabled={isFinalStatus}
-            >
-              <Edit2 className="w-4 h-4 mr-2" />
-              Редактировать
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem 
-              onClick={() => { setCurrentItem(row.original); setDeleteItemDialogOpen(true); }}
-              disabled={isFinalStatus}
-              className="text-red-600"
-            >
-              <Trash2 className="w-4 h-4 mr-2" />
-              Удалить
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      ),
-    },
+    ...(!isFinalStatus
+      ? [
+          {
+            id: 'actions',
+            header: '',
+            sortable: false,
+            cell: ({ row }) => (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="w-8 h-8">
+                    <MoreHorizontal className="w-4 h-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => handleEditItem(row.original)}>
+                    <Edit2 className="w-4 h-4 mr-2" />
+                    {t('common.edit')}
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onClick={() => {
+                      setCurrentItem(row.original);
+                      setDeleteItemDialogOpen(true);
+                    }}
+                    className="text-red-600"
+                  >
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    {t('common.delete')}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ),
+          },
+        ]
+      : []),
   ];
 
   if (!shipmentId) {
@@ -683,17 +683,18 @@ export default function ShipmentDetails() {
           <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
             {t('shipmentDetails.itemsTitle')} ({enrichedItems.length})
           </h2>
-          <Button
-            disabled={isFinalStatus}
-            onClick={() => {
-              setCurrentItem(null);
-              setItemForm(emptyItem);
-              setItemDialogOpen(true);
-            }}
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            {t('shipmentDetails.addItem')}
-          </Button>
+          {!isFinalStatus ? (
+            <Button
+              onClick={() => {
+                setCurrentItem(null);
+                setItemForm(emptyItem);
+                setItemDialogOpen(true);
+              }}
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              {t('shipmentDetails.addItem')}
+            </Button>
+          ) : null}
         </div>
         <DataTable
           columns={itemColumns}

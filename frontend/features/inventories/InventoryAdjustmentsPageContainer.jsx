@@ -228,6 +228,7 @@ function InventoryAdjustmentsPageContainer() {
   };
 
   const handleEdit = (adjustment) => {
+    if (adjustment?.statusIsFinal) return;
     setCurrentAdjustment(adjustment);
     setFormData({
       adjustmentDate: adjustment.adjustmentDate

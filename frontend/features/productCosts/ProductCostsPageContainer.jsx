@@ -1,9 +1,10 @@
 import React, { useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Filter, Plus, X } from 'lucide-react';
 import { api } from '@/api';
 import { useServerOffsetPagination } from '@/hooks/useServerOffsetPagination';
+import { useServerSearchQuery } from '@/hooks/useServerSearchQuery';
 import { useI18n } from '@/lib/i18n';
 import { createPageUrl } from '@/utils';
 import { Button } from '@/components/ui/button';
@@ -102,7 +103,9 @@ export default function ProductCostsPageContainer() {
     resetPage();
   }, [searchParams, resetPage]);
 
-  const qNormalized = useMemo(() => q.trim().slice(0, 100), [q]);
+  const { forApi: qForApi, forUi: qForUi } = useServerSearchQuery(q, {
+    onDebouncedChange: resetPage,
+  });
   const isMissingTab = searchParams.get('tab') === 'missing';
 
   const {
@@ -114,17 +117,18 @@ export default function ProductCostsPageContainer() {
       'product-costs',
       productFilter !== 'all' ? productFilter : null,
       viewMode,
-      qNormalized || null,
+      qForApi || null,
       fromDate || null,
       toDate || null,
       limit,
       offset,
     ],
     enabled: !isMissingTab,
+    placeholderData: keepPreviousData,
     queryFn: async () => {
       const params = { limit, offset, view: viewMode };
       if (productFilter !== 'all') params.productId = productFilter;
-      if (qNormalized) params.q = qNormalized;
+      if (qForApi) params.q = qForApi;
       if (fromDate) params.fromDate = fromDate;
       if (toDate) params.toDate = toDate;
       return api.productCosts.list(params);
@@ -136,11 +140,12 @@ export default function ProductCostsPageContainer() {
     isLoading: loadingMissing,
     isFetching: fetchingMissing,
   } = useQuery({
-    queryKey: ['product-costs-missing', qNormalized || null, limit, offset],
+    queryKey: ['product-costs-missing', qForApi || null, limit, offset],
     enabled: isMissingTab,
+    placeholderData: keepPreviousData,
     queryFn: async () => {
       const params = { limit, offset };
-      if (qNormalized) params.q = qNormalized;
+      if (qForApi) params.q = qForApi;
       return api.productCosts.missing(params);
     },
   });
@@ -201,25 +206,39 @@ export default function ProductCostsPageContainer() {
     const params = new URLSearchParams();
     params.set('view', viewMode);
     if (productFilter !== 'all') params.set('product', productFilter);
-    if (qNormalized) params.set('q', qNormalized);
+    if (qForApi) params.set('q', qForApi);
     if (fromDate) params.set('fromDate', fromDate);
     if (toDate) params.set('toDate', toDate);
     const qs = params.toString();
     return qs ? `${createPageUrl('ProductCosts')}?${qs}` : createPageUrl('ProductCosts');
-  }, [createPageUrl, viewMode, productFilter, qNormalized, fromDate, toDate]);
+  }, [createPageUrl, viewMode, productFilter, qForApi, fromDate, toDate]);
 
   const missingLink = useMemo(() => {
     const params = new URLSearchParams();
     params.set('tab', 'missing');
-    if (qNormalized) params.set('q', qNormalized);
+    if (qForApi) params.set('q', qForApi);
     const qs = params.toString();
     return qs ? `${createPageUrl('ProductCosts')}?${qs}` : createPageUrl('ProductCosts');
-  }, [createPageUrl, qNormalized]);
+  }, [createPageUrl, qForApi]);
 
-  const serverPagination = toDataTableServerPagination({
-    total: serverTotal,
-    ariaLabel: t('productCosts.paginationNav'),
-  });
+  const serverPagination = useMemo(
+    () =>
+      toDataTableServerPagination({
+        totalRows: serverTotal,
+        pageRowCount: rows.length,
+        isLoading: isMissingTab ? fetchingMissing : fetchingCosts,
+        ariaLabel: t('productCosts.paginationNav'),
+      }),
+    [
+      toDataTableServerPagination,
+      serverTotal,
+      rows.length,
+      isMissingTab,
+      fetchingMissing,
+      fetchingCosts,
+      t,
+    ],
+  );
 
   const resetForm = () => {
     setFormData({
@@ -320,26 +339,30 @@ export default function ProductCostsPageContainer() {
   };
 
   const hasActiveFilters = isMissingTab
-    ? !!qNormalized
+    ? !!qForUi
     : productFilter !== 'all' ||
       viewMode !== 'journal' ||
-      !!qNormalized ||
+      !!qForUi ||
       !!fromDate ||
       !!toDate;
 
-  const isLoadingAny = isMissingTab ? loadingMissing : loadingCosts || loadingProducts;
+  const isLoadingFilterOptions = !isMissingTab && loadingProducts && products.length === 0;
+  const isLoadingStats = isMissingTab
+    ? !missingPayload && loadingMissing
+    : isLoadingFilterOptions || (!costsPayload && (loadingCosts || loadingProducts));
   const isSubmitting = createMutation.isPending || updateMutation.isPending;
-  const isMissingRowsLoading = loadingMissing && missingRows.length === 0;
-  const isCostsRowsLoading = isLoadingAny && rows.length === 0;
+  const showTableLoading = isMissingTab
+    ? loadingMissing && missingRows.length === 0
+    : loadingCosts && rows.length === 0;
+  const isRefreshingList = isMissingTab
+    ? fetchingMissing && missingRows.length > 0
+    : fetchingCosts && rows.length > 0;
 
   const renderSearchBox = () => (
     <div className="relative w-72">
       <Input
         value={q}
-        onChange={(e) => {
-          setQ(e.target.value);
-          resetPage();
-        }}
+        onChange={(e) => setQ(e.target.value)}
         placeholder={t('productCosts.searchPlaceholder')}
         aria-label={t('productCosts.searchPlaceholder')}
         className="pr-10"
@@ -387,7 +410,7 @@ export default function ProductCostsPageContainer() {
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         {isMissingTab ? (
-          isLoadingAny && !missingPayload ? (
+          isLoadingStats ? (
             <Card className="dark:border-slate-800 dark:bg-slate-900">
               <CardContent className="pt-6">
                 <LoadingState />
@@ -403,7 +426,7 @@ export default function ProductCostsPageContainer() {
               </CardContent>
             </Card>
           )
-        ) : isLoadingAny && !costsPayload ? (
+        ) : isLoadingStats ? (
           [1, 2, 3].map((i) => (
             <Card key={i} className="dark:border-slate-800 dark:bg-slate-900">
               <CardContent className="pt-6">
@@ -476,7 +499,7 @@ export default function ProductCostsPageContainer() {
                 </Button>
               ) : null}
             </div>
-          ) : loadingProducts ? (
+          ) : isLoadingFilterOptions ? (
             <LoadingState />
           ) : (
             <div className="flex flex-wrap items-center gap-4">
@@ -567,47 +590,57 @@ export default function ProductCostsPageContainer() {
       </Card>
 
       {isMissingTab ? (
-        isMissingRowsLoading ? (
+        showTableLoading ? (
           <Card className="dark:border-slate-800 dark:bg-slate-900">
             <CardContent className="pt-6">
               <LoadingState />
             </CardContent>
           </Card>
-        ) : missingRows.length === 0 && !loadingMissing ? (
+        ) : missingRows.length === 0 && !fetchingMissing ? (
           <Card className="dark:border-slate-800 dark:bg-slate-900">
             <CardContent className="pt-6">
               <EmptyState message={t('productCosts.missing.emptyMessage')} />
             </CardContent>
           </Card>
         ) : (
-          <Card className="overflow-hidden p-0 dark:border-slate-800 dark:bg-slate-900">
+          <Card
+            className={`overflow-hidden p-0 dark:border-slate-800 dark:bg-slate-900${
+              isRefreshingList ? ' opacity-80 transition-opacity duration-150' : ''
+            }`}
+            aria-busy={isRefreshingList || undefined}
+          >
             <ProductMissingCostTable
               t={t}
               rows={missingRows}
-              isLoading={loadingMissing}
+              isLoading={showTableLoading}
               serverPagination={serverPagination}
             />
           </Card>
         )
-      ) : isCostsRowsLoading ? (
+      ) : showTableLoading ? (
         <Card className="dark:border-slate-800 dark:bg-slate-900">
           <CardContent className="pt-6">
             <LoadingState />
           </CardContent>
         </Card>
-      ) : rows.length === 0 && !loadingCosts ? (
+      ) : rows.length === 0 && !fetchingCosts ? (
         <Card className="dark:border-slate-800 dark:bg-slate-900">
           <CardContent className="pt-6">
             <EmptyState message={t('productCosts.emptyMessage')} />
           </CardContent>
         </Card>
       ) : (
-        <Card className="overflow-hidden p-0 dark:border-slate-800 dark:bg-slate-900">
+        <Card
+          className={`overflow-hidden p-0 dark:border-slate-800 dark:bg-slate-900${
+            isRefreshingList ? ' opacity-80 transition-opacity duration-150' : ''
+          }`}
+          aria-busy={isRefreshingList || undefined}
+        >
           <ProductCostsTable
             t={t}
             formatDate={formatDate}
             rows={rows}
-            isLoading={loadingCosts}
+            isLoading={showTableLoading}
             serverPagination={serverPagination}
             onEdit={handleEdit}
             onDelete={(row) => {

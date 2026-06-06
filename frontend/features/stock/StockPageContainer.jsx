@@ -1,8 +1,9 @@
 import React, { useEffect, useLayoutEffect, useMemo, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
 import { api, ApiError } from '@/api';
 import { useServerOffsetPagination } from '@/hooks/useServerOffsetPagination';
+import { useServerSearchQuery } from '@/hooks/useServerSearchQuery';
 import { useI18n } from '@/lib/i18n';
 import { Filter, X, Database } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -98,7 +99,9 @@ function StockPageContainer() {
     resetPage();
   }, [searchParams, resetPage]);
 
-  const qNormalized = useMemo(() => q.trim().slice(0, 100), [q]);
+  const { forApi: qForApi, forUi: qForClientFilter } = useServerSearchQuery(q, {
+    onDebouncedChange: resetPage,
+  });
   const isOwnStockMode = stockSource === 'our';
   const isMarketplaceMode = !isOwnStockMode;
 
@@ -126,12 +129,13 @@ function StockPageContainer() {
       'stock',
       warehouseFilter !== 'all' ? warehouseFilter : null,
       productFilter !== 'all' ? productFilter : null,
-      qNormalized || null,
+      qForApi || null,
       levelFilter,
       limit,
       offset,
     ],
     enabled: isOwnStockMode,
+    placeholderData: keepPreviousData,
     queryFn: async () => {
       const params = { limit, offset };
       if (warehouseFilter !== 'all') {
@@ -140,8 +144,8 @@ function StockPageContainer() {
       if (productFilter !== 'all') {
         params.productId = productFilter;
       }
-      if (qNormalized) {
-        params.q = qNormalized;
+      if (qForApi) {
+        params.q = qForApi;
       }
       if (levelFilter && levelFilter !== 'all') {
         params.levelFilter = levelFilter;
@@ -234,7 +238,17 @@ function StockPageContainer() {
     return warehouse?.name || t('stock.filters.warehouse');
   }, [warehouseFilter, ownWarehouses, t]);
 
-  const isLoadingAny = loadingStock || (isOwnStockMode && (loadingProducts || loadingWarehouses));
+  const isLoadingFilterOptions =
+    isOwnStockMode &&
+    ((loadingProducts && products.length === 0) || (loadingWarehouses && warehouses.length === 0));
+
+  const isLoadingStats =
+    isLoadingFilterOptions ||
+    (isOwnStockMode && !ownStockPayload && loadingOwnStock) ||
+    (isMarketplaceMode && !marketplaceStockPayload && loadingMarketplaceStock);
+
+  const showTableLoading = loadingStock && stock.length === 0;
+  const isRefreshingStock = fetchingStock && stock.length > 0;
 
   const marketplaceBlockingErrorMessage = useMemo(() => {
     if (!isMarketplaceMode || !marketplaceStockQueryError || !marketplaceStockErrorObj) {
@@ -286,8 +300,8 @@ function StockPageContainer() {
     if (productFilter !== 'all') {
       rows = rows.filter((item) => String(item.productId) === productFilter);
     }
-    if (!qNormalized) return rows;
-    const needle = qNormalized.toLowerCase();
+    if (!qForClientFilter) return rows;
+    const needle = qForClientFilter.toLowerCase();
     return rows.filter((item) => {
       const blob = [
         item.productName,
@@ -301,7 +315,7 @@ function StockPageContainer() {
         .toLowerCase();
       return blob.includes(needle);
     });
-  }, [isOwnStockMode, enrichedStock, qNormalized, productFilter]);
+  }, [isOwnStockMode, enrichedStock, qForClientFilter, productFilter]);
 
   const serverTotalRows = isOwnStockMode ? ownStockServerTotal : rowsForPaging.length;
 
@@ -320,14 +334,14 @@ function StockPageContainer() {
       toDataTableServerPagination({
         totalRows: serverTotalRows,
         pageRowCount: displayedStock.length,
-        isLoading: loadingStock,
+        isLoading: fetchingStock,
         ariaLabel: t('stock.paginationNav'),
       }),
     [
       toDataTableServerPagination,
       serverTotalRows,
       displayedStock.length,
-      loadingStock,
+      fetchingStock,
       t,
     ],
   );
@@ -344,7 +358,7 @@ function StockPageContainer() {
 
   const hasActiveFilters =
     productFilter !== 'all' ||
-    !!qNormalized ||
+    !!qForClientFilter ||
     (isOwnStockMode && (warehouseFilter !== 'all' || levelFilter !== 'all'));
 
   return (
@@ -433,7 +447,7 @@ function StockPageContainer() {
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {isLoadingAny ? (
+        {isLoadingStats ? (
           <>
             {[1, 2, 3, 4].map((i) => (
               <Card key={i} className="dark:bg-slate-900 dark:border-slate-800">
@@ -510,7 +524,7 @@ function StockPageContainer() {
 
       <Card className="dark:bg-slate-900 dark:border-slate-800">
         <CardContent className="pt-6">
-          {isLoadingAny ? (
+          {isLoadingFilterOptions ? (
             <LoadingState />
           ) : (
             <div className="flex flex-wrap items-center gap-4">
@@ -523,10 +537,7 @@ function StockPageContainer() {
               <div className="relative w-72">
                 <Input
                   value={q}
-                  onChange={(e) => {
-                    setQ(e.target.value);
-                    resetPage();
-                  }}
+                  onChange={(e) => setQ(e.target.value)}
                   placeholder={t('stock.searchPlaceholder')}
                   className="pr-10"
                 />
@@ -643,13 +654,13 @@ function StockPageContainer() {
             {marketplaceBlockingErrorMessage}
           </CardContent>
         </Card>
-      ) : isLoadingAny ? (
+      ) : showTableLoading ? (
         <Card className="dark:bg-slate-900 dark:border-slate-800">
           <CardContent className="pt-6">
             <LoadingState />
           </CardContent>
         </Card>
-      ) : rowsForPaging.length === 0 ? (
+      ) : rowsForPaging.length === 0 && !fetchingStock ? (
         <Card className="dark:bg-slate-900 dark:border-slate-800">
           <CardContent className="pt-6">
             <EmptyState
@@ -662,12 +673,17 @@ function StockPageContainer() {
           </CardContent>
         </Card>
       ) : (
-        <Card className="overflow-hidden p-0 dark:border-slate-800 dark:bg-slate-900">
+        <Card
+          className={`overflow-hidden p-0 dark:border-slate-800 dark:bg-slate-900${
+            isRefreshingStock ? ' opacity-80 transition-opacity duration-150' : ''
+          }`}
+          aria-busy={isRefreshingStock || undefined}
+        >
           <StockTable
             t={t}
             stock={displayedStock}
             warehouseFilter={warehouseFilter}
-            isLoading={loadingStock}
+            isLoading={showTableLoading}
             serverPagination={serverPagination}
             showReorderPoint={isOwnStockMode}
             showCostColumns={isOwnStockMode}

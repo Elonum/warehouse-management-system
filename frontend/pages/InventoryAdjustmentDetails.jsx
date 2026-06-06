@@ -354,6 +354,7 @@ export default function InventoryAdjustmentDetails() {
   });
 
   const handleEditItem = (item) => {
+    if (isFinalStatus) return;
     setCurrentItem(item);
     setItemForm({
       productId: item.productId || null,
@@ -411,7 +412,8 @@ export default function InventoryAdjustmentDetails() {
     return status?.name || t('common.notSpecified');
   };
 
-  const itemColumns = [
+  const itemColumns = useMemo(() => {
+    const baseColumns = [
     {
       accessorKey: 'productName',
       header: t('inventoryAdjustments.details.productLabel'),
@@ -479,35 +481,44 @@ export default function InventoryAdjustmentDetails() {
         </span>
       ),
     },
-    {
-      id: 'actions',
-      header: '',
-      sortable: false,
-      cell: ({ row }) => (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="w-8 h-8">
-              <MoreHorizontal className="w-4 h-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => handleEditItem(row.original)}>
-              <Edit2 className="w-4 h-4 mr-2" />
-              {t('inventoryAdjustments.details.editItem')}
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem 
-              onClick={() => { setCurrentItem(row.original); setDeleteItemDialogOpen(true); }}
-              className="text-red-600"
-            >
-              <Trash2 className="w-4 h-4 mr-2" />
-              {t('inventoryAdjustments.details.deleteItemTitle')}
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      ),
-    },
-  ];
+    ];
+
+    if (!isFinalStatus) {
+      baseColumns.push({
+        id: 'actions',
+        header: '',
+        sortable: false,
+        cell: ({ row }) => (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="w-8 h-8">
+                <MoreHorizontal className="w-4 h-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => handleEditItem(row.original)}>
+                <Edit2 className="w-4 h-4 mr-2" />
+                {t('inventoryAdjustments.details.editItem')}
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={() => {
+                  setCurrentItem(row.original);
+                  setDeleteItemDialogOpen(true);
+                }}
+                className="text-red-600"
+              >
+                <Trash2 className="w-4 h-4 mr-2" />
+                {t('inventoryAdjustments.details.deleteItemTitle')}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        ),
+      });
+    }
+
+    return baseColumns;
+  }, [isFinalStatus, t]);
 
   if (!adjustmentId) {
     return (

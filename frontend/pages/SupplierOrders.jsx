@@ -276,10 +276,8 @@ export default function SupplierOrders() {
   }, []);
 
   const handleEdit = (order) => {
-    if (isOrderFinal(order)) {
-      setError(t('supplierOrderDetails.errors.cannotEditCompleted'));
-      return;
-    }
+    if (isOrderFinal(order)) return;
+    setError('');
     setCurrentOrder(order);
     setFormData({
       orderNumber: order.orderNumber || '',
@@ -364,11 +362,7 @@ export default function SupplierOrders() {
         onEditOrder={handleEdit}
         onCreateSubOrder={handleCreateSubOrder}
         onRequestDelete={(order) => {
-          if (isOrderFinal(order)) {
-            setDeleteError(t('supplierOrderDetails.errors.cannotDeleteCompleted'));
-            setDeleteErrorDialogOpen(true);
-            return;
-          }
+          if (isOrderFinal(order)) return;
           setCurrentOrder(order);
           setDeleteError('');
           deleteModal.open(order);

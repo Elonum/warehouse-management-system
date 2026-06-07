@@ -27,6 +27,15 @@ type Config struct {
 	BaseURL     string // Base URL for serving files (e.g., "http://localhost:8080")
 	FrontendURL string // Frontend URL for password reset links (e.g., "http://localhost:5173")
 
+	SMTPHost     string
+	SMTPPort     string
+	SMTPUsername string
+	SMTPPassword string
+	SMTPFrom     string
+	SMTPFromName string
+	SMTPTLSMode  string // starttls, tls, none (none is development-only)
+	SMTPTimeout  time.Duration
+
 	// Wildberries Statistics API — остатки GET /api/v1/supplier/stocks (категория «Статистика»; для песочницы — тестовый контур и WB_STATISTICS_BASE_URL).
 	WbStatisticsToken   string
 	WbStatisticsBaseURL string
@@ -78,6 +87,15 @@ func Load() Config {
 		BaseURL:     getEnv("BASE_URL", "http://localhost:"+port),
 		FrontendURL: getEnv("FRONTEND_URL", "http://localhost:5173"), // Default to Vite dev server
 
+		SMTPHost:     getEnv("SMTP_HOST", ""),
+		SMTPPort:     getEnv("SMTP_PORT", "587"),
+		SMTPUsername: getEnv("SMTP_USERNAME", ""),
+		SMTPPassword: getEnv("SMTP_PASSWORD", ""),
+		SMTPFrom:     getEnv("SMTP_FROM", ""),
+		SMTPFromName: getEnv("SMTP_FROM_NAME", "Warehouse Management System"),
+		SMTPTLSMode:  strings.ToLower(getEnv("SMTP_TLS_MODE", "starttls")),
+		SMTPTimeout:  durationEnv("SMTP_TIMEOUT", 10*time.Second),
+
 		WbStatisticsToken:   getEnv("WB_STATISTICS_TOKEN", ""),
 		WbStatisticsBaseURL: getEnv("WB_STATISTICS_BASE_URL", "https://statistics-api.wildberries.ru"),
 
@@ -114,6 +132,24 @@ func (c Config) Validate() error {
 	}
 	if strings.TrimSpace(c.JWTSecret) == "" || c.JWTSecret == defaultJWTSecret {
 		return fmt.Errorf("JWT_SECRET must be set to a strong unique value when ENV=production")
+	}
+	if strings.TrimSpace(c.FrontendURL) == "" {
+		return fmt.Errorf("FRONTEND_URL must be set when ENV=production")
+	}
+	if strings.TrimSpace(c.SMTPHost) == "" {
+		return fmt.Errorf("SMTP_HOST must be set when ENV=production")
+	}
+	if strings.TrimSpace(c.SMTPPort) == "" {
+		return fmt.Errorf("SMTP_PORT must be set when ENV=production")
+	}
+	if strings.TrimSpace(c.SMTPFrom) == "" {
+		return fmt.Errorf("SMTP_FROM must be set when ENV=production")
+	}
+	if c.SMTPTLSMode != "starttls" && c.SMTPTLSMode != "tls" && c.SMTPTLSMode != "none" {
+		return fmt.Errorf("SMTP_TLS_MODE must be one of starttls, tls, none")
+	}
+	if c.SMTPTLSMode == "none" {
+		return fmt.Errorf("SMTP_TLS_MODE=none is not allowed when ENV=production")
 	}
 	return nil
 }

@@ -57,7 +57,16 @@ func NewRouter(pg *db.Postgres, cfg config.Config) *chi.Mux {
 
 	// Password reset and email services
 	passwordResetRepo := repository.NewPasswordResetRepository(pg.Pool)
-	emailService := service.NewEmailService(cfg.FrontendURL, cfg.Env)
+	emailService := service.NewEmailService(cfg.FrontendURL, cfg.Env, service.SMTPConfig{
+		Host:     cfg.SMTPHost,
+		Port:     cfg.SMTPPort,
+		Username: cfg.SMTPUsername,
+		Password: cfg.SMTPPassword,
+		From:     cfg.SMTPFrom,
+		FromName: cfg.SMTPFromName,
+		TLSMode:  cfg.SMTPTLSMode,
+		Timeout:  cfg.SMTPTimeout,
+	})
 	authService := service.NewAuthService(userRepo, roleRepo, passwordResetRepo, emailService, jwtManager)
 	productService := service.NewProductService(productRepo, productImageRepo, productCostRepo, cfg.BaseURL)
 	go func() {
@@ -183,4 +192,3 @@ func buildAuthRateLimiters() (login, register, passwordReset *middleware.RateLim
 	passwordReset = middleware.NewRateLimiter(5, 1*time.Hour)
 	return
 }
-

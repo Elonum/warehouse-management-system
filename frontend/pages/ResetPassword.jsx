@@ -60,10 +60,14 @@ export default function ResetPassword() {
           } else if (err.code === 'WEAK_PASSWORD') {
             setError(t('auth.resetPassword.errors.weakPassword'));
           } else {
-            setError(err.message || t('auth.resetPassword.errors.resetFailed'));
+            setError(t('auth.resetPassword.errors.resetFailed'));
           }
+        } else if (err.code === 'RATE_LIMIT_EXCEEDED') {
+          setError(t('auth.login.errors.rateLimited'));
+        } else if (err.code === 'NETWORK_ERROR') {
+          setError(t('auth.resetPassword.errors.network'));
         } else {
-          setError(err.message || t('auth.resetPassword.errors.resetFailed'));
+          setError(t('auth.resetPassword.errors.resetFailed'));
         }
       } else {
         setError(t('auth.resetPassword.errors.network'));

@@ -22,10 +22,12 @@ export default function ForgotPassword() {
       setError('');
     },
     onError: (err) => {
-      if (err instanceof ApiError) {
-        setError(err.message || t('auth.forgotPassword.errors.requestFailed'));
-      } else {
+      if (err instanceof ApiError && err.code === 'RATE_LIMIT_EXCEEDED') {
+        setError(t('auth.login.errors.rateLimited'));
+      } else if (err instanceof ApiError && err.code === 'NETWORK_ERROR') {
         setError(t('auth.forgotPassword.errors.network'));
+      } else {
+        setError(t('auth.forgotPassword.errors.requestFailed'));
       }
       setSuccess(false);
     },

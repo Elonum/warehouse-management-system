@@ -220,6 +220,13 @@ func (s *AuthService) BuildUserResponse(ctx context.Context, user *repository.Us
 // Always returns nil to prevent email enumeration (even if email doesn't exist).
 // Token is never returned to the caller; in development it is printed to backend logs.
 func (s *AuthService) RequestPasswordReset(ctx context.Context, email string) error {
+	startTime := time.Now()
+	defer func() {
+		if sleepFor := minProcessingDelay(time.Since(startTime), 200*time.Millisecond); sleepFor > 0 {
+			time.Sleep(sleepFor)
+		}
+	}()
+
 	// Validate email format
 	if err := validation.ValidateEmail(email); err != nil {
 		// Don't reveal if email exists - always return success
@@ -240,6 +247,9 @@ func (s *AuthService) RequestPasswordReset(ctx context.Context, email string) er
 	if err := s.passwordResetRepo.InvalidateUserTokens(ctx, user.UserID); err != nil {
 		log.Warn().Err(err).Str("userId", user.UserID.String()).Msg("Failed to invalidate existing tokens")
 		// Continue anyway - not critical
+	}
+	if err := s.passwordResetRepo.DeleteExpiredTokens(ctx); err != nil {
+		log.Warn().Err(err).Msg("Failed to delete expired password reset tokens")
 	}
 
 	// Generate secure token (32 random bytes = 256 bits)
@@ -268,10 +278,13 @@ func (s *AuthService) RequestPasswordReset(ctx context.Context, email string) er
 		return nil
 	}
 
-	// Send email with reset link
-	if err := s.emailService.SendPasswordResetEmail(user.Email, token); err != nil {
-		log.Error().Err(err).Str("email", user.Email).Msg("Failed to send password reset email")
-	}
+	go func(userID uuid.UUID, email, resetToken string) {
+		if err := s.emailService.SendPasswordResetEmail(email, resetToken); err != nil {
+			log.Error().Err(err).Str("userId", userID.String()).Msg("Failed to send password reset email")
+			return
+		}
+		log.Info().Str("userId", userID.String()).Msg("Password reset email sent")
+	}(user.UserID, user.Email, token)
 
 	log.Info().Str("userId", user.UserID.String()).Msg("Password reset requested")
 	return nil
@@ -279,6 +292,11 @@ func (s *AuthService) RequestPasswordReset(ctx context.Context, email string) er
 
 // ResetPassword resets the user's password using a valid reset token
 func (s *AuthService) ResetPassword(ctx context.Context, token, newPassword string) error {
+	tokenBytes, err := base64.RawURLEncoding.DecodeString(token)
+	if err != nil || len(tokenBytes) != 32 {
+		return ErrPasswordResetTokenInvalid
+	}
+
 	// Validate password strength
 	passwordReq := validation.DefaultPasswordRequirements()
 	if err := validation.ValidatePassword(newPassword, passwordReq); err != nil {

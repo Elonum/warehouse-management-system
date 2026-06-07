@@ -71,6 +71,7 @@ UI: `http://localhost:5173`
 | `DB_*` | Подключение к PostgreSQL |
 | `JWT_SECRET` | Подпись JWT (**обязательна** при `ENV=production`) |
 | `FRONTEND_URL` | Ссылки сброса пароля, CORS |
+| `SMTP_*` | Отправка писем сброса пароля (**обязательна** при `ENV=production`) |
 | `WB_STATISTICS_TOKEN` | Остатки Wildberries |
 | `OZON_CLIENT_ID`, `OZON_API_KEY` | Ozon Seller API |
 
@@ -94,6 +95,7 @@ backend/uploads/  Загруженные файлы (не в git)
 - `.env` и загрузки пользователей **не попадают в git** — см. `.gitignore`
 - Документы отдаются только с JWT; изображения товаров — публичные
 - В production задайте сильный `JWT_SECRET` (`ENV=production`)
+- В production настройте SMTP (`SMTP_HOST`, `SMTP_FROM`, `SMTP_TLS_MODE=starttls|tls`) — без этого API не стартует
 - `database/test_values.sql` содержит **только dev-пароль** `password123` — не используйте в prod
 
 ---

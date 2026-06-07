@@ -219,7 +219,9 @@ func (s *ProductService) Delete(ctx context.Context, productID uuid.UUID) error 
 	// Images metadata are deleted by CASCADE; files require explicit disk cleanup.
 	err := s.repo.Delete(ctx, productID)
 	if err != nil {
-		log.Error().Err(err).Str("productId", productID.String()).Msg("Failed to delete product")
+		if !errors.Is(err, repository.ErrProductInUse) {
+			log.Error().Err(err).Str("productId", productID.String()).Msg("Failed to delete product")
+		}
 		return err
 	}
 	for _, img := range images {

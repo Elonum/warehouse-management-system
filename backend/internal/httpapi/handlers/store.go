@@ -175,6 +175,9 @@ func (h *StoreHandler) Delete(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusNotFound, "STORE_NOT_FOUND", "store not found")
 			return
 		}
+		if writeDeleteInUse(w, err, repository.ErrStoreInUse, "STORE_IN_USE", "store is used and cannot be deleted", "storeId", storeID.String()) {
+			return
+		}
 		log.Error().Err(err).Str("storeId", storeID.String()).Msg("Failed to delete store")
 		writeError(w, http.StatusInternalServerError, "STORE_DELETE_FAILED", "failed to delete store")
 		return

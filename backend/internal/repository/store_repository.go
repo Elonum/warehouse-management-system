@@ -14,6 +14,7 @@ import (
 var (
 	ErrStoreNotFound = errors.New("store not found")
 	ErrStoreExists   = errors.New("store already exists")
+	ErrStoreInUse    = errors.New("store is used in other records")
 )
 
 type Store struct {
@@ -163,7 +164,7 @@ func (r *StoreRepository) Delete(ctx context.Context, storeID uuid.UUID) error {
 
 	result, err := r.pool.Exec(ctx, query, storeID)
 	if err != nil {
-		return err
+		return MapDeleteForeignKey(err, ErrStoreInUse)
 	}
 
 	if result.RowsAffected() == 0 {

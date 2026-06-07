@@ -15,6 +15,7 @@ import (
 var (
 	ErrOrderStatusNotFound = errors.New("order status not found")
 	ErrOrderStatusExists   = errors.New("order status already exists")
+	ErrOrderStatusInUse    = errors.New("order status is used by orders")
 )
 
 type OrderStatus struct {
@@ -169,7 +170,7 @@ func (r *OrderStatusRepository) Delete(ctx context.Context, statusID uuid.UUID) 
 
 	result, err := r.pool.Exec(ctx, query, statusID)
 	if err != nil {
-		return err
+		return MapDeleteForeignKey(err, ErrOrderStatusInUse)
 	}
 
 	if result.RowsAffected() == 0 {

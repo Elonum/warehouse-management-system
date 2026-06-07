@@ -175,6 +175,9 @@ func (h *InventoryStatusHandler) Delete(w http.ResponseWriter, r *http.Request) 
 			writeError(w, http.StatusNotFound, "STATUS_NOT_FOUND", "inventory status not found")
 			return
 		}
+		if writeDeleteInUse(w, err, repository.ErrInventoryStatusInUse, "STATUS_IN_USE", "inventory status is used by inventories", "statusId", statusID.String()) {
+			return
+		}
 		log.Error().Err(err).Str("statusId", statusID.String()).Msg("Failed to delete inventory status")
 		writeError(w, http.StatusInternalServerError, "STATUS_DELETE_FAILED", "failed to delete inventory status")
 		return

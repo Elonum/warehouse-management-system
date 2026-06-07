@@ -15,6 +15,7 @@ import (
 var (
 	ErrShipmentStatusNotFound = errors.New("shipment status not found")
 	ErrShipmentStatusExists   = errors.New("shipment status already exists")
+	ErrShipmentStatusInUse    = errors.New("shipment status is used by shipments")
 )
 
 type ShipmentStatus struct {
@@ -169,7 +170,7 @@ func (r *ShipmentStatusRepository) Delete(ctx context.Context, statusID uuid.UUI
 
 	result, err := r.pool.Exec(ctx, query, statusID)
 	if err != nil {
-		return err
+		return MapDeleteForeignKey(err, ErrShipmentStatusInUse)
 	}
 
 	if result.RowsAffected() == 0 {

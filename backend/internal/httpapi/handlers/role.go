@@ -175,6 +175,9 @@ func (h *RoleHandler) Delete(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusNotFound, "ROLE_NOT_FOUND", "role not found")
 			return
 		}
+		if writeDeleteInUse(w, err, repository.ErrRoleInUse, "ROLE_IN_USE", "role is used by users and cannot be deleted", "roleId", roleID.String()) {
+			return
+		}
 		log.Error().Err(err).Str("roleId", roleID.String()).Msg("Failed to delete role")
 		writeError(w, http.StatusInternalServerError, "ROLE_DELETE_FAILED", "failed to delete role")
 		return

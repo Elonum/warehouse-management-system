@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError } from '@/api';
+import { messageForDeleteError } from '@/lib/deleteErrors';
 import { useI18n } from '@/lib/i18n';
 import { Plus, FileSpreadsheet } from 'lucide-react';
 import { GuardedButton } from '@/components/auth/PermissionControls';
@@ -157,19 +158,7 @@ function ProductsPageContainer() {
         queryClient.setQueryData(['products'], context.previousData);
       }
 
-      if (err instanceof ApiError) {
-        if (err.code === 'PRODUCT_IN_USE') {
-          setDeleteError(t('products.errors.deleteInUse'));
-        }
-        // Always show i18n errors to the user.
-        // Keep backend message for debugging only.
-        if (err.code !== 'PRODUCT_IN_USE') {
-          setDeleteError(t('products.errors.deleteFailed'));
-        }
-        return;
-      }
-
-      setDeleteError(t('products.errors.deleteFailed'));
+      setDeleteError(messageForDeleteError(err, t, { failedKey: 'products.errors.deleteFailed' }));
     },
   });
 

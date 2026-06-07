@@ -285,7 +285,9 @@ func (s *UserService) Delete(ctx context.Context, actorUserID uuid.UUID, userID 
 
 	err = s.repo.Delete(ctx, userID)
 	if err != nil {
-		log.Error().Err(err).Str("userId", userID.String()).Msg("Failed to delete user")
+		if err != repository.ErrUserInUse {
+			log.Error().Err(err).Str("userId", userID.String()).Msg("Failed to delete user")
+		}
 		return err
 	}
 

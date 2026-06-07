@@ -188,10 +188,7 @@ func (h *ShipmentStatusHandler) Delete(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusNotFound, "STATUS_NOT_FOUND", "shipment status not found")
 			return
 		}
-		errMsg := err.Error()
-		if strings.Contains(errMsg, "foreign key") || strings.Contains(errMsg, "23503") {
-			log.Warn().Str("statusId", statusID.String()).Msg("Attempt to delete shipment status used by shipments")
-			writeError(w, http.StatusBadRequest, "STATUS_IN_USE", "shipment status is used by shipments")
+		if writeDeleteInUse(w, err, repository.ErrShipmentStatusInUse, "STATUS_IN_USE", "shipment status is used by shipments", "statusId", statusID.String()) {
 			return
 		}
 		log.Error().Err(err).Str("statusId", statusID.String()).Msg("Failed to delete shipment status")

@@ -617,6 +617,8 @@ const translations = {
         createFailed: 'Ошибка создания',
         updateFailed: 'Ошибка обновления',
         deleteFailed: 'Ошибка удаления',
+        deleteInUse: 'Нельзя удалить склад: он используется в заказах, отгрузках или остатках',
+        storeDeleteInUse: 'Нельзя удалить магазин: он используется в отгрузках',
       },
     },
     stock: {
@@ -1318,6 +1320,7 @@ const translations = {
         nameOnlyLetters: 'Только буквы (кириллица или латиница)',
         emailExists: 'Пользователь с таким email уже существует',
         cannotDeleteSelf: 'Нельзя удалить свою учётную запись',
+        userInUse: 'Нельзя удалить пользователя: он указан в документах системы. Деактивируйте доступ или переназначьте документы.',
         lastAdministrator: 'Нельзя удалить или понизить последнего администратора',
         selfRoleDemoted: 'Роль обновлена. Доступ администратора снят.',
         createFailed: 'Ошибка создания пользователя',
@@ -1938,6 +1941,8 @@ const translations = {
         createFailed: 'Failed to create',
         updateFailed: 'Failed to update',
         deleteFailed: 'Failed to delete',
+        deleteInUse: 'Cannot delete warehouse: it is used in orders, shipments, or stock records',
+        storeDeleteInUse: 'Cannot delete store: it is used in shipments',
       },
     },
     stock: {
@@ -2636,6 +2641,7 @@ const translations = {
         nameOnlyLetters: 'Only letters (Cyrillic or Latin)',
         emailExists: 'A user with this email already exists',
         cannotDeleteSelf: 'You cannot delete your own account',
+        userInUse: 'Cannot delete user: they are referenced by system documents. Disable access or reassign documents.',
         lastAdministrator: 'Cannot remove or demote the last administrator',
         selfRoleDemoted: 'Role updated. Administrator access has been revoked.',
         createFailed: 'Failed to create user',

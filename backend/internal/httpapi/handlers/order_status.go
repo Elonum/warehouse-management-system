@@ -175,6 +175,9 @@ func (h *OrderStatusHandler) Delete(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusNotFound, "STATUS_NOT_FOUND", "order status not found")
 			return
 		}
+		if writeDeleteInUse(w, err, repository.ErrOrderStatusInUse, "STATUS_IN_USE", "order status is used by orders", "statusId", statusID.String()) {
+			return
+		}
 		log.Error().Err(err).Str("statusId", statusID.String()).Msg("Failed to delete order status")
 		writeError(w, http.StatusInternalServerError, "STATUS_DELETE_FAILED", "failed to delete order status")
 		return

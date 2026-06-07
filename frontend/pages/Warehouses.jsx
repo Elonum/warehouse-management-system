@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError } from '@/api';
+import { messageForDeleteError } from '@/lib/deleteErrors';
 import { useI18n } from '@/lib/i18n';
 import { Plus, Edit2, Trash2, Warehouse, Store, MoreHorizontal, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -63,6 +64,7 @@ export default function Warehouses() {
   const [warehouseForm, setWarehouseForm] = useState(emptyWarehouse);
   const [storeForm, setStoreForm] = useState(emptyStore);
   const [error, setError] = useState('');
+  const [deleteError, setDeleteError] = useState('');
 
   const { data: warehousesData, isLoading: loadingWarehouses, refetch: refetchWarehouses } = useQuery({
     queryKey: ['warehouses'],
@@ -136,6 +138,7 @@ export default function Warehouses() {
     onSuccess: async () => {
       deleteModal.close();
       setCurrentItem(null);
+      setDeleteError('');
       setError('');
       await queryClient.invalidateQueries({ queryKey: ['warehouses'] });
       await refetchWarehouses();
@@ -144,12 +147,7 @@ export default function Warehouses() {
       if (context?.previousData) {
         queryClient.setQueryData(['warehouses'], context.previousData);
       }
-      if (err instanceof ApiError) {
-        setError(err.message || t('warehouses.errors.deleteFailed'));
-      } else {
-        setError(t('warehouses.errors.deleteFailed'));
-      }
-      deleteModal.close();
+      setDeleteError(messageForDeleteError(err, t, { failedKey: 'warehouses.errors.deleteFailed' }));
     },
   });
 
@@ -206,6 +204,7 @@ export default function Warehouses() {
     onSuccess: async () => {
       deleteModal.close();
       setCurrentItem(null);
+      setDeleteError('');
       setError('');
       await queryClient.invalidateQueries({ queryKey: ['stores'] });
       await refetchStores();
@@ -214,12 +213,7 @@ export default function Warehouses() {
       if (context?.previousData) {
         queryClient.setQueryData(['stores'], context.previousData);
       }
-      if (err instanceof ApiError) {
-        setError(err.message || t('warehouses.errors.deleteFailed'));
-      } else {
-        setError(t('warehouses.errors.deleteFailed'));
-      }
-      deleteModal.close();
+      setDeleteError(messageForDeleteError(err, t, { failedKey: 'warehouses.errors.deleteFailed' }));
     },
   });
 
@@ -244,6 +238,7 @@ export default function Warehouses() {
   const handleDelete = (item, type) => {
     setCurrentItem(item);
     setDeleteType(type);
+    setDeleteError('');
     deleteModal.open({ item, type });
   };
 
@@ -624,7 +619,15 @@ export default function Warehouses() {
       </Dialog>
 
       {/* Delete Dialog */}
-      <AlertDialog open={deleteModal.isOpen} onOpenChange={deleteModal.setIsOpen}>
+      <AlertDialog
+        open={deleteModal.isOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            deleteModal.close();
+            setDeleteError('');
+          }
+        }}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
@@ -636,10 +639,16 @@ export default function Warehouses() {
                 : t('warehouses.deleteConfirm.storeDescription', { name: currentItem?.name || '' })}
             </AlertDialogDescription>
           </AlertDialogHeader>
+          {deleteError && (
+            <div className="px-6 pb-2 text-sm text-red-600 dark:text-red-400">
+              {deleteError}
+            </div>
+          )}
           <AlertDialogFooter>
             <AlertDialogCancel
               onClick={() => {
                 deleteModal.close();
+                setDeleteError('');
               }}
             >
               {t('common.cancel')}

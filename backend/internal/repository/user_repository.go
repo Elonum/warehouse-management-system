@@ -14,6 +14,7 @@ import (
 var (
 	ErrUserNotFound        = errors.New("user not found")
 	ErrUserExists          = errors.New("user already exists")
+	ErrUserInUse           = errors.New("user is used in other records")
 	ErrCannotDeleteSelf    = errors.New("cannot delete own account")
 	ErrLastAdministrator   = errors.New("cannot remove the last administrator")
 )
@@ -284,7 +285,7 @@ func (r *UserRepository) Delete(ctx context.Context, userID uuid.UUID) error {
 
 	result, err := r.pool.Exec(ctx, query, userID)
 	if err != nil {
-		return err
+		return MapDeleteForeignKey(err, ErrUserInUse)
 	}
 
 	if result.RowsAffected() == 0 {

@@ -15,6 +15,7 @@ import (
 var (
 	ErrInventoryStatusNotFound = errors.New("inventory status not found")
 	ErrInventoryStatusExists   = errors.New("inventory status already exists")
+	ErrInventoryStatusInUse    = errors.New("inventory status is used by inventories")
 )
 
 type InventoryStatus struct {
@@ -169,7 +170,7 @@ func (r *InventoryStatusRepository) Delete(ctx context.Context, statusID uuid.UU
 
 	result, err := r.pool.Exec(ctx, query, statusID)
 	if err != nil {
-		return err
+		return MapDeleteForeignKey(err, ErrInventoryStatusInUse)
 	}
 
 	if result.RowsAffected() == 0 {

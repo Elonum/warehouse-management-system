@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError } from '@/api';
+import { messageForDeleteError } from '@/lib/deleteErrors';
 import { useI18n } from '@/lib/i18n';
 import { 
   Shield,
@@ -163,11 +164,7 @@ export default function ReferenceData() {
       setCurrentRole(null);
     },
     onError: (err) => {
-      if (err instanceof ApiError) {
-        setDeleteError(err.message || t('referenceData.roles.errors.deleteFailed'));
-      } else {
-        setDeleteError(t('referenceData.roles.errors.deleteFailed'));
-      }
+      setDeleteError(messageForDeleteError(err, t, { failedKey: 'referenceData.roles.errors.deleteFailed' }));
     },
   });
 
@@ -284,11 +281,10 @@ export default function ReferenceData() {
       setCurrentOrderStatus(null);
     },
     onError: (err) => {
-      if (err instanceof ApiError) {
-        setOrderStatusDeleteError(err.message || t('referenceData.orderStatuses.errors.deleteFailed'));
-      } else {
-        setOrderStatusDeleteError(t('referenceData.orderStatuses.errors.deleteFailed'));
-      }
+      setOrderStatusDeleteError(messageForDeleteError(err, t, {
+        failedKey: 'referenceData.orderStatuses.errors.deleteFailed',
+        inUseKey: 'referenceData.orderStatuses.errors.statusInUseSingle',
+      }));
     },
   });
 
@@ -407,19 +403,10 @@ export default function ReferenceData() {
       setCurrentShipmentStatus(null);
     },
     onError: (err) => {
-      if (err instanceof ApiError) {
-        if (err.code === 'STATUS_IN_USE') {
-          setShipmentStatusDeleteError(
-            t('referenceData.shipmentStatuses.errors.statusInUseSingle'),
-          );
-        } else {
-          setShipmentStatusDeleteError(
-            err.message || t('referenceData.shipmentStatuses.errors.deleteFailed'),
-          );
-        }
-      } else {
-        setShipmentStatusDeleteError(t('referenceData.shipmentStatuses.errors.deleteFailed'));
-      }
+      setShipmentStatusDeleteError(messageForDeleteError(err, t, {
+        failedKey: 'referenceData.shipmentStatuses.errors.deleteFailed',
+        inUseKey: 'referenceData.shipmentStatuses.errors.statusInUseSingle',
+      }));
     },
   });
 
@@ -602,11 +589,10 @@ export default function ReferenceData() {
       setCurrentInventoryStatus(null);
     },
     onError: (err) => {
-      if (err instanceof ApiError) {
-        setInventoryStatusDeleteError(err.message || t('referenceData.inventoryStatuses.errors.deleteFailed'));
-      } else {
-        setInventoryStatusDeleteError(t('referenceData.inventoryStatuses.errors.deleteFailed'));
-      }
+      setInventoryStatusDeleteError(messageForDeleteError(err, t, {
+        failedKey: 'referenceData.inventoryStatuses.errors.deleteFailed',
+        inUseKey: 'referenceData.inventoryStatuses.errors.statusInUseSingle',
+      }));
     },
   });
 

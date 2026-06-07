@@ -14,6 +14,7 @@ import (
 var (
 	ErrWarehouseNotFound = errors.New("warehouse not found")
 	ErrWarehouseExists   = errors.New("warehouse already exists")
+	ErrWarehouseInUse    = errors.New("warehouse is used in other records")
 )
 
 type Warehouse struct {
@@ -173,7 +174,7 @@ func (r *WarehouseRepository) Delete(ctx context.Context, warehouseID uuid.UUID)
 
 	result, err := r.pool.Exec(ctx, query, warehouseID)
 	if err != nil {
-		return err
+		return MapDeleteForeignKey(err, ErrWarehouseInUse)
 	}
 
 	if result.RowsAffected() == 0 {

@@ -199,9 +199,7 @@ func (h *ProductHandler) Delete(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusNotFound, "PRODUCT_NOT_FOUND", "product not found")
 			return
 		}
-		if err == repository.ErrProductInUse {
-			log.Warn().Str("productId", productID.String()).Msg("Product deletion blocked (in use)")
-			writeError(w, http.StatusConflict, "PRODUCT_IN_USE", "product is used and cannot be deleted")
+		if writeDeleteInUse(w, err, repository.ErrProductInUse, "PRODUCT_IN_USE", "product is used and cannot be deleted", "productId", productID.String()) {
 			return
 		}
 		log.Error().Err(err).Str("productId", productID.String()).Msg("Failed to delete product")

@@ -266,6 +266,9 @@ func (h *UserHandler) Delete(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusConflict, "LAST_ADMINISTRATOR", "cannot delete the last administrator")
 			return
 		}
+		if writeDeleteInUse(w, err, repository.ErrUserInUse, "USER_IN_USE", "user is used in documents and cannot be deleted", "userId", userID.String()) {
+			return
+		}
 		log.Error().Err(err).Str("userId", userID.String()).Msg("Failed to delete user")
 		writeError(w, http.StatusInternalServerError, "USER_DELETE_FAILED", "failed to delete user")
 		return

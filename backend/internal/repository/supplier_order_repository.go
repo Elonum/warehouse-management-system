@@ -333,14 +333,7 @@ func (r *SupplierOrderRepository) Delete(ctx context.Context, orderID uuid.UUID)
 
 	result, err := r.pool.Exec(ctx, query, orderID)
 	if err != nil {
-		errMsg := err.Error()
-		// Check for foreign key constraint violation (sub-orders exist)
-		if strings.Contains(errMsg, "supplier_orders_parent_order_id_fkey") ||
-			strings.Contains(errMsg, "foreign key") ||
-			strings.Contains(errMsg, "23503") {
-			return ErrSupplierOrderHasSubOrders
-		}
-		return err
+		return MapDeleteForeignKey(err, ErrSupplierOrderHasSubOrders)
 	}
 
 	if result.RowsAffected() == 0 {

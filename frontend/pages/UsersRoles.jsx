@@ -96,6 +96,7 @@ function mapUserApiError(err, t, fallback) {
   const codeMessages = {
     USER_EXISTS: t('users.errors.emailExists'),
     CANNOT_DELETE_SELF: t('users.errors.cannotDeleteSelf'),
+    USER_IN_USE: t('users.errors.userInUse'),
     LAST_ADMINISTRATOR: t('users.errors.lastAdministrator'),
     INVALID_NAME: t('users.errors.nameValidation'),
     NAME_REQUIRED: t('users.errors.nameValidation'),

@@ -14,6 +14,7 @@ import (
 var (
 	ErrRoleNotFound = errors.New("role not found")
 	ErrRoleExists   = errors.New("role already exists")
+	ErrRoleInUse    = errors.New("role is used by users")
 )
 
 type Role struct {
@@ -164,7 +165,7 @@ func (r *RoleRepository) Delete(ctx context.Context, roleID uuid.UUID) error {
 
 	result, err := r.pool.Exec(ctx, query, roleID)
 	if err != nil {
-		return err
+		return MapDeleteForeignKey(err, ErrRoleInUse)
 	}
 
 	if result.RowsAffected() == 0 {

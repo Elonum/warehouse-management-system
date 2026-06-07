@@ -175,6 +175,9 @@ func (h *WarehouseHandler) Delete(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusNotFound, "WAREHOUSE_NOT_FOUND", "warehouse not found")
 			return
 		}
+		if writeDeleteInUse(w, err, repository.ErrWarehouseInUse, "WAREHOUSE_IN_USE", "warehouse is used and cannot be deleted", "warehouseId", warehouseID.String()) {
+			return
+		}
 		log.Error().Err(err).Str("warehouseId", warehouseID.String()).Msg("Failed to delete warehouse")
 		writeError(w, http.StatusInternalServerError, "WAREHOUSE_DELETE_FAILED", "failed to delete warehouse")
 		return

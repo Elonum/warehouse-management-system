@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgconn"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -254,15 +253,7 @@ func (r *ProductRepository) Delete(ctx context.Context, productID uuid.UUID) err
 
 	result, err := r.pool.Exec(ctx, query, productID)
 	if err != nil {
-		// Map FK violations to a domain-level error to avoid leaking raw DB errors.
-		var pgErr *pgconn.PgError
-		if errors.As(err, &pgErr) {
-			// 23503 - foreign_key_violation
-			if pgErr.SQLState() == "23503" {
-				return ErrProductInUse
-			}
-		}
-		return err
+		return MapDeleteForeignKey(err, ErrProductInUse)
 	}
 
 	if result.RowsAffected() == 0 {
